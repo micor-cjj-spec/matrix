@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="single.cjj.bizfi.mapper.BizfiAuthLoginMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="single.cjj.bizfi.entity.BizfiAuthLogin">
+        <id column="fid" property="fid" />
+        <result column="fuserid" property="fuserid" />
+        <result column="fpassword" property="fpassword" />
+        <result column="fcreatetime" property="fcreatetime" />
+        <result column="fmodifytime" property="fmodifytime" />
+        <result column="fcreatorid" property="fcreatorid" />
+        <result column="fmodifierid" property="fmodifierid" />
+    </resultMap>
+
+</mapper>

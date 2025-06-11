@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="8f8c52bb-e4e1-4914-89a9-82579bab4cd9" name="Changes" comment="Changes" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CodeInsightWorkspaceSettings">
+    <option name="optimizeImportsOnTheFly" value="true" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;micor-cjj74&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/micor-cjj74/matrix.git&quot;,
+    &quot;accountId&quot;: &quot;73949b2b-328b-4df0-905e-eed73dbc6f6c&quot;
+  }
+}</component>
+  <component name="KubernetesApiPersistence">{}</component>
+  <component name="KubernetesApiProvider">{
+  &quot;isMigrated&quot;: true
+}</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
+  <component name="ProjectId" id="2y2qMi3AYpx7GUBrXVvBaAlgBvo" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Application.Main.executor": "Run",
+    "Downloaded.Files.Path.Enabled": "true",
+    "Maven.enterprise-finance-platform [clean].executor": "Run",
+    "Maven.enterprise-finance-platform [dependency:purge-local-repository...].executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Repository.Attach.Annotations": "false",
+    "Repository.Attach.JavaDocs": "false",
+    "Repository.Attach.Sources": "false",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "Spring Boot.AuthApplication.executor": "Debug",
+    "Spring Boot.BaseApplication.executor": "Debug",
+    "com.intellij.ide.FileNotInSourceRootChecker.no.check": "true",
+    "git-widget-placeholder": "master",
+    "ignore.virus.scanning.warn.message": "true",
+    "last_opened_file_path": "C:/Users/20602/IdeaProjects/enterprise-finance-platform/base-service/src/main/java/single/cjj/bizfi/config",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "onboarding.tips.debug.path": "C:/Users/20602/IdeaProjects/generator/src/main/java/single/cjj/Main.java",
+    "project.structure.last.edited": "模块",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2",
+    "settings.editor.selected.configurable": "project.propVCSSupport.DirectoryMappings",
+    "vue.rearranger.settings.migration": "true",
+    "应用程序.AuthApplication.executor": "Debug",
+    "应用程序.CodeGenerator.executor": "Run"
+  },
+  "keyToStringList": {
+    "DatabaseDriversLRU": [
+      "redis",
+      "mysql_aurora"
+    ]
+  }
+}]]></component>
+  <component name="ReactorSettings">
+    <option name="notificationShown" value="true" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\20602\IdeaProjects\enterprise-finance-platform\base-service\src\main\java\single\cjj\bizfi\config" />
+      <recent name="C:\Users\20602\IdeaProjects\enterprise-finance-platform\base-service\src\main\java\single\cjj\bizfi" />
+      <recent name="C:\Users\20602\IdeaProjects\enterprise-finance-platform\common\src\main\resources" />
+      <recent name="C:\Users\20602\IdeaProjects\enterprise-finance-platform\base-service\src\main\resources" />
+      <recent name="C:\Users\20602\IdeaProjects\enterprise-finance-platform\auth-service\src\main\java\single\cjj\bizfi" />
+    </key>
+    <key name="CopyClassDialog.RECENTS_KEY">
+      <recent name="single.cjj.bizfi" />
+    </key>
+  </component>
+  <component name="RunAnythingCache">
+    <option name="myCommands">
+      <command value="mvn dependency:purge-local-repository -DmanualInclude=&quot;*&quot; -DreResolve=true" />
+    </option>
+  </component>
+  <component name="RunManager" selected="Spring Boot.BaseApplication">
+    <configuration name="AuthApplication" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="single.cjj.bizfi.AuthApplication" />
+      <module name="auth-service" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="single.cjj.bizfi.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="CodeGenerator" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="single.cjj.CodeGenerator" />
+      <module name="generator" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="single.cjj.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Main" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="single.cjj.Main" />
+      <module name="gateway" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="single.cjj.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="AuthApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" temporary="true" nameIsGenerated="true">
+      <module name="auth-service" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="single.cjj.bizfi.AuthApplication" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="single.cjj.bizfi.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="BaseApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" temporary="true" nameIsGenerated="true">
+      <module name="base-service" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="single.cjj.bizfi.BaseApplication" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="single.cjj.bizfi.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Spring Boot.BaseApplication" />
+        <item itemvalue="Spring Boot.AuthApplication" />
+        <item itemvalue="应用程序.AuthApplication" />
+        <item itemvalue="应用程序.CodeGenerator" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-jdk-9823dce3aa75-fbdcb00ec9e3-intellij.indexing.shared.core-IU-251.25410.129" />
+        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-IU-251.25410.129" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="StructureViewState">
+    <option name="selectedTab" value="逻辑" />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="8f8c52bb-e4e1-4914-89a9-82579bab4cd9" name="Changes" comment="" />
+      <created>1749042974408</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1749042974408</updated>
+      <workItem from="1749042975881" duration="82000" />
+      <workItem from="1749043290957" duration="1363000" />
+      <workItem from="1749044671141" duration="1170000" />
+      <workItem from="1749045858053" duration="12000" />
+      <workItem from="1749045887676" duration="8743000" />
+      <workItem from="1749125817127" duration="773000" />
+      <workItem from="1749126601755" duration="7690000" />
+      <workItem from="1749136944204" duration="4769000" />
+      <workItem from="1749257603993" duration="96000" />
+      <workItem from="1749257710961" duration="10257000" />
+      <workItem from="1749277494917" duration="15393000" />
+      <workItem from="1749470779573" duration="2243000" />
+      <workItem from="1749473040008" duration="4714000" />
+      <workItem from="1749478216154" duration="1283000" />
+      <workItem from="1749479511162" duration="176000" />
+      <workItem from="1749479693118" duration="42000" />
+      <workItem from="1749479745908" duration="1402000" />
+      <workItem from="1749481165359" duration="336000" />
+      <workItem from="1749481506645" duration="262000" />
+      <workItem from="1749481778759" duration="2904000" />
+      <workItem from="1749484731984" duration="14599000" />
+      <workItem from="1749570069413" duration="179000" />
+      <workItem from="1749570253614" duration="4324000" />
+      <workItem from="1749639814182" duration="7728000" />
+      <workItem from="1749664281488" duration="69000" />
+      <workItem from="1749664355334" duration="191000" />
+      <workItem from="1749664561079" duration="334000" />
+      <workItem from="1749664902443" duration="105000" />
+    </task>
+    <task id="LOCAL-00001" summary="Changes">
+      <option name="closed" value="true" />
+      <created>1749660374276</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1749660374276</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Changes" />
+    <option name="LAST_COMMIT_MESSAGE" value="Changes" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/../asset-service/src/main/java/single/cjj/Main.java</url>
+          <line>13</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/../base/src/main/java/single/cjj/Main.java</url>
+          <line>13</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+  <component name="XSLT-Support.FileAssociations.UIState">
+    <expand />
+    <select />
+  </component>
+</project>

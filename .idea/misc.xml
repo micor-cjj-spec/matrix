@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ExternalStorageConfigurationManager" enabled="true" />
+  <component name="MavenProjectsManager">
+    <option name="originalFiles">
+      <list>
+        <option value="$PROJECT_DIR$/../gateway/pom.xml" />
+        <option value="$PROJECT_DIR$/auth-service/pom.xml" />
+        <option value="$PROJECT_DIR$/../user-service/pom.xml" />
+        <option value="$PROJECT_DIR$/../ar-service/pom.xml" />
+        <option value="$PROJECT_DIR$/../ap-service/pom.xml" />
+        <option value="$PROJECT_DIR$/../cashier-service/pom.xml" />
+        <option value="$PROJECT_DIR$/../gl-service/pom.xml" />
+        <option value="$PROJECT_DIR$/../fund-service/pom.xml" />
+        <option value="$PROJECT_DIR$/../payroll-service/pom.xml" />
+        <option value="$PROJECT_DIR$/../share-service/pom.xml" />
+        <option value="$PROJECT_DIR$/../asset-service/pom.xml" />
+        <option value="$PROJECT_DIR$/../common/pom.xml" />
+        <option value="$PROJECT_DIR$/../infra/pom.xml" />
+        <option value="$PROJECT_DIR$/../config/pom.xml" />
+        <option value="$PROJECT_DIR$/../base/pom.xml" />
+        <option value="$PROJECT_DIR$/../generator/pom.xml" />
+        <option value="$PROJECT_DIR$/pom.xml" />
+      </list>
+    </option>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_17" default="true" project-jdk-name="17" project-jdk-type="JavaSDK">
+    <output url="file://$PROJECT_DIR$/out" />
+  </component>
+</project>
