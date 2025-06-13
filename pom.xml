@@ -6,7 +6,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>single.cjj</groupId>
-    <artifactId>enterprise-finance-platform</artifactId>
+    <artifactId>matrix</artifactId>
     <version>1.0.0</version>
     <packaging>pom</packaging>
     <name>Enterprise Finance Platform</name>
@@ -109,7 +109,7 @@
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
-                    <version>${spring.boot.version}</version>
+                    <version>3.2.5</version>
                     <executions>
                         <execution>
                             <goals>
