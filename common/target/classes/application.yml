@@ -5,17 +5,17 @@ server:
 
 spring:
   application:
-    name: common-service
+    name: common
 
   profiles:
     active: dev
 
 
-#  datasource:
-#    driver-class-name: com.mysql.cj.jdbc.Driver
-#    url: jdbc:mysql://localhost:3306/bizfi_common?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8mb4&allowPublicKeyRetrieval=true
-#    username: root
-#    password: root  # 和你 docker-compose.yml 保持一致
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/bizfi_common?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8mb4&allowPublicKeyRetrieval=true
+    username: root
+    password: root  # 和你 docker-compose.yml 保持一致
 
   data:
     redis:
