@@ -139,4 +139,23 @@
         </dependency>
     </dependencies>
 
+
+    <build>
+        <plugins>
+            <!-- ✅ Spring Boot 打包插件：打包出可运行 fat jar -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring.boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>

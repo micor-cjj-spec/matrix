@@ -14,7 +14,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 public class AuthApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(BaseApplication.class, args);
+        SpringApplication.run(AuthApplication.class, args);
         System.out.println("✅ Auth-Service 启动成功！");
     }
 }

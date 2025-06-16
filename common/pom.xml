@@ -19,7 +19,6 @@
     </properties>
 
     <dependencies>
-
         <!-- ✅ MyBatis Plus -->
         <dependency>
             <groupId>com.baomidou</groupId>

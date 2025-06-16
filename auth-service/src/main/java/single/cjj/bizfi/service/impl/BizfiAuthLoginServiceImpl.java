@@ -13,7 +13,6 @@ import single.cjj.bizfi.entity.BizfiAuthLogin;
 import single.cjj.bizfi.entity.BizfiBaseUser;
 import single.cjj.bizfi.exception.BizException;
 import single.cjj.bizfi.mapper.BizfiAuthLoginMapper;
-import single.cjj.bizfi.service.AuthService;
 import single.cjj.bizfi.service.BizfiAuthLoginService;
 
 import java.nio.charset.StandardCharsets;
@@ -23,8 +22,6 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
 
     @Autowired
     private BaseUserClient baseUserClient;
-    @Autowired
-    private AuthService authService;
 
     @Autowired
     private BizfiAuthLoginMapper bizfiAuthLoginMapper;
