@@ -12,9 +12,9 @@ spring:
     nacos:
       discovery:
         server-addr: ${NACOS_ADDR:117.72.216.168:8848}
-        namespace: ${NACOS_NAMESPACE:dev-namespace-id}
+        namespace: ${NACOS_NAMESPACE:public}
       config:
         server-addr: ${NACOS_ADDR:117.72.216.168:8848}
         file-extension: yaml
         group: ${NACOS_GROUP:DEV_GROUP}
-        namespace: ${NACOS_NAMESPACE:dev-namespace-id}
+        namespace: ${NACOS_NAMESPACE:public}
