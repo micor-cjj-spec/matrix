@@ -5,23 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8f8c52bb-e4e1-4914-89a9-82579bab4cd9" name="Changes" comment="Changes">
-      <change afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/dto/CheckRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/dto/EmailSendRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/dto/RegisterRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/utils/EmailUtils.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/client/BaseUserClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/client/BaseUserClient.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/config/SecurityConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/controller/AuthController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/service/BizfiAuthLoginService.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/service/BizfiAuthLoginService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/service/impl/BizfiAuthLoginServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/service/impl/BizfiAuthLoginServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/controller/BizfiBaseUserController.java" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/controller/BizfiBaseUserController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/service/BizfiBaseUserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/service/BizfiBaseUserService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/service/impl/BizfiBaseUserServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/service/impl/BizfiBaseUserServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/controller/BizfiBaseUserController.class" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/controller/BizfiBaseUserController.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/service/BizfiBaseUserService.class" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/service/BizfiBaseUserService.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/service/impl/BizfiBaseUserServiceImpl.class" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/service/impl/BizfiBaseUserServiceImpl.class" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -311,7 +295,7 @@
       <workItem from="1750248856293" duration="6549000" />
       <workItem from="1750258408064" duration="812000" />
       <workItem from="1750259269042" duration="219000" />
-      <workItem from="1750259653310" duration="5541000" />
+      <workItem from="1750259653310" duration="6859000" />
     </task>
     <task id="LOCAL-00001" summary="Changes">
       <option name="closed" value="true" />
@@ -345,7 +329,15 @@
       <option name="project" value="LOCAL" />
       <updated>1750095617300</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Changes">
+      <option name="closed" value="true" />
+      <created>1750267448975</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1750267448975</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

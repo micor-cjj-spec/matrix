@@ -5,7 +5,7 @@ import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.bizfi.entity.BizfiBaseUser;
 
-@FeignClient(name = "base-service", url = "http://localhost:10002")
+@FeignClient(name = "base-service")
 public interface BaseUserClient {
 
     // 查（根据账号/工号/手机号/邮箱，任选其一）
