@@ -26,28 +26,14 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        // 白名单优化版
-                        .requestMatchers(
-                                "/auth/login",
-                                "/auth/login/**",
-                                "/auth/captcha",
-                                "/auth/captcha/**",
-                                "/auth/sms",
-                                "/auth/sms/**",
-                                "/auth/login/qrcode",
-                                "/auth/login/qrcode/**",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**"
-                        ).permitAll()
-                        // 其它接口需认证
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll() // 放行所有路径
                 );
 
-        // ⚠️ 你可以在这里加 JWT Filter
-        // http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        // 如需加JWT filter，开发时可先不加
 
         return http.build();
     }
+
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

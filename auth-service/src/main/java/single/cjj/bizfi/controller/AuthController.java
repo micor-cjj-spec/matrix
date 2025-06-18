@@ -4,8 +4,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import single.cjj.bizfi.dto.EmailSendRequest;
 import single.cjj.bizfi.dto.LoginRequest;
 import single.cjj.bizfi.dto.LoginResponse;
+import single.cjj.bizfi.dto.RegisterRequest;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.bizfi.service.BizfiAuthLoginService;
 import single.cjj.bizfi.utils.CaptchaUtils;
@@ -23,6 +25,21 @@ public class AuthController {
 
     @Autowired
     private StringRedisTemplate redisTemplate;
+
+    @PostMapping("/email/send")
+    public ApiResponse<Boolean> sendEmailCode(@RequestBody EmailSendRequest request) {
+        return ApiResponse.success(bizfiAuthLoginService.sendEmailCode(request));
+    }
+
+    @PostMapping("/register")
+    public ApiResponse<Boolean> register(@RequestBody RegisterRequest request) {
+        return ApiResponse.success(bizfiAuthLoginService.register(request));
+    }
+
+    @GetMapping("/check")
+    public ApiResponse<Boolean> check(@RequestParam String type, @RequestParam String value) {
+        return ApiResponse.success(bizfiAuthLoginService.check(type, value));
+    }
 
     /**
      * 获取图形验证码
@@ -58,4 +75,6 @@ public class AuthController {
         LoginResponse response = bizfiAuthLoginService.loginByPhone(request);
         return ApiResponse.success(response);
     }
+
+
 }

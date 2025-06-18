@@ -5,29 +5,23 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8f8c52bb-e4e1-4914-89a9-82579bab4cd9" name="Changes" comment="Changes">
-      <change beforePath="$PROJECT_DIR$/.idea/dataSources.local.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.local.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dataSources.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/dto/CheckRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/dto/EmailSendRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/dto/RegisterRequest.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/utils/EmailUtils.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/application.yml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/mapper/BizfiAuthLoginMapper.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/AuthApplication.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/client/BaseUserClient.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/config/MybatisPlusConfig.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/config/SecurityConfig.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/config/WebCorsConfig.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/controller/AuthController.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/controller/BizfiAuthLoginController.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/dto/LoginRequest.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/dto/LoginResponse.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/entity/BizfiAuthLogin.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/mapper/BizfiAuthLoginMapper.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/service/BizfiAuthLoginService.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/service/impl/BizfiAuthLoginServiceImpl.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/utils/CaptchaUtils$Captcha.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/utils/CaptchaUtils.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/utils/JwtUtils.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/target/classes/single/cjj/bizfi/vo/Captcha.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/target/classes/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/auth-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/client/BaseUserClient.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/client/BaseUserClient.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/controller/AuthController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/service/BizfiAuthLoginService.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/service/BizfiAuthLoginService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/service/impl/BizfiAuthLoginServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/service/impl/BizfiAuthLoginServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/controller/BizfiBaseUserController.java" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/controller/BizfiBaseUserController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/service/BizfiBaseUserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/service/BizfiBaseUserService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/service/impl/BizfiBaseUserServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/service/impl/BizfiBaseUserServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/controller/BizfiBaseUserController.class" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/controller/BizfiBaseUserController.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/service/BizfiBaseUserService.class" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/service/BizfiBaseUserService.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/service/impl/BizfiBaseUserServiceImpl.class" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/service/impl/BizfiBaseUserServiceImpl.class" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -76,10 +70,16 @@
   "keyToString": {
     "Application.Main.executor": "Run",
     "Downloaded.Files.Path.Enabled": "true",
+    "Maven.auth-service [clean].executor": "Run",
+    "Maven.auth-service [compile].executor": "Run",
+    "Maven.auth-service [package].executor": "Run",
+    "Maven.auth-service [test].executor": "Run",
+    "Maven.auth-service [validate].executor": "Run",
     "Maven.enterprise-finance-platform [clean].executor": "Run",
     "Maven.enterprise-finance-platform [dependency:purge-local-repository...].executor": "Run",
     "Maven.matrix [clean].executor": "Run",
     "Maven.matrix [compile].executor": "Run",
+    "Maven.matrix [install].executor": "Run",
     "Maven.matrix [package].executor": "Run",
     "Maven.matrix [test].executor": "Run",
     "Maven.matrix [validate].executor": "Run",
@@ -95,8 +95,9 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "Spring Boot.AuthApplication.executor": "Run",
-    "Spring Boot.BaseApplication.executor": "Run",
+    "Spring Boot.AuthApplication.executor": "Debug",
+    "Spring Boot.BaseApplication.executor": "Debug",
+    "Spring Boot.CommonApplication.executor": "Debug",
     "com.intellij.ide.FileNotInSourceRootChecker.no.check": "true",
     "git-widget-placeholder": "dev",
     "ignore.virus.scanning.warn.message": "true",
@@ -157,7 +158,7 @@
       </set>
     </option>
   </component>
-  <component name="RunManager" selected="Spring Boot.AuthApplication">
+  <component name="RunManager" selected="Spring Boot.BaseApplication">
     <configuration name="AuthApplication" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="single.cjj.bizfi.AuthApplication" />
       <module name="auth-service" />
@@ -305,7 +306,12 @@
       <workItem from="1750046095011" duration="3949000" />
       <workItem from="1750080764650" duration="2794000" />
       <workItem from="1750087835345" duration="2283000" />
-      <workItem from="1750090695559" duration="2056000" />
+      <workItem from="1750090695559" duration="2503000" />
+      <workItem from="1750164759465" duration="8887000" />
+      <workItem from="1750248856293" duration="6549000" />
+      <workItem from="1750258408064" duration="812000" />
+      <workItem from="1750259269042" duration="219000" />
+      <workItem from="1750259653310" duration="5541000" />
     </task>
     <task id="LOCAL-00001" summary="Changes">
       <option name="closed" value="true" />
@@ -331,7 +337,15 @@
       <option name="project" value="LOCAL" />
       <updated>1750046108153</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="Changes">
+      <option name="closed" value="true" />
+      <created>1750095617300</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1750095617300</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
