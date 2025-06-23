@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="single.cjj.bizfi.mapper.BizfiBizUnitMapper">
+    <resultMap id="BaseResultMap" type="single.cjj.bizfi.entity.BizfiBizUnit">
+        <id column="fid" property="fid" />
+        <result column="fname" property="fname" />
+        <result column="fcode" property="fcode" />
+        <result column="fmanagerid" property="fmanagerid" />
+        <result column="fstatus" property="fstatus" />
+    </resultMap>
+</mapper>
