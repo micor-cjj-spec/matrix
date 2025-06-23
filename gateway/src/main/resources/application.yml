@@ -18,11 +18,3 @@ spring:
         file-extension: yaml
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
-    gateway:
-      routes:
-        - id: base-service
-          uri: lb://base-service
-          predicates:
-            - Path=/api/base/**
-          filters:
-            - StripPrefix=1
