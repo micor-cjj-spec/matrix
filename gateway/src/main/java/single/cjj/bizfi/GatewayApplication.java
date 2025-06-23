@@ -1,0 +1,14 @@
+package single.cjj.bizfi;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+
+@SpringBootApplication(scanBasePackages = "single.cjj.bizfi")
+@EnableDiscoveryClient
+public class GatewayApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(GatewayApplication.class, args);
+        System.out.println("\u2705 Gateway \u542f\u52a8\u6210\u529f!");
+    }
+}

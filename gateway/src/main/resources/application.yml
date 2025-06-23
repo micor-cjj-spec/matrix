@@ -1,12 +1,12 @@
 spring:
   application:
-    name: base-service
+    name: gateway
 
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}  # 默认是 dev 环境
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
   config:
-    import: "nacos:${spring.application.name}"  # 自动从 Nacos 加载同名配置
+    import: "nacos:${spring.application.name}"
 
   cloud:
     nacos:
@@ -15,6 +15,11 @@ spring:
         namespace: ${NACOS_NAMESPACE:public}
       config:
         server-addr: ${NACOS_ADDR:117.72.216.168:8848}
-        file-extension: yaml
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
+        file-extension: yaml
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
