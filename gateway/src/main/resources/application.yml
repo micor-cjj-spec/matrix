@@ -19,3 +19,4 @@ spring:
         file-extension: yaml
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
+

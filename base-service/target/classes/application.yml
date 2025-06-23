@@ -12,9 +12,24 @@ spring:
     nacos:
       discovery:
         server-addr: ${NACOS_ADDR:117.72.216.168:8848}
+        group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
       config:
         server-addr: ${NACOS_ADDR:117.72.216.168:8848}
         file-extension: yaml
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: auth
+          uri: lb://auth-service
+          predicates:
+            - Path=/auth/**
+        - id: base
+          uri: http://localhost:10002
+          predicates:
+            - Path=/user/**
