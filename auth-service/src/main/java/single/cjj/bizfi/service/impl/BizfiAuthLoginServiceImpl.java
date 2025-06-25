@@ -94,11 +94,18 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
             throw new BizException("密码错误");
         }
 
+        // 生成登录 Token，并写入 Redis，1 小时未操作自动过期
+        String token = JwtUtils.generateToken(user.getFid(), user.getFid());
+        redisTemplate.opsForValue()
+                .set("token:" + token, String.valueOf(user.getFid()), 1, TimeUnit.HOURS);
+
         LoginResponse response = new LoginResponse();
         response.setFid(user.getFid());
         response.setUserName(user.getFnumber());
         response.setPhoneNumber(user.getFphone());
         response.setEmail(user.getFemail());
+        response.setToken(token);
+        response.setExpireIn(JwtUtils.EXPIRE / 1000);
 
         return response;
     }
