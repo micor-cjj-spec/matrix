@@ -9,7 +9,7 @@ import io.jsonwebtoken.JwtException;
 import java.util.Date;
 
 public class JwtUtils {
-    private static final String SECRET = "secret123456";
+    private static final String SECRET = "8U0n8cxtkN2yeFfYRCFNL97kUbwQlm3Qw5XKyr0oyYg=@";
     /**
      * Token 过期时间：1 小时
      */

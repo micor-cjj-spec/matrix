@@ -18,6 +18,7 @@ import single.cjj.bizfi.exception.BizException;
 import single.cjj.bizfi.mapper.BizfiAuthLoginMapper;
 import single.cjj.bizfi.service.BizfiAuthLoginService;
 import single.cjj.bizfi.utils.EmailUtils;
+import single.cjj.bizfi.utils.JwtUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
