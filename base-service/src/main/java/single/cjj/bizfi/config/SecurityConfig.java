@@ -31,6 +31,7 @@ public class SecurityConfig {
                                 "/user/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
+                                "/oss/**"
                         ).permitAll()
                         // 其它接口需认证
                         .anyRequest().authenticated()
