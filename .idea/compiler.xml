@@ -7,23 +7,26 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="payroll-service" />
         <module name="base-service" />
-        <module name="cashier-service" />
+        <module name="fi-service" />
         <module name="generator" />
-        <module name="gl-service" />
-        <module name="ap-service" />
         <module name="infra" />
-        <module name="user-service" />
         <module name="auth-service" />
         <module name="common" />
-        <module name="asset-service" />
-        <module name="ar-service" />
         <module name="share-service" />
         <module name="config" />
-        <module name="fund-service" />
         <module name="gateway" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="ap-service" target="17" />
+      <module name="ar-service" target="17" />
+      <module name="asset-service" target="17" />
+      <module name="cashier-service" target="17" />
+      <module name="fund-service" target="17" />
+      <module name="gl-service" target="17" />
+      <module name="payroll-service" target="17" />
+      <module name="user-service" target="17" />
+    </bytecodeTargetLevel>
   </component>
 </project>

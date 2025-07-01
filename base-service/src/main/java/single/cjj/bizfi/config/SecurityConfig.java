@@ -30,7 +30,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/user/**",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
                                 "/oss/**"
                         ).permitAll()
                         // 其它接口需认证

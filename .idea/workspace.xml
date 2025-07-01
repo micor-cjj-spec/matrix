@@ -6,12 +6,9 @@
   <component name="ChangeListManager">
     <list default="true" id="8f8c52bb-e4e1-4914-89a9-82579bab4cd9" name="Changes" comment="Changes">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/config/WebCorsConfig.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/service/impl/BizfiAuthLoginServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/service/impl/BizfiAuthLoginServiceImpl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/utils/JwtUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/auth-service/src/main/java/single/cjj/bizfi/utils/JwtUtils.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/src/main/resources/application.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gateway/target/classes/single/cjj/Main.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/base-service/target/classes/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/application.yml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/config/SecurityConfig.class" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/config/SecurityConfig.class" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -334,7 +331,10 @@
       <workItem from="1750909693525" duration="1868000" />
       <workItem from="1750911776658" duration="965000" />
       <workItem from="1750912762632" duration="776000" />
-      <workItem from="1750939727236" duration="6905000" />
+      <workItem from="1750939727236" duration="8698000" />
+      <workItem from="1751105182383" duration="1557000" />
+      <workItem from="1751378122916" duration="1080000" />
+      <workItem from="1751382111794" duration="2025000" />
     </task>
     <task id="LOCAL-00001" summary="Changes">
       <option name="closed" value="true" />
@@ -416,7 +416,15 @@
       <option name="project" value="LOCAL" />
       <updated>1750696262379</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="Changes">
+      <option name="closed" value="true" />
+      <created>1751092803448</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1751092803448</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
