@@ -15,15 +15,8 @@
         <module>base-service</module>
         <module>gateway</module>
         <module>auth-service</module>
-        <module>user-service</module>
-        <module>ar-service</module>
-        <module>ap-service</module>
-        <module>cashier-service</module>
-        <module>gl-service</module>
-        <module>fund-service</module>
-        <module>payroll-service</module>
+        <module>fi-service</module>
         <module>share-service</module>
-        <module>asset-service</module>
         <module>common</module>
         <module>infra</module>
         <module>config</module>
