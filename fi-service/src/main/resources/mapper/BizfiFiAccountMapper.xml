@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="single.cjj.fi.gl.mapper.BizfiFiAccountMapper">
+    <resultMap id="BaseResultMap" type="single.cjj.fi.gl.entity.BizfiFiAccount">
+        <id column="fid" property="fid" />
+        <result column="fcode" property="fcode" />
+        <result column="fname" property="fname" />
+        <result column="forg" property="forg" />
+        <result column="flong_name" property="flongName" />
+        <result column="ftype" property="ftype" />
+        <result column="fparent" property="fparent" />
+        <result column="fpltype" property="fpltype" />
+        <result column="fdirection" property="fdirection" />
+        <result column="fis_detail" property="fisDetail" />
+        <result column="freport_item" property="freportItem" />
+        <result column="flevel1" property="flevel1" />
+        <result column="fentry_control" property="fentryControl" />
+        <result column="fcontrol_level" property="fcontrolLevel" />
+        <result column="fallow_child" property="fallowChild" />
+        <result column="fmanual_entry" property="fmanualEntry" />
+        <result column="fcash" property="fcash" />
+        <result column="fbank" property="fbank" />
+        <result column="fequivalent" property="fequivalent" />
+        <result column="fis_entry" property="fisEntry" />
+        <result column="fnotice" property="fnotice" />
+        <result column="fexchange" property="fexchange" />
+        <result column="fqty_accounting" property="fqtyAccounting" />
+        <result column="fcreatetime" property="fcreatetime" />
+        <result column="fupdatetime" property="fupdatetime" />
+    </resultMap>
+</mapper>
