@@ -5,13 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8f8c52bb-e4e1-4914-89a9-82579bab4cd9" name="Changes" comment="Changes">
-      <change beforePath="$PROJECT_DIR$/.idea/dataSources.local.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.local.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fi-service/src/main/java/single/cjj/fi/gl/GlApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/fi-service/src/main/java/single/cjj/fi/FinanceApplication.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fi-service/src/main/java/single/cjj/fi/gl/GlMain.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/share-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/share-service/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/share-service/src/main/java/single/cjj/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/share-service/src/main/java/single/cjj/Main.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fi-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/fi-service/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fi-service/src/main/resources/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/fi-service/src/main/resources/application.yml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -90,6 +86,7 @@
     "Spring Boot.AuthApplication.executor": "Debug",
     "Spring Boot.BaseApplication.executor": "Debug",
     "Spring Boot.CommonApplication.executor": "Debug",
+    "Spring Boot.FinanceApplication.executor": "Debug",
     "Spring Boot.GatewayApplication.executor": "Debug",
     "com.intellij.ide.FileNotInSourceRootChecker.no.check": "true",
     "git-widget-placeholder": "dev",
@@ -162,7 +159,7 @@
       </map>
     </option>
   </component>
-  <component name="RunManager" selected="Spring Boot.AuthApplication">
+  <component name="RunManager" selected="Spring Boot.FinanceApplication">
     <configuration name="AuthApplication" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="single.cjj.bizfi.AuthApplication" />
       <module name="auth-service" />
@@ -245,6 +242,19 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <configuration name="FinanceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" temporary="true" nameIsGenerated="true">
+      <module name="fi-service" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="single.cjj.fi.FinanceApplication" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="single.cjj.fi.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <configuration name="GatewayApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
       <module name="gateway" />
       <option name="SPRING_BOOT_MAIN_CLASS" value="single.cjj.gateway.GatewayApplication" />
@@ -254,8 +264,9 @@
     </configuration>
     <list>
       <item itemvalue="Spring Boot.GatewayApplication" />
-      <item itemvalue="Spring Boot.AuthApplication" />
       <item itemvalue="Spring Boot.CommonApplication" />
+      <item itemvalue="Spring Boot.AuthApplication" />
+      <item itemvalue="Spring Boot.FinanceApplication" />
       <item itemvalue="Spring Boot.BaseApplication" />
       <item itemvalue="应用程序.AuthApplication" />
       <item itemvalue="应用程序.CodeGenerator" />
@@ -263,6 +274,7 @@
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="Spring Boot.FinanceApplication" />
         <item itemvalue="Spring Boot.BaseApplication" />
         <item itemvalue="应用程序.AuthApplication" />
         <item itemvalue="应用程序.CodeGenerator" />
@@ -337,7 +349,7 @@
       <workItem from="1750939727236" duration="8698000" />
       <workItem from="1751105182383" duration="1557000" />
       <workItem from="1751378122916" duration="1080000" />
-      <workItem from="1751382111794" duration="6017000" />
+      <workItem from="1751382111794" duration="10709000" />
     </task>
     <task id="LOCAL-00001" summary="Changes">
       <option name="closed" value="true" />
@@ -435,7 +447,15 @@
       <option name="project" value="LOCAL" />
       <updated>1751388371096</updated>
     </task>
-    <option name="localTasksCounter" value="13" />
+    <task id="LOCAL-00013" summary="Changes">
+      <option name="closed" value="true" />
+      <created>1751462066676</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1751462066676</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
