@@ -1,6 +1,6 @@
 spring:
   application:
-    name: finance-service
+    name: fi-service
 
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
