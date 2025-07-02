@@ -5,10 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="8f8c52bb-e4e1-4914-89a9-82579bab4cd9" name="Changes" comment="Changes">
+      <change beforePath="$PROJECT_DIR$/.idea/dataSources.local.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.local.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/src/main/java/single/cjj/bizfi/config/SecurityConfig.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/target/classes/application.yml" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/application.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/config/SecurityConfig.class" beforeDir="false" afterPath="$PROJECT_DIR$/base-service/target/classes/single/cjj/bizfi/config/SecurityConfig.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fi-service/src/main/java/single/cjj/fi/gl/GlApplication.java" beforeDir="false" afterPath="$PROJECT_DIR$/fi-service/src/main/java/single/cjj/fi/FinanceApplication.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/fi-service/src/main/java/single/cjj/fi/gl/GlMain.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/share-service/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/share-service/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/share-service/src/main/java/single/cjj/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/share-service/src/main/java/single/cjj/Main.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -97,7 +100,7 @@
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
-    "onboarding.tips.debug.path": "C:/Users/20602/IdeaProjects/generator/src/main/java/single/cjj/Main.java",
+    "onboarding.tips.debug.path": "C:/Users/20602/IdeaProjects/matrix/share-service/src/main/java/single/cjj/Main.java",
     "project.structure.last.edited": "模块",
     "project.structure.proportion": "0.15",
     "project.structure.side.proportion": "0.2",
@@ -334,7 +337,7 @@
       <workItem from="1750939727236" duration="8698000" />
       <workItem from="1751105182383" duration="1557000" />
       <workItem from="1751378122916" duration="1080000" />
-      <workItem from="1751382111794" duration="2025000" />
+      <workItem from="1751382111794" duration="6017000" />
     </task>
     <task id="LOCAL-00001" summary="Changes">
       <option name="closed" value="true" />
@@ -424,7 +427,15 @@
       <option name="project" value="LOCAL" />
       <updated>1751092803448</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="Changes">
+      <option name="closed" value="true" />
+      <created>1751388371096</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1751388371096</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
