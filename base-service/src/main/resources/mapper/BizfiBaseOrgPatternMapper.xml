@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="single.cjj.bizfi.mapper.BizfiBaseOrgPatternMapper">
+    <resultMap id="BaseResultMap" type="single.cjj.bizfi.entity.BizfiBaseOrgPattern">
+        <id column="fid" property="fid" />
+        <result column="fbillno" property="fbillno" />
+        <result column="fname" property="fname" />
+        <result column="fpattern" property="fpattern" />
+        <result column="fenable" property="fenable" />
+        <result column="fcreatedate" property="fcreatedate" />
+        <result column="fcreator" property="fcreator" />
+        <result column="fmodifydate" property="fmodifydate" />
+        <result column="fmodifier" property="fmodifier" />
+    </resultMap>
+</mapper>
