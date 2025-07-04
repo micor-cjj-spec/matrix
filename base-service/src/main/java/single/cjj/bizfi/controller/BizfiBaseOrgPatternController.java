@@ -14,7 +14,7 @@ import java.util.Map;
  * 组织形态接口
  */
 @RestController
-@RequestMapping("/api/org-pattern")
+@RequestMapping("/org-pattern")
 public class BizfiBaseOrgPatternController {
     @Autowired
     private BizfiBaseOrgPatternService service;

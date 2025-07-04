@@ -7,12 +7,12 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="auth-service" />
+        <module name="common" />
         <module name="base-service" />
         <module name="fi-service" />
         <module name="generator" />
         <module name="infra" />
-        <module name="auth-service" />
-        <module name="common" />
         <module name="share-service" />
         <module name="config" />
         <module name="gateway" />

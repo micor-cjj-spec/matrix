@@ -14,7 +14,7 @@ import java.util.Map;
  * 组织职能类型接口
  */
 @RestController
-@RequestMapping("/api/org-function-type")
+@RequestMapping("/org-function-type")
 public class BizfiBaseOrgFunctionTypeController {
     @Autowired
     private BizfiBaseOrgFunctionTypeService service;
