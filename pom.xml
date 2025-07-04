@@ -21,7 +21,6 @@
         <module>infra</module>
         <module>config</module>
         <module>generator</module>
-        <module>share-service</module>
     </modules>
 
     <dependencyManagement>
