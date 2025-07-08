@@ -3,9 +3,70 @@
 <mapper namespace="single.cjj.bizfi.mapper.BizfiBizUnitMapper">
     <resultMap id="BaseResultMap" type="single.cjj.bizfi.entity.BizfiBizUnit">
         <id column="fid" property="fid" />
-        <result column="fname" property="fname" />
         <result column="fcode" property="fcode" />
-        <result column="fmanagerid" property="fmanagerid" />
-        <result column="fstatus" property="fstatus" />
+        <result column="fname" property="fname" />
+        <result column="fshort_name" property="fshortName" />
+        <result column="fform" property="fform" />
+        <result column="fform_type" property="fformType" />
+        <result column="fparent_org_id" property="fparentOrgId" />
+        <result column="fdescription" property="fdescription" />
+        <result column="fsource_system" property="fsourceSystem" />
+        <result column="fmanage_org_code" property="fmanageOrgCode" />
+        <result column="fmanage_org_name" property="fmanageOrgName" />
+        <result column="fparent_manage_org_code" property="fparentManageOrgCode" />
+        <result column="finvestment_type" property="finvestmentType" />
+        <result column="findustry_code" property="findustryCode" />
+        <result column="findustry_name" property="findustryName" />
+        <result column="fholding_ratio" property="fholdingRatio" />
+        <result column="fregion_area" property="fregionArea" />
+        <result column="farea" property="farea" />
+        <result column="fdefault_legal_entity" property="fdefaultLegalEntity" />
+        <result column="faccounting_org" property="faccountingOrg" />
+        <result column="fmanage_org_type" property="fmanageOrgType" />
+        <result column="fgl_code" property="fglCode" />
+        <result column="fcurrency" property="fcurrency" />
+        <result column="fregist_capital" property="fregistCapital" />
+        <result column="fis_listed_company" property="fisListedCompany" />
+        <result column="fexit_date" property="fexitDate" />
+        <result column="flegal_entity_status" property="flegalEntityStatus" />
+        <result column="fis_consolidated" property="fisConsolidated" />
+        <result column="factual_control_type" property="factualControlType" />
+        <result column="fgroup_dividend_ratio" property="fgroupDividendRatio" />
+        <result column="fparent_org_code" property="fparentOrgCode" />
+        <result column="fincome_cost_type" property="fincomeCostType" />
+        <result column="fis_need_approval" property="fisNeedApproval" />
+        <result column="fis_branch_company" property="fisBranchCompany" />
+        <result column="fis_legal_entity_approval" property="fisLegalEntityApproval" />
+        <result column="flegal_entity_category" property="flegalEntityCategory" />
+        <result column="forg_structure" property="forgStructure" />
+        <result column="fusagestatus" property="fusagestatus" />
+        <result column="fdata_status" property="fdataStatus" />
+        <result column="ffunction_type" property="ffunctionType" />
+        <result column="fcountry" property="fcountry" />
+        <result column="fcity" property="fcity" />
+        <result column="ftimezone" property="ftimezone" />
+        <result column="fzipcode" property="fzipcode" />
+        <result column="fcontact_phone" property="fcontactPhone" />
+        <result column="fcontact_address" property="fcontactAddress" />
+        <result column="fenterprise_tax_detail" property="fenterpriseTaxDetail" />
+        <result column="funified_social_credit_code" property="funifiedSocialCreditCode" />
+        <result column="fcompany_name" property="fcompanyName" />
+        <result column="fcompany_type" property="fcompanyType" />
+        <result column="flegal_representative" property="flegalRepresentative" />
+        <result column="fdomicile" property="fdomicile" />
+        <result column="fregist_capital_detail" property="fregistCapitalDetail" />
+        <result column="festablishment_date" property="festablishmentDate" />
+        <result column="fbusiness_term" property="fbusinessTerm" />
+        <result column="fbusiness_scope" property="fbusinessScope" />
+        <result column="ftaxpayer_id" property="ftaxpayerId" />
+        <result column="fcompany_phone" property="fcompanyPhone" />
+        <result column="fbank_name" property="fbankName" />
+        <result column="fbank_account" property="fbankAccount" />
+        <result column="ftaxpayer_type" property="ftaxpayerType" />
+        <result column="ftax_method" property="ftaxMethod" />
+        <result column="fcreated_at" property="fcreatedAt" />
+        <result column="fupdated_at" property="fupdatedAt" />
+        <result column="fcreated_by" property="fcreatedBy" />
+        <result column="fupdated_by" property="fupdatedBy" />
     </resultMap>
 </mapper>

@@ -50,12 +50,12 @@ public class BizfiBizUnitController {
             @RequestParam(value = "size", defaultValue = "10") int size,
             @RequestParam(value = "fname", required = false) String fname,
             @RequestParam(value = "fcode", required = false) String fcode,
-            @RequestParam(value = "fstatus", required = false) String fstatus
+            @RequestParam(value = "fusagestatus", required = false) String fusagestatus
     ) {
         Map<String, Object> query = new HashMap<>();
         query.put("fname", fname);
         query.put("fcode", fcode);
-        query.put("fstatus", fstatus);
+        query.put("fusagestatus", fusagestatus);
         return ApiResponse.success(service.list(page, size, query));
     }
 }
