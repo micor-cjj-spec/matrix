@@ -250,7 +250,15 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
+    <configuration name="ShareServiceApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <module name="share-service" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="single.cjj.share.ShareServiceApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
     <list>
+      <item itemvalue="Spring Boot.ShareServiceApplication" />
       <item itemvalue="Spring Boot.GatewayApplication" />
       <item itemvalue="Spring Boot.CommonApplication" />
       <item itemvalue="Spring Boot.AuthApplication" />

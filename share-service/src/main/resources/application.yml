@@ -1,7 +1,22 @@
 spring:
-  jackson:
-    serialization:
-      write-dates-as-timestamps: false
-    default-property-inclusion: non_null
-server:
-  port: 8080
+  application:
+    name: share-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  config:
+    import: "nacos:${spring.application.name}"
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:117.72.216.168:8848}
+        group: ${NACOS_GROUP:DEV_GROUP}
+        namespace: ${NACOS_NAMESPACE:public}
+      config:
+        server-addr: ${NACOS_ADDR:117.72.216.168:8848}
+        file-extension: yaml
+        group: ${NACOS_GROUP:DEV_GROUP}
+        namespace: ${NACOS_NAMESPACE:public}
+
