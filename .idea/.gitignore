@@ -1,0 +1,73 @@
+# IntelliJ IDEA
+.idea/
+*.iws
+*.iml
+*.ipr
+*.xml
+
+# IDE工作空间
+/workspace.xml
+/tasks.xml
+/usage.statistics.xml
+/shelf/
+
+# HTTP 请求历史
+/httpRequests/
+
+# 数据源本地存储文件
+/dataSources/
+dataSources.local.xml
+
+# 任务与运行配置
+/taskConfigurations.xml
+/runConfigurations/
+
+# Zeppelin Notebooks
+/ZeppelinRemoteNotebooks/
+
+# 编译输出
+/out/
+target/
+build/
+
+# 日志文件
+*.log
+
+# 操作系统相关
+.DS_Store
+Thumbs.db
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+
+# maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# 其他常见忽略
+node_modules/
+.idea_modules/
+*.class
+*.jar
+*.war
+*.ear
+
+# 环境变量文件
+.env
+.env.*
+
+# JetBrains Rider
+.idea/.idea.Rider
+
+# Python 虚拟环境（如果有用到）
+venv/
+.env/
+
+# JetBrains
+.idea/sonarlint/
+.idea/modules.xml
+.idea/misc.xml
+
+# Jupyter Notebook 检查点
+.ipynb_checkpoints/

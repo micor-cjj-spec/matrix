@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="single.cjj.fi.gl.mapper.BizfiFiVoucherMapper">
+    <resultMap id="BaseResultMap" type="single.cjj.fi.gl.entity.BizfiFiVoucher">
+        <id column="fid" property="fid" />
+        <result column="fnumber" property="fnumber" />
+        <result column="fdate" property="fdate" />
+        <result column="fsummary" property="fsummary" />
+        <result column="famount" property="famount" />
+    </resultMap>
+</mapper>

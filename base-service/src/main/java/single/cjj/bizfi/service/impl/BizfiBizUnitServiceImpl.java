@@ -53,8 +53,8 @@ public class BizfiBizUnitServiceImpl extends ServiceImpl<BizfiBizUnitMapper, Biz
             if (StringUtils.hasText((String) query.get("fcode"))) {
                 wrapper.like(BizfiBizUnit::getFcode, query.get("fcode"));
             }
-            if (StringUtils.hasText((String) query.get("fstatus"))) {
-                wrapper.eq(BizfiBizUnit::getFstatus, query.get("fstatus"));
+            if (StringUtils.hasText((String) query.get("fusagestatus"))) {
+                wrapper.eq(BizfiBizUnit::getFusagestatus, query.get("fusagestatus"));
             }
         }
         Page<BizfiBizUnit> pageObj = new Page<>(page, size);
