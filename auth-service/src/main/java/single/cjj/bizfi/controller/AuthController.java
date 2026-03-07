@@ -76,5 +76,25 @@ public class AuthController {
         return ApiResponse.success(response);
     }
 
+    @PostMapping("/login/email")
+    public ApiResponse<LoginResponse> loginByEmail(@RequestBody LoginRequest request) {
+        LoginResponse response = bizfiAuthLoginService.loginByEmail(request);
+        return ApiResponse.success(response);
+    }
+
+    @PostMapping("/sms/send")
+    public ApiResponse<Boolean> sendSmsCode(@RequestBody LoginRequest request) {
+        return ApiResponse.success(bizfiAuthLoginService.sendSmsCode(request.getMobile()));
+    }
+
+    @GetMapping("/login/qrcode/generate")
+    public ApiResponse<Map<String, Object>> generateQrCode() {
+        return ApiResponse.success(bizfiAuthLoginService.generateQrCode());
+    }
+
+    @GetMapping("/login/qrcode/status")
+    public ApiResponse<Map<String, Object>> checkQrStatus(@RequestParam String qrcodeToken) {
+        return ApiResponse.success(bizfiAuthLoginService.checkQrStatus(qrcodeToken));
+    }
 
 }

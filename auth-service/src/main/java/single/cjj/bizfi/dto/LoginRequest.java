@@ -12,4 +12,8 @@ public class LoginRequest {
     private String password;
     private String captcha;
     private String captchaKey;
+
+    private String email;
+    private String mobile;
+    private String code;
 }
