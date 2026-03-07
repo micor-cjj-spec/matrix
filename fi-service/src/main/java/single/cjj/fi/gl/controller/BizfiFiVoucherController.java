@@ -20,16 +20,54 @@ public class BizfiFiVoucherController {
     @Autowired
     private BizfiFiVoucherService service;
 
-    /** 新增凭证 */
-    @PostMapping
-    public ApiResponse<BizfiFiVoucher> add(@RequestBody BizfiFiVoucher voucher) {
-        return ApiResponse.success(service.add(voucher));
+    /** 保存草稿 */
+    @PostMapping("/save")
+    public ApiResponse<BizfiFiVoucher> saveDraft(@RequestBody BizfiFiVoucher voucher) {
+        return ApiResponse.success(service.saveDraft(voucher));
     }
 
-    /** 修改凭证 */
+    /** 新增兼容（等同保存草稿） */
+    @PostMapping
+    public ApiResponse<BizfiFiVoucher> add(@RequestBody BizfiFiVoucher voucher) {
+        return ApiResponse.success(service.saveDraft(voucher));
+    }
+
+    /** 修改草稿 */
     @PutMapping
     public ApiResponse<BizfiFiVoucher> update(@RequestBody BizfiFiVoucher voucher) {
-        return ApiResponse.success(service.update(voucher));
+        return ApiResponse.success(service.updateDraft(voucher));
+    }
+
+    /** 提交 */
+    @PostMapping("/submit/{fid}")
+    public ApiResponse<BizfiFiVoucher> submit(@PathVariable Long fid) {
+        return ApiResponse.success(service.submit(fid));
+    }
+
+    /** 审核 */
+    @PostMapping("/audit/{fid}")
+    public ApiResponse<BizfiFiVoucher> audit(@PathVariable Long fid,
+                                             @RequestParam(value = "operator", required = false) String operator) {
+        return ApiResponse.success(service.audit(fid, operator));
+    }
+
+    /** 过账 */
+    @PostMapping("/post/{fid}")
+    public ApiResponse<BizfiFiVoucher> post(@PathVariable Long fid,
+                                            @RequestParam(value = "operator", required = false) String operator) {
+        return ApiResponse.success(service.post(fid, operator));
+    }
+
+    /** 详情 */
+    @GetMapping("/{fid}")
+    public ApiResponse<BizfiFiVoucher> detail(@PathVariable Long fid) {
+        return ApiResponse.success(service.get(fid));
+    }
+
+    /** 删除草稿 */
+    @DeleteMapping("/{fid}")
+    public ApiResponse<Boolean> delete(@PathVariable Long fid) {
+        return ApiResponse.success(service.deleteDraft(fid));
     }
 
     /** 分页/条件查询列表 */
@@ -38,11 +76,13 @@ public class BizfiFiVoucherController {
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "10") int size,
             @RequestParam(value = "number", required = false) String number,
-            @RequestParam(value = "summary", required = false) String summary
+            @RequestParam(value = "summary", required = false) String summary,
+            @RequestParam(value = "status", required = false) String status
     ) {
         Map<String, Object> query = new HashMap<>();
         query.put("number", number);
         query.put("summary", summary);
+        query.put("status", status);
         return ApiResponse.success(service.list(page, size, query));
     }
 }

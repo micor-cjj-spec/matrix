@@ -7,5 +7,11 @@
         <result column="fdate" property="fdate" />
         <result column="fsummary" property="fsummary" />
         <result column="famount" property="famount" />
+        <result column="fstatus" property="fstatus" />
+        <result column="faudited_by" property="fauditedBy" />
+        <result column="faudited_time" property="fauditedTime" />
+        <result column="fposted_by" property="fpostedBy" />
+        <result column="fposted_time" property="fpostedTime" />
+        <result column="fremark" property="fremark" />
     </resultMap>
 </mapper>
