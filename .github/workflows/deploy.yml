@@ -1,9 +1,9 @@
 name: Deploy Matrix
 
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: '0 16 * * *'
+  workflow_dispatch:
 
 jobs:
   deploy:
