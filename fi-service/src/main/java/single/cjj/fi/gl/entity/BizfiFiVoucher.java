@@ -40,6 +40,12 @@ public class BizfiFiVoucher implements Serializable {
     /** 状态：DRAFT/SUBMITTED/AUDITED/POSTED */
     private String fstatus;
 
+    /** 制单人 */
+    private String fcreatedBy;
+
+    /** 制单时间 */
+    private LocalDateTime fcreatedTime;
+
     /** 审核人 */
     private String fauditedBy;
 

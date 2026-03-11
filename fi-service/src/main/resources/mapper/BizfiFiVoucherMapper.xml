@@ -8,6 +8,8 @@
         <result column="fsummary" property="fsummary" />
         <result column="famount" property="famount" />
         <result column="fstatus" property="fstatus" />
+        <result column="fcreated_by" property="fcreatedBy" />
+        <result column="fcreated_time" property="fcreatedTime" />
         <result column="faudited_by" property="fauditedBy" />
         <result column="faudited_time" property="fauditedTime" />
         <result column="fposted_by" property="fpostedBy" />

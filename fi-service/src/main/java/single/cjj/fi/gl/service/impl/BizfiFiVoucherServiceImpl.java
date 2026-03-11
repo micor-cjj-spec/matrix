@@ -21,8 +21,11 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 财务凭证服务实现
@@ -37,6 +40,11 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
     private static final String STATUS_POSTED = "POSTED";
     private static final String STATUS_REJECTED = "REJECTED";
     private static final String STATUS_REVERSED = "REVERSED";
+    private static final Set<String> CLOSED_PERIODS = Arrays.stream(
+                    System.getenv().getOrDefault("FI_CLOSED_PERIODS", "" ).split(","))
+            .map(String::trim)
+            .filter(s -> !s.isEmpty())
+            .collect(Collectors.toSet());
 
     @Autowired
     private BizfiFiVoucherMapper mapper;
@@ -50,10 +58,14 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
     @Override
     public BizfiFiVoucher saveDraft(BizfiFiVoucher voucher) {
         validateBase(voucher);
+        assertPeriodOpen(voucher.getFdate());
         if (!StringUtils.hasText(voucher.getFnumber())) {
             voucher.setFnumber(generateVoucherNumber(voucher.getFdate()));
         }
+        ensureVoucherNumberUnique(voucher.getFnumber(), null);
         voucher.setFstatus(STATUS_DRAFT);
+        voucher.setFcreatedBy(StringUtils.hasText(voucher.getFcreatedBy()) ? voucher.getFcreatedBy() : "system");
+        voucher.setFcreatedTime(LocalDateTime.now());
         mapper.insert(voucher);
         return voucher;
     }
@@ -379,6 +391,25 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             }
         }
         return String.format("%s%04d", prefix, seq);
+    }
+
+    private void assertPeriodOpen(LocalDate date) {
+        LocalDate d = date == null ? LocalDate.now() : date;
+        String period = String.format("%d-%02d", d.getYear(), d.getMonthValue());
+        if (CLOSED_PERIODS.contains(period)) {
+            throw new BizException("期间已关账，不允许操作: " + period);
+        }
+    }
+
+    private void ensureVoucherNumberUnique(String number, Long excludeId) {
+        if (!StringUtils.hasText(number)) return;
+        LambdaQueryWrapper<BizfiFiVoucher> w = new LambdaQueryWrapper<>();
+        w.eq(BizfiFiVoucher::getFnumber, number);
+        if (excludeId != null) w.ne(BizfiFiVoucher::getFid, excludeId);
+        Long c = mapper.selectCount(w);
+        if (c != null && c > 0) {
+            throw new BizException("凭证号已存在: " + number);
+        }
     }
 
     private static class AmountSummary {

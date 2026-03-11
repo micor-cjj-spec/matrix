@@ -1,0 +1,48 @@
+package single.cjj.fi.ar.controller;
+
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import single.cjj.bizfi.entity.ApiResponse;
+import single.cjj.fi.ar.entity.BizfiFiArapDoc;
+import single.cjj.fi.ar.service.BizfiFiArapDocService;
+
+@RestController
+@RequestMapping("/arap-doc")
+public class BizfiFiArapDocController {
+
+    @Autowired
+    private BizfiFiArapDocService service;
+
+    @PostMapping
+    public ApiResponse<BizfiFiArapDoc> create(@RequestBody BizfiFiArapDoc doc) { return ApiResponse.success(service.create(doc)); }
+
+    @PutMapping
+    public ApiResponse<BizfiFiArapDoc> update(@RequestBody BizfiFiArapDoc doc) { return ApiResponse.success(service.update(doc)); }
+
+    @DeleteMapping("/{fid}")
+    public ApiResponse<Boolean> delete(@PathVariable("fid") Long fid) { return ApiResponse.success(service.deleteDraft(fid)); }
+
+    @PostMapping("/submit/{fid}")
+    public ApiResponse<BizfiFiArapDoc> submit(@PathVariable("fid") Long fid) { return ApiResponse.success(service.submit(fid)); }
+
+    @PostMapping("/audit/{fid}")
+    public ApiResponse<BizfiFiArapDoc> audit(@PathVariable("fid") Long fid,
+                                             @RequestParam(value = "operator", required = false) String operator) { return ApiResponse.success(service.audit(fid, operator)); }
+
+    @PostMapping("/reject/{fid}")
+    public ApiResponse<BizfiFiArapDoc> reject(@PathVariable("fid") Long fid,
+                                              @RequestParam(value = "operator", required = false) String operator) { return ApiResponse.success(service.reject(fid, operator)); }
+
+    @GetMapping("/{fid}")
+    public ApiResponse<BizfiFiArapDoc> detail(@PathVariable("fid") Long fid) { return ApiResponse.success(service.detail(fid)); }
+
+    @GetMapping("/list")
+    public ApiResponse<IPage<BizfiFiArapDoc>> list(@RequestParam("docType") String docType,
+                                                   @RequestParam(value = "page", defaultValue = "1") int page,
+                                                   @RequestParam(value = "size", defaultValue = "10") int size,
+                                                   @RequestParam(value = "number", required = false) String number,
+                                                   @RequestParam(value = "status", required = false) String status) {
+        return ApiResponse.success(service.list(docType, page, size, number, status));
+    }
+}

@@ -8,6 +8,7 @@
 - `gl/`：总账（General Ledger）
 - `ar/`：应收（Accounts Receivable）
 - `ap/`：应付（Accounts Payable）
+- `ar-ap/`：应收应付联合业务主题
 - `fund/`：资金管理（Fund/Cash）
 - `payroll/`：薪酬
 - `asset/`：资产管理
@@ -31,3 +32,4 @@
 
 - `gl/voucher-business.md`：总账-凭证业务路径（初版）
 - `gl/balance-business.md`：总账-余额表业务设计（初版）
+- `ar-ap/ar-ap-seven-docs-business.md`：应收应付七类单据业务设计（MVP）
