@@ -58,6 +58,20 @@ public class BizfiFiVoucherController {
         return ApiResponse.success(service.post(fid, operator));
     }
 
+    /** 驳回 */
+    @PostMapping("/reject/{fid}")
+    public ApiResponse<BizfiFiVoucher> reject(@PathVariable Long fid,
+                                              @RequestParam(value = "operator", required = false) String operator) {
+        return ApiResponse.success(service.reject(fid, operator));
+    }
+
+    /** 冲销 */
+    @PostMapping("/reverse/{fid}")
+    public ApiResponse<BizfiFiVoucher> reverse(@PathVariable Long fid,
+                                               @RequestParam(value = "operator", required = false) String operator) {
+        return ApiResponse.success(service.reverse(fid, operator));
+    }
+
     /** 详情 */
     @GetMapping("/{fid}")
     public ApiResponse<BizfiFiVoucher> detail(@PathVariable Long fid) {

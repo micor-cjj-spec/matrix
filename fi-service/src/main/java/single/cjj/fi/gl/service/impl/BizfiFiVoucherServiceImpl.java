@@ -27,6 +27,8 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
     private static final String STATUS_SUBMITTED = "SUBMITTED";
     private static final String STATUS_AUDITED = "AUDITED";
     private static final String STATUS_POSTED = "POSTED";
+    private static final String STATUS_REJECTED = "REJECTED";
+    private static final String STATUS_REVERSED = "REVERSED";
 
     @Autowired
     private BizfiFiVoucherMapper mapper;
@@ -94,6 +96,33 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
         db.setFstatus(STATUS_POSTED);
         db.setFpostedBy(StringUtils.hasText(operator) ? operator : "system");
         db.setFpostedTime(LocalDateTime.now());
+        mapper.updateById(db);
+        return mapper.selectById(fid);
+    }
+
+    @Override
+    public BizfiFiVoucher reject(Long fid, String operator) {
+        BizfiFiVoucher db = mustGet(fid);
+        if (!STATUS_SUBMITTED.equals(db.getFstatus())) {
+            throw new BizException("只有已提交状态可驳回");
+        }
+        db.setFstatus(STATUS_REJECTED);
+        db.setFauditedBy(StringUtils.hasText(operator) ? operator : "system");
+        db.setFauditedTime(LocalDateTime.now());
+        mapper.updateById(db);
+        return mapper.selectById(fid);
+    }
+
+    @Override
+    public BizfiFiVoucher reverse(Long fid, String operator) {
+        BizfiFiVoucher db = mustGet(fid);
+        if (!STATUS_POSTED.equals(db.getFstatus())) {
+            throw new BizException("只有已过账状态可冲销");
+        }
+        db.setFstatus(STATUS_REVERSED);
+        db.setFremark((db.getFremark() == null ? "" : db.getFremark() + "；")
+                + "冲销操作人:" + (StringUtils.hasText(operator) ? operator : "system")
+                + " 时间:" + LocalDateTime.now());
         mapper.updateById(db);
         return mapper.selectById(fid);
     }
