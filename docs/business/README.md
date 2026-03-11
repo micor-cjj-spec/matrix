@@ -30,3 +30,4 @@
 ## 当前已记录
 
 - `gl/voucher-business.md`：总账-凭证业务路径（初版）
+- `gl/balance-business.md`：总账-余额表业务设计（初版）
