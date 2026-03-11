@@ -239,6 +239,12 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             if (StringUtils.hasText((String) query.get("status"))) {
                 wrapper.eq(BizfiFiVoucher::getFstatus, query.get("status"));
             }
+            if (StringUtils.hasText((String) query.get("startDate"))) {
+                wrapper.ge(BizfiFiVoucher::getFdate, query.get("startDate"));
+            }
+            if (StringUtils.hasText((String) query.get("endDate"))) {
+                wrapper.le(BizfiFiVoucher::getFdate, query.get("endDate"));
+            }
         }
         wrapper.orderByDesc(BizfiFiVoucher::getFdate).orderByDesc(BizfiFiVoucher::getFid);
         Page<BizfiFiVoucher> pageObj = new Page<>(page, size);

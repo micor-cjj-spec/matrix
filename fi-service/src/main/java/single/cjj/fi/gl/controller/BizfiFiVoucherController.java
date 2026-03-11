@@ -93,12 +93,16 @@ public class BizfiFiVoucherController {
             @RequestParam(value = "size", defaultValue = "10") int size,
             @RequestParam(value = "number", required = false) String number,
             @RequestParam(value = "summary", required = false) String summary,
-            @RequestParam(value = "status", required = false) String status
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "startDate", required = false) String startDate,
+            @RequestParam(value = "endDate", required = false) String endDate
     ) {
         Map<String, Object> query = new HashMap<>();
         query.put("number", number);
         query.put("summary", summary);
         query.put("status", status);
+        query.put("startDate", startDate);
+        query.put("endDate", endDate);
         return ApiResponse.success(service.list(page, size, query));
     }
 
