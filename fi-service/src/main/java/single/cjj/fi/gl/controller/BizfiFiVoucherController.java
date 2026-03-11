@@ -5,9 +5,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.fi.gl.entity.BizfiFiVoucher;
+import single.cjj.fi.gl.entity.BizfiFiVoucherLine;
 import single.cjj.fi.gl.service.BizfiFiVoucherService;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -98,5 +100,18 @@ public class BizfiFiVoucherController {
         query.put("summary", summary);
         query.put("status", status);
         return ApiResponse.success(service.list(page, size, query));
+    }
+
+    /** 查询分录 */
+    @GetMapping("/{fid}/lines")
+    public ApiResponse<List<BizfiFiVoucherLine>> listLines(@PathVariable Long fid) {
+        return ApiResponse.success(service.listLines(fid));
+    }
+
+    /** 保存分录（覆盖） */
+    @PutMapping("/{fid}/lines")
+    public ApiResponse<Boolean> saveLines(@PathVariable Long fid,
+                                          @RequestBody List<BizfiFiVoucherLine> lines) {
+        return ApiResponse.success(service.saveLines(fid, lines));
     }
 }

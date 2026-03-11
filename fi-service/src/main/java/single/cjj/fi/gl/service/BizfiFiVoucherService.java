@@ -3,7 +3,9 @@ package single.cjj.fi.gl.service;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import single.cjj.fi.gl.entity.BizfiFiVoucher;
+import single.cjj.fi.gl.entity.BizfiFiVoucherLine;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,4 +32,8 @@ public interface BizfiFiVoucherService extends IService<BizfiFiVoucher> {
     Boolean deleteDraft(Long fid);
 
     IPage<BizfiFiVoucher> list(int page, int size, Map<String, Object> query);
+
+    List<BizfiFiVoucherLine> listLines(Long voucherId);
+
+    Boolean saveLines(Long voucherId, List<BizfiFiVoucherLine> lines);
 }
