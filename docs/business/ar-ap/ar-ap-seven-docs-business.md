@@ -28,6 +28,12 @@
 - 状态 `fstatus`
 - 备注 `fremark`
 - 审核人/审核时间
+- 关联凭证：`fvoucherId` / `fvoucherNumber`
+
+## 3.1 差异化字段（已落地）
+- 付款申请：`fpayMethod`、`fplannedPayDate`
+- 结算处理：`fsettleMethod`、`fwriteoffDetail`
+- 暂估单：`fsourceBillNo`
 
 ## 4. 关键规则
 1. 仅草稿/驳回可编辑。
@@ -42,29 +48,31 @@
 - 页面复用一个组件，通过路由 `docType` 区分
 
 ## 6. 后端接口（统一）
-- `GET /arap-doc/list?docType=...`
+- `GET /arap-doc/list?docType=...`（支持往来方、日期区间、金额区间筛选）
 - `POST /arap-doc`
 - `PUT /arap-doc`
 - `DELETE /arap-doc/{fid}`
 - `POST /arap-doc/submit/{fid}`
 - `POST /arap-doc/audit/{fid}`
 - `POST /arap-doc/reject/{fid}`
+- `POST /arap-doc/voucher/{fid}`（审核后生成凭证并回写关联）
 
 ## 7. 当前代码实现对齐（2026-03-12）
 已与代码对齐确认：
-- 后端统一接口：`/api/arap-doc/*`（create/update/delete/submit/audit/reject/list/detail）
+- 后端统一接口：`/api/arap-doc/*`（create/update/delete/submit/audit/reject/list/detail/voucher）
 - 前端统一页面：`ArapDocView.vue`，通过路由 `docType` 承载 7 类单据
 - 已接入路由：
   - AP/AP_ESTIMATE/AP_PAYMENT_APPLY/AP_PAYMENT_PROCESS
   - AR/AR_ESTIMATE/AR_SETTLEMENT
 - 状态流转已生效：`DRAFT -> SUBMITTED -> AUDITED`，支持 `REJECTED`
 
-## 8. 代码与业务文档差异（待对齐项）
-以下已在业务文档中定义，但代码尚未全部落地：
-1. 单据差异化字段（目前仍是统一字段）
-2. 单据联动凭证（审核后自动/手动生成凭证）
-3. 列表高级筛选与导出（日期区间、金额区间、导出Excel）
+## 8. 对齐结果（本次）
+本文件此前的 3 个待对齐项已落地：
+1. ✅ 单据差异化字段
+2. ✅ 单据联动凭证（审核后手动触发生成）
+3. ✅ 列表高级筛选与导出（CSV）
 
-## 9. 对齐策略
-- 文档以“当前代码事实 + 待对齐清单”双轨维护。
-- 待对齐项每完成一项，更新本文件并在对应提交说明标注。
+## 9. 后续增强建议
+- 凭证生成模板按单据类型可配置科目映射
+- 导出升级为 xlsx
+- 单据与凭证双向跳转（从凭证回溯来源单）

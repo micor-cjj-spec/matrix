@@ -7,9 +7,22 @@ CREATE TABLE IF NOT EXISTS bizfi_fi_arap_doc (
   famount DECIMAL(18,2) NOT NULL,
   fstatus VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
   fremark VARCHAR(500) NULL,
+
+  -- 差异化字段
+  fpay_method VARCHAR(32) NULL,
+  fplanned_pay_date DATE NULL,
+  fsettle_method VARCHAR(32) NULL,
+  fwriteoff_detail VARCHAR(500) NULL,
+  fsource_bill_no VARCHAR(64) NULL,
+
+  -- 联动凭证
+  fvoucher_id BIGINT NULL,
+  fvoucher_number VARCHAR(64) NULL,
+
   faudited_by VARCHAR(64) NULL,
   faudited_time DATETIME NULL,
   KEY idx_arap_type (fdoctype),
   KEY idx_arap_status (fstatus),
-  KEY idx_arap_date (fdate)
+  KEY idx_arap_date (fdate),
+  KEY idx_arap_voucher (fvoucher_id)
 ) COMMENT='应收应付单据';

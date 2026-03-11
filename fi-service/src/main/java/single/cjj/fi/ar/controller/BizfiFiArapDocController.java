@@ -7,6 +7,8 @@ import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.fi.ar.entity.BizfiFiArapDoc;
 import single.cjj.fi.ar.service.BizfiFiArapDocService;
 
+import java.math.BigDecimal;
+
 @RestController
 @RequestMapping("/arap-doc")
 public class BizfiFiArapDocController {
@@ -42,7 +44,18 @@ public class BizfiFiArapDocController {
                                                    @RequestParam(value = "page", defaultValue = "1") int page,
                                                    @RequestParam(value = "size", defaultValue = "10") int size,
                                                    @RequestParam(value = "number", required = false) String number,
-                                                   @RequestParam(value = "status", required = false) String status) {
-        return ApiResponse.success(service.list(docType, page, size, number, status));
+                                                   @RequestParam(value = "status", required = false) String status,
+                                                   @RequestParam(value = "counterparty", required = false) String counterparty,
+                                                   @RequestParam(value = "startDate", required = false) String startDate,
+                                                   @RequestParam(value = "endDate", required = false) String endDate,
+                                                   @RequestParam(value = "minAmount", required = false) BigDecimal minAmount,
+                                                   @RequestParam(value = "maxAmount", required = false) BigDecimal maxAmount) {
+        return ApiResponse.success(service.list(docType, page, size, number, status, counterparty, startDate, endDate, minAmount, maxAmount));
+    }
+
+    @PostMapping("/voucher/{fid}")
+    public ApiResponse<BizfiFiArapDoc> generateVoucher(@PathVariable("fid") Long fid,
+                                                        @RequestParam(value = "operator", required = false) String operator) {
+        return ApiResponse.success(service.generateVoucher(fid, operator));
     }
 }

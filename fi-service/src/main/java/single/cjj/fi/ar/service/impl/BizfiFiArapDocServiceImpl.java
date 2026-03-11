@@ -5,11 +5,16 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import single.cjj.bizfi.exception.BizException;
 import single.cjj.fi.ar.entity.BizfiFiArapDoc;
 import single.cjj.fi.ar.mapper.BizfiFiArapDocMapper;
 import single.cjj.fi.ar.service.BizfiFiArapDocService;
+import single.cjj.fi.gl.entity.BizfiFiVoucher;
+import single.cjj.fi.gl.entity.BizfiFiVoucherLine;
+import single.cjj.fi.gl.mapper.BizfiFiVoucherLineMapper;
+import single.cjj.fi.gl.mapper.BizfiFiVoucherMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -25,6 +30,12 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
 
     @Autowired
     private BizfiFiArapDocMapper mapper;
+
+    @Autowired
+    private BizfiFiVoucherMapper voucherMapper;
+
+    @Autowired
+    private BizfiFiVoucherLineMapper voucherLineMapper;
 
     @Override
     public BizfiFiArapDoc create(BizfiFiArapDoc doc) {
@@ -89,13 +100,69 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
     public BizfiFiArapDoc detail(Long fid) { return mapper.selectById(fid); }
 
     @Override
-    public IPage<BizfiFiArapDoc> list(String docType, int page, int size, String number, String status) {
+    public IPage<BizfiFiArapDoc> list(String docType, int page, int size, String number, String status,
+                                      String counterparty, String startDate, String endDate,
+                                      BigDecimal minAmount, BigDecimal maxAmount) {
         LambdaQueryWrapper<BizfiFiArapDoc> w = new LambdaQueryWrapper<>();
         w.eq(BizfiFiArapDoc::getFdoctype, docType);
         if (StringUtils.hasText(number)) w.like(BizfiFiArapDoc::getFnumber, number);
         if (StringUtils.hasText(status)) w.eq(BizfiFiArapDoc::getFstatus, status);
+        if (StringUtils.hasText(counterparty)) w.like(BizfiFiArapDoc::getFcounterparty, counterparty);
+        if (StringUtils.hasText(startDate)) w.ge(BizfiFiArapDoc::getFdate, startDate);
+        if (StringUtils.hasText(endDate)) w.le(BizfiFiArapDoc::getFdate, endDate);
+        if (minAmount != null) w.ge(BizfiFiArapDoc::getFamount, minAmount);
+        if (maxAmount != null) w.le(BizfiFiArapDoc::getFamount, maxAmount);
         w.orderByDesc(BizfiFiArapDoc::getFdate).orderByDesc(BizfiFiArapDoc::getFid);
         return mapper.selectPage(new Page<>(page, size), w);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public BizfiFiArapDoc generateVoucher(Long fid, String operator) {
+        BizfiFiArapDoc doc = mustGet(fid);
+        if (!AUDITED.equals(doc.getFstatus())) {
+            throw new BizException("仅已审核单据可生成凭证");
+        }
+        if (doc.getFvoucherId() != null) {
+            return mapper.selectById(fid);
+        }
+
+        String op = StringUtils.hasText(operator) ? operator : "system";
+        boolean isAr = doc.getFdoctype() != null && doc.getFdoctype().startsWith("AR");
+
+        BizfiFiVoucher voucher = new BizfiFiVoucher();
+        voucher.setFnumber("ARAP-" + doc.getFnumber());
+        voucher.setFdate(doc.getFdate() == null ? LocalDate.now() : doc.getFdate());
+        voucher.setFsummary("单据转凭证:" + doc.getFnumber());
+        voucher.setFamount(doc.getFamount());
+        voucher.setFstatus("DRAFT");
+        voucher.setFcreatedBy(op);
+        voucher.setFcreatedTime(LocalDateTime.now());
+        voucherMapper.insert(voucher);
+
+        BigDecimal amt = doc.getFamount();
+        BizfiFiVoucherLine l1 = new BizfiFiVoucherLine();
+        l1.setFvoucherId(voucher.getFid());
+        l1.setFlineNo(1);
+        l1.setFaccountCode(isAr ? "1122" : "2202");
+        l1.setFsummary(doc.getFremark());
+        l1.setFdebitAmount(isAr ? amt : BigDecimal.ZERO);
+        l1.setFcreditAmount(isAr ? BigDecimal.ZERO : amt);
+        voucherLineMapper.insert(l1);
+
+        BizfiFiVoucherLine l2 = new BizfiFiVoucherLine();
+        l2.setFvoucherId(voucher.getFid());
+        l2.setFlineNo(2);
+        l2.setFaccountCode(isAr ? "6001" : "1002");
+        l2.setFsummary(doc.getFremark());
+        l2.setFdebitAmount(isAr ? BigDecimal.ZERO : amt);
+        l2.setFcreditAmount(isAr ? amt : BigDecimal.ZERO);
+        voucherLineMapper.insert(l2);
+
+        doc.setFvoucherId(voucher.getFid());
+        doc.setFvoucherNumber(voucher.getFnumber());
+        mapper.updateById(doc);
+        return mapper.selectById(fid);
     }
 
     private BizfiFiArapDoc mustGet(Long fid) {

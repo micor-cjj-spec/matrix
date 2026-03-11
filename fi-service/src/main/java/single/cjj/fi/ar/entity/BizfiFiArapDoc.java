@@ -25,6 +25,22 @@ public class BizfiFiArapDoc implements Serializable {
     private BigDecimal famount;
     private String fstatus;
     private String fremark;
+
+    /** 差异化字段：付款申请 */
+    private String fpayMethod;
+    private LocalDate fplannedPayDate;
+
+    /** 差异化字段：结算处理 */
+    private String fsettleMethod;
+    private String fwriteoffDetail;
+
+    /** 差异化字段：暂估单 */
+    private String fsourceBillNo;
+
+    /** 联动凭证 */
+    private Long fvoucherId;
+    private String fvoucherNumber;
+
     private String fauditedBy;
     private LocalDateTime fauditedTime;
 }
