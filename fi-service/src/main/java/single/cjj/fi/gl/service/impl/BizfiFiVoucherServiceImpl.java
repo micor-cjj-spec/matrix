@@ -157,6 +157,41 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
     }
 
     @Override
+    public Map<String, Object> postBatch(List<Long> fids, String operator) {
+        if (fids == null || fids.isEmpty()) {
+            throw new BizException("批量过账凭证ID不能为空");
+        }
+
+        List<Long> uniqueFids = fids.stream().filter(id -> id != null).distinct().collect(Collectors.toList());
+        if (uniqueFids.isEmpty()) {
+            throw new BizException("批量过账凭证ID不能为空");
+        }
+
+        List<Long> successIds = new ArrayList<>();
+        List<Map<String, Object>> failed = new ArrayList<>();
+
+        for (Long fid : uniqueFids) {
+            try {
+                post(fid, operator);
+                successIds.add(fid);
+            } catch (Exception e) {
+                Map<String, Object> fail = new java.util.HashMap<>();
+                fail.put("fid", fid);
+                fail.put("reason", e.getMessage());
+                failed.add(fail);
+            }
+        }
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("total", uniqueFids.size());
+        result.put("successCount", successIds.size());
+        result.put("failCount", failed.size());
+        result.put("successIds", successIds);
+        result.put("failed", failed);
+        return result;
+    }
+
+    @Override
     public BizfiFiVoucher reject(Long fid, String operator) {
         BizfiFiVoucher db = mustGet(fid);
         if (!STATUS_SUBMITTED.equals(db.getFstatus())) {

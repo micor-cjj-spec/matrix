@@ -23,6 +23,8 @@ public interface BizfiFiVoucherService extends IService<BizfiFiVoucher> {
 
     BizfiFiVoucher post(Long fid, String operator);
 
+    Map<String, Object> postBatch(List<Long> fids, String operator);
+
     BizfiFiVoucher reject(Long fid, String operator);
 
     BizfiFiVoucher reverse(Long fid, String operator);

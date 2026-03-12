@@ -60,6 +60,13 @@ public class BizfiFiVoucherController {
         return ApiResponse.success(service.post(fid, operator));
     }
 
+    /** 批量过账（同步） */
+    @PostMapping("/post/batch")
+    public ApiResponse<Map<String, Object>> postBatch(@RequestBody List<Long> fids,
+                                                       @RequestParam(value = "operator", required = false) String operator) {
+        return ApiResponse.success(service.postBatch(fids, operator));
+    }
+
     /** 驳回 */
     @PostMapping("/reject/{fid}")
     public ApiResponse<BizfiFiVoucher> reject(@PathVariable("fid") Long fid,
