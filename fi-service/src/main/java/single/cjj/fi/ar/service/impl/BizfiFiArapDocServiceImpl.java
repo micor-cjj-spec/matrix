@@ -75,6 +75,7 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public BizfiFiArapDoc audit(Long fid, String operator) {
         BizfiFiArapDoc db = mustGet(fid);
         if (!SUBMITTED.equals(db.getFstatus())) throw new BizException("仅已提交可审核");
@@ -82,7 +83,8 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
         db.setFauditedBy(StringUtils.hasText(operator) ? operator : "system");
         db.setFauditedTime(LocalDateTime.now());
         mapper.updateById(db);
-        return mapper.selectById(fid);
+        // 审核通过后自动生成并关联凭证；若已存在关联则幂等跳过
+        return generateVoucher(fid, operator);
     }
 
     @Override
