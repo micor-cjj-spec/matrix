@@ -20,5 +20,7 @@ public interface BizfiFiArapDocService {
 
     BizfiFiArapDoc generateVoucher(Long fid, String operator);
 
+    BizfiFiArapDoc generateVoucherByNumber(String number, String operator);
+
     List<BizfiFiArapDoc> listByVoucher(Long voucherId, String voucherNumber);
 }

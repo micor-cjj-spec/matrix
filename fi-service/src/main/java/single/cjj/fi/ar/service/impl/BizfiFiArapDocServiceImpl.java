@@ -154,11 +154,30 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
     @Transactional(rollbackFor = Exception.class)
     public BizfiFiArapDoc generateVoucher(Long fid, String operator) {
         BizfiFiArapDoc doc = mustGet(fid);
+        return generateVoucherForDoc(doc, operator);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public BizfiFiArapDoc generateVoucherByNumber(String number, String operator) {
+        if (!StringUtils.hasText(number)) {
+            throw new BizException("单据号不能为空");
+        }
+        LambdaQueryWrapper<BizfiFiArapDoc> q = new LambdaQueryWrapper<>();
+        q.eq(BizfiFiArapDoc::getFnumber, number.trim()).last("limit 1");
+        BizfiFiArapDoc doc = mapper.selectOne(q);
+        if (doc == null) {
+            throw new BizException("单据不存在");
+        }
+        return generateVoucherForDoc(doc, operator);
+    }
+
+    private BizfiFiArapDoc generateVoucherForDoc(BizfiFiArapDoc doc, String operator) {
         if (!AUDITED.equals(doc.getFstatus())) {
             throw new BizException("仅已审核单据可生成凭证");
         }
         if (doc.getFvoucherId() != null) {
-            return mapper.selectById(fid);
+            return mapper.selectById(doc.getFid());
         }
 
         String op = StringUtils.hasText(operator) ? operator : "system";
@@ -200,7 +219,7 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
         doc.setFvoucherId(voucher.getFid());
         doc.setFvoucherNumber(voucher.getFnumber());
         mapper.updateById(doc);
-        return mapper.selectById(fid);
+        return mapper.selectById(doc.getFid());
     }
 
     private BizfiFiArapDoc mustGet(Long fid) {

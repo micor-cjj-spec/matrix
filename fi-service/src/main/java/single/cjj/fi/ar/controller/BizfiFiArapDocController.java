@@ -60,6 +60,12 @@ public class BizfiFiArapDocController {
         return ApiResponse.success(service.generateVoucher(fid, operator));
     }
 
+    @PostMapping("/voucher/by-number")
+    public ApiResponse<BizfiFiArapDoc> generateVoucherByNumber(@RequestParam("number") String number,
+                                                                @RequestParam(value = "operator", required = false) String operator) {
+        return ApiResponse.success(service.generateVoucherByNumber(number, operator));
+    }
+
     @GetMapping("/by-voucher")
     public ApiResponse<List<BizfiFiArapDoc>> listByVoucher(@RequestParam(value = "voucherId", required = false) Long voucherId,
                                                             @RequestParam(value = "voucherNumber", required = false) String voucherNumber) {
