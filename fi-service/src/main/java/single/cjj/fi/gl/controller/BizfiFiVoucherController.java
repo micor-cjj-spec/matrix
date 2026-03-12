@@ -7,6 +7,7 @@ import org.springframework.web.multipart.MultipartFile;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.fi.ar.entity.BizfiFiArapDoc;
 import single.cjj.fi.ar.service.BizfiFiArapDocService;
+import single.cjj.fi.gl.dto.BizfiFiVoucherOcrImportRequest;
 import single.cjj.fi.gl.entity.BizfiFiVoucher;
 import single.cjj.fi.gl.entity.BizfiFiVoucherLine;
 import single.cjj.fi.gl.service.BizfiFiVoucherOcrService;
@@ -97,11 +98,18 @@ public class BizfiFiVoucherController {
         return ApiResponse.success(voucherOcrService.parseFile(file));
     }
 
-    /** OCR确认导入（先导入凭证头，分录可后续补充） */
+    /** OCR确认导入（凭证+分录一体导入） */
     @PostMapping("/import/ocr/confirm")
-    public ApiResponse<BizfiFiVoucher> ocrConfirm(@RequestBody BizfiFiVoucher voucher) {
-        BizfiFiVoucher saved = service.saveDraft(voucher);
-        return ApiResponse.success(saved);
+    public ApiResponse<BizfiFiVoucher> ocrConfirm(@RequestBody BizfiFiVoucherOcrImportRequest req) {
+        if (req == null || req.getVoucher() == null) {
+            throw new single.cjj.bizfi.exception.BizException("凭证数据不能为空");
+        }
+        BizfiFiVoucher saved = service.saveDraft(req.getVoucher());
+        List<BizfiFiVoucherLine> lines = req.getLines();
+        if (lines != null && !lines.isEmpty()) {
+            service.saveLines(saved.getFid(), lines);
+        }
+        return ApiResponse.success(service.get(saved.getFid()));
     }
 
     /** 详情 */

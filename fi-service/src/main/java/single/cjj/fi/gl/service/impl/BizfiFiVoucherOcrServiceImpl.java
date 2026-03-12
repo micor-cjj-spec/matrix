@@ -62,12 +62,14 @@ public class BizfiFiVoucherOcrServiceImpl implements BizfiFiVoucherOcrService {
             voucher.put("fsummary", extractSummary(parsedText));
             voucher.put("famount", extractAmount(parsedText));
 
+            List<Map<String, Object>> lines = extractLines(parsedText, ((Number) voucher.get("famount")).doubleValue(), String.valueOf(voucher.get("fsummary")));
+
             Map<String, Object> result = new HashMap<>();
             result.put("rawText", parsedText);
             result.put("voucher", voucher);
-            result.put("lines", new ArrayList<>());
+            result.put("lines", lines);
             result.put("engine", "ocr.space-demo");
-            result.put("warning", "当前为OCR初版，分录建议人工确认后导入");
+            result.put("warning", "当前为OCR初版，分录请人工核对后导入");
             return result;
         } catch (BizException e) {
             throw e;
@@ -127,5 +129,47 @@ public class BizfiFiVoucherOcrServiceImpl implements BizfiFiVoucherOcrService {
             }
         }
         return max > 0 ? max : 1.0;
+    }
+
+    private List<Map<String, Object>> extractLines(String text, double amount, String summary) {
+        List<Map<String, Object>> lines = new ArrayList<>();
+        String[] arr = text.split("\\r?\\n");
+        Pattern accountPattern = Pattern.compile("\\b(\\d{3,6})\\b");
+        for (String line : arr) {
+            Matcher am = accountPattern.matcher(line);
+            if (!am.find()) continue;
+            String acc = am.group(1);
+            Matcher nm = Pattern.compile("([0-9]+\\.[0-9]{1,2})").matcher(line);
+            double val = 0;
+            while (nm.find()) {
+                try {
+                    val = Math.max(val, Double.parseDouble(nm.group(1)));
+                } catch (Exception ignore) {}
+            }
+            if (val <= 0) continue;
+            boolean debit = line.contains("借");
+            Map<String, Object> item = new HashMap<>();
+            item.put("faccountCode", acc);
+            item.put("fsummary", summary);
+            item.put("fdebitAmount", debit ? val : 0);
+            item.put("fcreditAmount", debit ? 0 : val);
+            lines.add(item);
+        }
+
+        if (lines.isEmpty()) {
+            Map<String, Object> l1 = new HashMap<>();
+            l1.put("faccountCode", "1002");
+            l1.put("fsummary", summary);
+            l1.put("fdebitAmount", amount);
+            l1.put("fcreditAmount", 0);
+            Map<String, Object> l2 = new HashMap<>();
+            l2.put("faccountCode", "1001");
+            l2.put("fsummary", summary);
+            l2.put("fdebitAmount", 0);
+            l2.put("fcreditAmount", amount);
+            lines.add(l1);
+            lines.add(l2);
+        }
+        return lines;
     }
 }
