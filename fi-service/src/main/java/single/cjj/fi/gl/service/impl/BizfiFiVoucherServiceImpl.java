@@ -20,9 +20,11 @@ import single.cjj.fi.gl.service.BizfiFiVoucherService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -40,6 +42,10 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
     private static final String STATUS_POSTED = "POSTED";
     private static final String STATUS_REJECTED = "REJECTED";
     private static final String STATUS_REVERSED = "REVERSED";
+    // 本位币金额统一2位小数，汇率统一6位小数，四舍五入（HALF_UP）
+    private static final int BASE_AMOUNT_SCALE = 2;
+    private static final int RATE_SCALE = 6;
+    private static final Set<String> ZERO_DECIMAL_CURRENCIES = Set.of("JPY", "KRW", "VND");
     private static final Set<String> CLOSED_PERIODS = Arrays.stream(
                     System.getenv().getOrDefault("FI_CLOSED_PERIODS", "" ).split(","))
             .map(String::trim)
@@ -141,8 +147,8 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             entry.setFvoucherDate(db.getFdate());
             entry.setFaccountCode(line.getFaccountCode());
             entry.setFsummary(StringUtils.hasText(line.getFsummary()) ? line.getFsummary() : db.getFsummary());
-            entry.setFdebitAmount(zeroIfNull(line.getFdebitAmount()));
-            entry.setFcreditAmount(zeroIfNull(line.getFcreditAmount()));
+            entry.setFdebitAmount(normalizeBaseAmount(line.getFdebitAmount()));
+            entry.setFcreditAmount(normalizeBaseAmount(line.getFcreditAmount()));
             entry.setFpostedBy(postedBy);
             entry.setFpostedTime(now);
             glEntryMapper.insert(entry);
@@ -233,8 +239,8 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             reverseLine.setFlineNo(line.getFlineNo());
             reverseLine.setFaccountCode(line.getFaccountCode());
             reverseLine.setFsummary("冲销:" + line.getFsummary());
-            reverseLine.setFdebitAmount(zeroIfNull(line.getFcreditAmount()));
-            reverseLine.setFcreditAmount(zeroIfNull(line.getFdebitAmount()));
+            reverseLine.setFdebitAmount(normalizeBaseAmount(line.getFcreditAmount()));
+            reverseLine.setFcreditAmount(normalizeBaseAmount(line.getFdebitAmount()));
             reverseLine.setFcurrency(line.getFcurrency());
             reverseLine.setFrate(line.getFrate());
             reverseLine.setForiginalAmount(line.getForiginalAmount());
@@ -247,8 +253,8 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             entry.setFvoucherDate(reverseVoucher.getFdate());
             entry.setFaccountCode(reverseLine.getFaccountCode());
             entry.setFsummary(reverseLine.getFsummary());
-            entry.setFdebitAmount(zeroIfNull(reverseLine.getFdebitAmount()));
-            entry.setFcreditAmount(zeroIfNull(reverseLine.getFcreditAmount()));
+            entry.setFdebitAmount(normalizeBaseAmount(reverseLine.getFdebitAmount()));
+            entry.setFcreditAmount(normalizeBaseAmount(reverseLine.getFcreditAmount()));
             entry.setFpostedBy(op);
             entry.setFpostedTime(now);
             glEntryMapper.insert(entry);
@@ -324,8 +330,8 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             if (!StringUtils.hasText(line.getFaccountCode())) {
                 throw new BizException("第" + idx + "行科目不能为空");
             }
-            BigDecimal debit = zeroIfNull(line.getFdebitAmount());
-            BigDecimal credit = zeroIfNull(line.getFcreditAmount());
+            BigDecimal debit = normalizeBaseAmount(line.getFdebitAmount());
+            BigDecimal credit = normalizeBaseAmount(line.getFcreditAmount());
             if (debit.signum() < 0 || credit.signum() < 0) {
                 throw new BizException("第" + idx + "行借贷金额不能小于0");
             }
@@ -335,6 +341,10 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             if (debit.signum() > 0 && credit.signum() > 0) {
                 throw new BizException("第" + idx + "行借贷金额不能同时大于0");
             }
+            line.setFdebitAmount(debit);
+            line.setFcreditAmount(credit);
+            line.setFrate(normalizeRate(line.getFrate()));
+            line.setForiginalAmount(normalizeOriginalAmount(line.getForiginalAmount(), line.getFcurrency()));
             line.setFid(null);
             line.setFvoucherId(voucherId);
             line.setFlineNo(line.getFlineNo() == null ? idx : line.getFlineNo());
@@ -365,10 +375,24 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
         if (voucher.getFamount() == null || voucher.getFamount().signum() <= 0) {
             voucher.setFamount(BigDecimal.ONE);
         }
+        voucher.setFamount(normalizeBaseAmount(voucher.getFamount()));
     }
 
-    private BigDecimal zeroIfNull(BigDecimal value) {
-        return value == null ? BigDecimal.ZERO : value;
+    private BigDecimal normalizeBaseAmount(BigDecimal value) {
+        BigDecimal safe = value == null ? BigDecimal.ZERO : value;
+        return safe.setScale(BASE_AMOUNT_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal normalizeRate(BigDecimal value) {
+        if (value == null) return null;
+        return value.setScale(RATE_SCALE, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal normalizeOriginalAmount(BigDecimal value, String currency) {
+        if (value == null) return null;
+        String ccy = currency == null ? "" : currency.trim().toUpperCase(Locale.ROOT);
+        int scale = ZERO_DECIMAL_CURRENCIES.contains(ccy) ? 0 : BASE_AMOUNT_SCALE;
+        return value.setScale(scale, RoundingMode.HALF_UP);
     }
 
     private AmountSummary validateAndSumLines(Long voucherId, boolean strictBalanced) {
@@ -384,8 +408,8 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             if (!StringUtils.hasText(line.getFaccountCode())) {
                 throw new BizException("第" + idx + "行科目不能为空");
             }
-            BigDecimal debit = zeroIfNull(line.getFdebitAmount());
-            BigDecimal credit = zeroIfNull(line.getFcreditAmount());
+            BigDecimal debit = normalizeBaseAmount(line.getFdebitAmount());
+            BigDecimal credit = normalizeBaseAmount(line.getFcreditAmount());
             if (debit.signum() < 0 || credit.signum() < 0) {
                 throw new BizException("第" + idx + "行借贷金额不能小于0");
             }
