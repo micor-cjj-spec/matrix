@@ -79,12 +79,13 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
         if (db == null) {
             throw new BizException("凭证不存在");
         }
-        if (!STATUS_DRAFT.equals(db.getFstatus())) {
-            throw new BizException("只有草稿状态可修改");
+        if (!STATUS_DRAFT.equals(db.getFstatus()) && !STATUS_REJECTED.equals(db.getFstatus())) {
+            throw new BizException("只有草稿/驳回状态可修改");
         }
 
         validateBase(voucher);
-        voucher.setFstatus(STATUS_DRAFT);
+        // 驳回单允许修改后再提交，因此保留原状态（DRAFT/REJECTED）
+        voucher.setFstatus(db.getFstatus());
         mapper.updateById(voucher);
         return mapper.selectById(voucher.getFid());
     }
