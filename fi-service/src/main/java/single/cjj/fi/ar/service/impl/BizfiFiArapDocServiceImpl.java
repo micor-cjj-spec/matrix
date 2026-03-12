@@ -19,6 +19,8 @@ import single.cjj.fi.gl.mapper.BizfiFiVoucherMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
@@ -27,6 +29,19 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
     private static final String SUBMITTED = "SUBMITTED";
     private static final String AUDITED = "AUDITED";
     private static final String REJECTED = "REJECTED";
+
+    private static final Map<String, String[]> DOC_VOUCHER_ACCOUNT_MAP = new HashMap<>();
+    static {
+        // [debitAccount, creditAccount]
+        DOC_VOUCHER_ACCOUNT_MAP.put("AR", new String[]{"1122", "6001"});
+        DOC_VOUCHER_ACCOUNT_MAP.put("AR_ESTIMATE", new String[]{"1122", "2202"});
+        DOC_VOUCHER_ACCOUNT_MAP.put("AR_SETTLEMENT", new String[]{"1002", "1122"});
+
+        DOC_VOUCHER_ACCOUNT_MAP.put("AP", new String[]{"6001", "2202"});
+        DOC_VOUCHER_ACCOUNT_MAP.put("AP_ESTIMATE", new String[]{"1405", "2202"});
+        DOC_VOUCHER_ACCOUNT_MAP.put("AP_PAYMENT_APPLY", new String[]{"2202", "2241"});
+        DOC_VOUCHER_ACCOUNT_MAP.put("AP_PAYMENT_PROCESS", new String[]{"2241", "1002"});
+    }
 
     @Autowired
     private BizfiFiArapDocMapper mapper;
@@ -130,7 +145,11 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
         }
 
         String op = StringUtils.hasText(operator) ? operator : "system";
-        boolean isAr = doc.getFdoctype() != null && doc.getFdoctype().startsWith("AR");
+        String docType = doc.getFdoctype() == null ? "" : doc.getFdoctype().trim().toUpperCase();
+        String[] accountPair = DOC_VOUCHER_ACCOUNT_MAP.get(docType);
+        if (accountPair == null) {
+            throw new BizException("未配置单据类型的凭证科目映射: " + docType);
+        }
 
         BizfiFiVoucher voucher = new BizfiFiVoucher();
         voucher.setFnumber("ARAP-" + doc.getFnumber());
@@ -146,19 +165,19 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
         BizfiFiVoucherLine l1 = new BizfiFiVoucherLine();
         l1.setFvoucherId(voucher.getFid());
         l1.setFlineNo(1);
-        l1.setFaccountCode(isAr ? "1122" : "2202");
+        l1.setFaccountCode(accountPair[0]);
         l1.setFsummary(doc.getFremark());
-        l1.setFdebitAmount(isAr ? amt : BigDecimal.ZERO);
-        l1.setFcreditAmount(isAr ? BigDecimal.ZERO : amt);
+        l1.setFdebitAmount(amt);
+        l1.setFcreditAmount(BigDecimal.ZERO);
         voucherLineMapper.insert(l1);
 
         BizfiFiVoucherLine l2 = new BizfiFiVoucherLine();
         l2.setFvoucherId(voucher.getFid());
         l2.setFlineNo(2);
-        l2.setFaccountCode(isAr ? "6001" : "1002");
+        l2.setFaccountCode(accountPair[1]);
         l2.setFsummary(doc.getFremark());
-        l2.setFdebitAmount(isAr ? BigDecimal.ZERO : amt);
-        l2.setFcreditAmount(isAr ? amt : BigDecimal.ZERO);
+        l2.setFdebitAmount(BigDecimal.ZERO);
+        l2.setFcreditAmount(amt);
         voucherLineMapper.insert(l2);
 
         doc.setFvoucherId(voucher.getFid());
