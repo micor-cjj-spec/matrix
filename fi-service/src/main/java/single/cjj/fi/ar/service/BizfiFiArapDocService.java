@@ -11,8 +11,11 @@ public interface BizfiFiArapDocService {
     BizfiFiArapDoc update(BizfiFiArapDoc doc);
     Boolean deleteDraft(Long fid);
     BizfiFiArapDoc submit(Long fid);
+    BizfiFiArapDoc submitByNumber(String number);
     BizfiFiArapDoc audit(Long fid, String operator);
+    BizfiFiArapDoc auditByNumber(String number, String operator);
     BizfiFiArapDoc reject(Long fid, String operator);
+    BizfiFiArapDoc rejectByNumber(String number, String operator);
     BizfiFiArapDoc detail(Long fid);
     IPage<BizfiFiArapDoc> list(String docType, int page, int size, String number, String status,
                                String counterparty, String startDate, String endDate,

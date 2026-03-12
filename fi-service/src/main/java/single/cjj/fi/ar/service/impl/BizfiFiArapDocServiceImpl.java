@@ -84,34 +84,39 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
     @Override
     public BizfiFiArapDoc submit(Long fid) {
         BizfiFiArapDoc db = mustGet(fid);
-        if (!DRAFT.equals(db.getFstatus()) && !REJECTED.equals(db.getFstatus())) throw new BizException("仅草稿/驳回可提交");
-        db.setFstatus(SUBMITTED);
-        mapper.updateById(db);
-        return mapper.selectById(fid);
+        return doSubmit(db);
+    }
+
+    @Override
+    public BizfiFiArapDoc submitByNumber(String number) {
+        BizfiFiArapDoc db = mustGetByNumber(number);
+        return doSubmit(db);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public BizfiFiArapDoc audit(Long fid, String operator) {
         BizfiFiArapDoc db = mustGet(fid);
-        if (!SUBMITTED.equals(db.getFstatus())) throw new BizException("仅已提交可审核");
-        db.setFstatus(AUDITED);
-        db.setFauditedBy(StringUtils.hasText(operator) ? operator : "system");
-        db.setFauditedTime(LocalDateTime.now());
-        mapper.updateById(db);
-        // 审核通过后自动生成并关联凭证；若已存在关联则幂等跳过
-        return generateVoucher(fid, operator);
+        return doAudit(db, operator);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public BizfiFiArapDoc auditByNumber(String number, String operator) {
+        BizfiFiArapDoc db = mustGetByNumber(number);
+        return doAudit(db, operator);
     }
 
     @Override
     public BizfiFiArapDoc reject(Long fid, String operator) {
         BizfiFiArapDoc db = mustGet(fid);
-        if (!SUBMITTED.equals(db.getFstatus())) throw new BizException("仅已提交可驳回");
-        db.setFstatus(REJECTED);
-        db.setFauditedBy(StringUtils.hasText(operator) ? operator : "system");
-        db.setFauditedTime(LocalDateTime.now());
-        mapper.updateById(db);
-        return mapper.selectById(fid);
+        return doReject(db, operator);
+    }
+
+    @Override
+    public BizfiFiArapDoc rejectByNumber(String number, String operator) {
+        BizfiFiArapDoc db = mustGetByNumber(number);
+        return doReject(db, operator);
     }
 
     @Override
@@ -226,6 +231,41 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
         BizfiFiArapDoc db = mapper.selectById(fid);
         if (db == null) throw new BizException("单据不存在");
         return db;
+    }
+
+    private BizfiFiArapDoc mustGetByNumber(String number) {
+        if (!StringUtils.hasText(number)) throw new BizException("单据号不能为空");
+        LambdaQueryWrapper<BizfiFiArapDoc> q = new LambdaQueryWrapper<>();
+        q.eq(BizfiFiArapDoc::getFnumber, number.trim()).last("limit 1");
+        BizfiFiArapDoc db = mapper.selectOne(q);
+        if (db == null) throw new BizException("单据不存在");
+        return db;
+    }
+
+    private BizfiFiArapDoc doSubmit(BizfiFiArapDoc db) {
+        if (!DRAFT.equals(db.getFstatus()) && !REJECTED.equals(db.getFstatus())) throw new BizException("仅草稿/驳回可提交");
+        db.setFstatus(SUBMITTED);
+        mapper.updateById(db);
+        return mapper.selectById(db.getFid());
+    }
+
+    private BizfiFiArapDoc doAudit(BizfiFiArapDoc db, String operator) {
+        if (!SUBMITTED.equals(db.getFstatus())) throw new BizException("仅已提交可审核");
+        db.setFstatus(AUDITED);
+        db.setFauditedBy(StringUtils.hasText(operator) ? operator : "system");
+        db.setFauditedTime(LocalDateTime.now());
+        mapper.updateById(db);
+        // 审核通过后自动生成并关联凭证；若已存在关联则幂等跳过
+        return generateVoucher(db.getFid(), operator);
+    }
+
+    private BizfiFiArapDoc doReject(BizfiFiArapDoc db, String operator) {
+        if (!SUBMITTED.equals(db.getFstatus())) throw new BizException("仅已提交可驳回");
+        db.setFstatus(REJECTED);
+        db.setFauditedBy(StringUtils.hasText(operator) ? operator : "system");
+        db.setFauditedTime(LocalDateTime.now());
+        mapper.updateById(db);
+        return mapper.selectById(db.getFid());
     }
 
     private void validate(BizfiFiArapDoc doc) {

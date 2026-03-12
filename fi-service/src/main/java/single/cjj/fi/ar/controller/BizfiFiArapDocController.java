@@ -29,13 +29,30 @@ public class BizfiFiArapDocController {
     @PostMapping("/submit/{fid}")
     public ApiResponse<BizfiFiArapDoc> submit(@PathVariable("fid") Long fid) { return ApiResponse.success(service.submit(fid)); }
 
+    @PostMapping("/submit/by-number")
+    public ApiResponse<BizfiFiArapDoc> submitByNumber(@RequestParam("number") String number) {
+        return ApiResponse.success(service.submitByNumber(number));
+    }
+
     @PostMapping("/audit/{fid}")
     public ApiResponse<BizfiFiArapDoc> audit(@PathVariable("fid") Long fid,
                                              @RequestParam(value = "operator", required = false) String operator) { return ApiResponse.success(service.audit(fid, operator)); }
 
+    @PostMapping("/audit/by-number")
+    public ApiResponse<BizfiFiArapDoc> auditByNumber(@RequestParam("number") String number,
+                                                      @RequestParam(value = "operator", required = false) String operator) {
+        return ApiResponse.success(service.auditByNumber(number, operator));
+    }
+
     @PostMapping("/reject/{fid}")
     public ApiResponse<BizfiFiArapDoc> reject(@PathVariable("fid") Long fid,
                                               @RequestParam(value = "operator", required = false) String operator) { return ApiResponse.success(service.reject(fid, operator)); }
+
+    @PostMapping("/reject/by-number")
+    public ApiResponse<BizfiFiArapDoc> rejectByNumber(@RequestParam("number") String number,
+                                                       @RequestParam(value = "operator", required = false) String operator) {
+        return ApiResponse.success(service.rejectByNumber(number, operator));
+    }
 
     @GetMapping("/{fid}")
     public ApiResponse<BizfiFiArapDoc> detail(@PathVariable("fid") Long fid) { return ApiResponse.success(service.detail(fid)); }
