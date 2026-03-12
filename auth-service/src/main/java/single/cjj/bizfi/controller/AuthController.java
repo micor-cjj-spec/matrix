@@ -37,7 +37,7 @@ public class AuthController {
     }
 
     @GetMapping("/check")
-    public ApiResponse<Boolean> check(@RequestParam String type, @RequestParam String value) {
+    public ApiResponse<Boolean> check(@RequestParam("type") String type, @RequestParam("value") String value) {
         return ApiResponse.success(bizfiAuthLoginService.check(type, value));
     }
 
@@ -93,7 +93,7 @@ public class AuthController {
     }
 
     @GetMapping("/login/qrcode/status")
-    public ApiResponse<Map<String, Object>> checkQrStatus(@RequestParam String qrcodeToken) {
+    public ApiResponse<Map<String, Object>> checkQrStatus(@RequestParam("qrcodeToken") String qrcodeToken) {
         return ApiResponse.success(bizfiAuthLoginService.checkQrStatus(qrcodeToken));
     }
 
