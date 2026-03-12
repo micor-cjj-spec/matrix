@@ -3,11 +3,13 @@ package single.cjj.fi.gl.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.fi.ar.entity.BizfiFiArapDoc;
 import single.cjj.fi.ar.service.BizfiFiArapDocService;
 import single.cjj.fi.gl.entity.BizfiFiVoucher;
 import single.cjj.fi.gl.entity.BizfiFiVoucherLine;
+import single.cjj.fi.gl.service.BizfiFiVoucherOcrService;
 import single.cjj.fi.gl.service.BizfiFiVoucherService;
 
 import java.util.HashMap;
@@ -26,6 +28,9 @@ public class BizfiFiVoucherController {
 
     @Autowired
     private BizfiFiArapDocService arapDocService;
+
+    @Autowired
+    private BizfiFiVoucherOcrService voucherOcrService;
 
     /** 保存草稿 */
     @PostMapping("/save")
@@ -84,6 +89,19 @@ public class BizfiFiVoucherController {
     public ApiResponse<BizfiFiVoucher> reverse(@PathVariable("fid") Long fid,
                                                @RequestParam(value = "operator", required = false) String operator) {
         return ApiResponse.success(service.reverse(fid, operator));
+    }
+
+    /** OCR解析凭证图片/PDF（MVP） */
+    @PostMapping("/import/ocr/parse")
+    public ApiResponse<Map<String, Object>> ocrParse(@RequestParam("file") MultipartFile file) {
+        return ApiResponse.success(voucherOcrService.parseFile(file));
+    }
+
+    /** OCR确认导入（先导入凭证头，分录可后续补充） */
+    @PostMapping("/import/ocr/confirm")
+    public ApiResponse<BizfiFiVoucher> ocrConfirm(@RequestBody BizfiFiVoucher voucher) {
+        BizfiFiVoucher saved = service.saveDraft(voucher);
+        return ApiResponse.success(saved);
     }
 
     /** 详情 */
