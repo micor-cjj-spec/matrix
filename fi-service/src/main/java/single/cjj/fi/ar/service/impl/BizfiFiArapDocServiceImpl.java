@@ -20,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -131,6 +132,22 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
         if (maxAmount != null) w.le(BizfiFiArapDoc::getFamount, maxAmount);
         w.orderByDesc(BizfiFiArapDoc::getFdate).orderByDesc(BizfiFiArapDoc::getFid);
         return mapper.selectPage(new Page<>(page, size), w);
+    }
+
+    @Override
+    public List<BizfiFiArapDoc> listByVoucher(Long voucherId, String voucherNumber) {
+        if (voucherId == null && !StringUtils.hasText(voucherNumber)) {
+            throw new BizException("凭证ID或凭证号至少传一个");
+        }
+        LambdaQueryWrapper<BizfiFiArapDoc> w = new LambdaQueryWrapper<>();
+        if (voucherId != null) {
+            w.eq(BizfiFiArapDoc::getFvoucherId, voucherId);
+        }
+        if (StringUtils.hasText(voucherNumber)) {
+            w.eq(BizfiFiArapDoc::getFvoucherNumber, voucherNumber);
+        }
+        w.orderByDesc(BizfiFiArapDoc::getFid);
+        return mapper.selectList(w);
     }
 
     @Override

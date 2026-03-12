@@ -8,6 +8,7 @@ import single.cjj.fi.ar.entity.BizfiFiArapDoc;
 import single.cjj.fi.ar.service.BizfiFiArapDocService;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @RestController
 @RequestMapping("/arap-doc")
@@ -57,5 +58,11 @@ public class BizfiFiArapDocController {
     public ApiResponse<BizfiFiArapDoc> generateVoucher(@PathVariable("fid") Long fid,
                                                         @RequestParam(value = "operator", required = false) String operator) {
         return ApiResponse.success(service.generateVoucher(fid, operator));
+    }
+
+    @GetMapping("/by-voucher")
+    public ApiResponse<List<BizfiFiArapDoc>> listByVoucher(@RequestParam(value = "voucherId", required = false) Long voucherId,
+                                                            @RequestParam(value = "voucherNumber", required = false) String voucherNumber) {
+        return ApiResponse.success(service.listByVoucher(voucherId, voucherNumber));
     }
 }

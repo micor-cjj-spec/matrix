@@ -56,6 +56,7 @@
 - `POST /arap-doc/audit/{fid}`
 - `POST /arap-doc/reject/{fid}`
 - `POST /arap-doc/voucher/{fid}`（手动补偿生成凭证并回写关联）
+- `GET /arap-doc/by-voucher?voucherId=...|voucherNumber=...`（通过凭证反查关联单据）
 
 ## 7. 当前代码实现对齐（2026-03-12）
 已与代码对齐确认：
@@ -74,7 +75,6 @@
 
 ## 9. 后续增强建议
 - 导出升级为 xlsx
-- 单据与凭证双向跳转（从凭证回溯来源单）
 
 ## 10. 科目映射模板（已落地，代码内置）
 当前按单据类型使用默认借贷科目模板：
@@ -87,3 +87,8 @@
 - `AP_PAYMENT_PROCESS`：借 `2241`，贷 `1002`
 
 > 未配置模板的单据类型将拒绝生成凭证并返回明确错误。
+
+## 11. 单据 ↔ 凭证双向回溯（已落地）
+- 单据侧：通过 `fvoucherId/fvoucherNumber` 可定位关联凭证。
+- 反查单据接口：`GET /arap-doc/by-voucher?voucherId=...&voucherNumber=...`
+- 凭证侧回查来源接口：`GET /voucher/{fid}/arap-docs`

@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
+import single.cjj.fi.ar.entity.BizfiFiArapDoc;
+import single.cjj.fi.ar.service.BizfiFiArapDocService;
 import single.cjj.fi.gl.entity.BizfiFiVoucher;
 import single.cjj.fi.gl.entity.BizfiFiVoucherLine;
 import single.cjj.fi.gl.service.BizfiFiVoucherService;
@@ -21,6 +23,9 @@ public class BizfiFiVoucherController {
 
     @Autowired
     private BizfiFiVoucherService service;
+
+    @Autowired
+    private BizfiFiArapDocService arapDocService;
 
     /** 保存草稿 */
     @PostMapping("/save")
@@ -85,6 +90,16 @@ public class BizfiFiVoucherController {
     @GetMapping("/{fid}")
     public ApiResponse<BizfiFiVoucher> detail(@PathVariable("fid") Long fid) {
         return ApiResponse.success(service.get(fid));
+    }
+
+    /** 查询来源单据（AR/AP） */
+    @GetMapping("/{fid}/source-docs")
+    public ApiResponse<List<BizfiFiArapDoc>> sourceDocs(@PathVariable("fid") Long fid) {
+        BizfiFiVoucher voucher = service.get(fid);
+        if (voucher == null) {
+            return ApiResponse.success(java.util.Collections.emptyList());
+        }
+        return ApiResponse.success(arapDocService.listByVoucher(fid, voucher.getFnumber()));
     }
 
     /** 删除草稿 */

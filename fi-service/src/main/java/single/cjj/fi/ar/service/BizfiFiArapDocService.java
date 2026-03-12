@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import single.cjj.fi.ar.entity.BizfiFiArapDoc;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public interface BizfiFiArapDocService {
     BizfiFiArapDoc create(BizfiFiArapDoc doc);
@@ -18,4 +19,6 @@ public interface BizfiFiArapDocService {
                                BigDecimal minAmount, BigDecimal maxAmount);
 
     BizfiFiArapDoc generateVoucher(Long fid, String operator);
+
+    List<BizfiFiArapDoc> listByVoucher(Long voucherId, String voucherNumber);
 }
