@@ -23,6 +23,10 @@ public class BizfiFiCounterpartyCredit implements Serializable {
     private BigDecimal fcreditLimit;
     private Integer foverdueDaysThreshold;
     private Integer fenabled;
+    /** 1=命中超额度则提交/审核硬拦截 */
+    private Integer fblockOnOverLimit;
+    /** 1=命中超逾期则提交/审核硬拦截 */
+    private Integer fblockOnOverdue;
     private String fremark;
     private String fupdatedBy;
     private LocalDateTime fupdatedTime;

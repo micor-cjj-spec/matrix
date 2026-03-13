@@ -242,6 +242,8 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
             w.put("maxOverdueDays", maxOverdueDays);
             w.put("overLimit", overLimit);
             w.put("overdue", overdue);
+            w.put("blockOnOverLimit", conf.getFblockOnOverLimit());
+            w.put("blockOnOverdue", conf.getFblockOnOverdue());
             warnings.add(w);
         }
 
@@ -263,6 +265,12 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
         }
         if (config.getFenabled() == null) {
             config.setFenabled(1);
+        }
+        if (config.getFblockOnOverLimit() == null) {
+            config.setFblockOnOverLimit(0);
+        }
+        if (config.getFblockOnOverdue() == null) {
+            config.setFblockOnOverdue(0);
         }
 
         LambdaQueryWrapper<BizfiFiCounterpartyCredit> q = new LambdaQueryWrapper<>();
@@ -384,6 +392,7 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
 
     private BizfiFiArapDoc doSubmit(BizfiFiArapDoc db) {
         if (!DRAFT.equals(db.getFstatus()) && !REJECTED.equals(db.getFstatus())) throw new BizException("仅草稿/驳回可提交");
+        checkHardRiskBlock(db, "提交");
         db.setFstatus(SUBMITTED);
         mapper.updateById(db);
         return mapper.selectById(db.getFid());
@@ -391,6 +400,7 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
 
     private BizfiFiArapDoc doAudit(BizfiFiArapDoc db, String operator) {
         if (!SUBMITTED.equals(db.getFstatus())) throw new BizException("仅已提交可审核");
+        checkHardRiskBlock(db, "审核");
         db.setFstatus(AUDITED);
         db.setFauditedBy(StringUtils.hasText(operator) ? operator : "system");
         db.setFauditedTime(LocalDateTime.now());
@@ -406,6 +416,48 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
         db.setFauditedTime(LocalDateTime.now());
         mapper.updateById(db);
         return mapper.selectById(db.getFid());
+    }
+
+    private void checkHardRiskBlock(BizfiFiArapDoc doc, String actionName) {
+        if (doc == null || !StringUtils.hasText(doc.getFcounterparty()) || !StringUtils.hasText(doc.getFdoctype())) {
+            return;
+        }
+        String root = normalizeRoot(doc.getFdoctype().startsWith("AP") ? "AP" : "AR");
+        LambdaQueryWrapper<BizfiFiCounterpartyCredit> q = new LambdaQueryWrapper<>();
+        q.eq(BizfiFiCounterpartyCredit::getFdocTypeRoot, root)
+                .eq(BizfiFiCounterpartyCredit::getFcounterparty, doc.getFcounterparty())
+                .eq(BizfiFiCounterpartyCredit::getFenabled, 1)
+                .last("limit 1");
+        BizfiFiCounterpartyCredit conf = creditMapper.selectOne(q);
+        if (conf == null) {
+            return;
+        }
+
+        List<Map<String, Object>> warnings = creditWarnings(root, doc.getFdate() == null ? LocalDate.now() : doc.getFdate());
+        Map<String, Object> hit = warnings.stream()
+                .filter(w -> doc.getFcounterparty().equals(w.get("counterparty")))
+                .findFirst()
+                .orElse(null);
+        if (hit == null) {
+            return;
+        }
+
+        boolean overLimit = Boolean.TRUE.equals(hit.get("overLimit"));
+        boolean overdue = Boolean.TRUE.equals(hit.get("overdue"));
+        boolean blockOverLimit = Integer.valueOf(1).equals(conf.getFblockOnOverLimit());
+        boolean blockOverdue = Integer.valueOf(1).equals(conf.getFblockOnOverdue());
+
+        if ((overLimit && blockOverLimit) || (overdue && blockOverdue)) {
+            StringBuilder sb = new StringBuilder(actionName).append("已被信用规则拦截：");
+            if (overLimit && blockOverLimit) {
+                sb.append("超额度");
+            }
+            if (overdue && blockOverdue) {
+                if (sb.length() > 0) sb.append(" ");
+                sb.append("超逾期");
+            }
+            throw new BizException(sb.toString().trim());
+        }
     }
 
     private void validate(BizfiFiArapDoc doc) {
