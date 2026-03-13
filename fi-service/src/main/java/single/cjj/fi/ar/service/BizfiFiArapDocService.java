@@ -2,9 +2,12 @@ package single.cjj.fi.ar.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import single.cjj.fi.ar.entity.BizfiFiArapDoc;
+import single.cjj.fi.ar.entity.BizfiFiCounterpartyCredit;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 public interface BizfiFiArapDocService {
     BizfiFiArapDoc create(BizfiFiArapDoc doc);
@@ -26,4 +29,12 @@ public interface BizfiFiArapDocService {
     BizfiFiArapDoc generateVoucherByNumber(String number, String operator);
 
     List<BizfiFiArapDoc> listByVoucher(Long voucherId, String voucherNumber);
+
+    Map<String, Object> agingSummary(String docTypeRoot, LocalDate asOfDate);
+
+    List<Map<String, Object>> creditWarnings(String docTypeRoot, LocalDate asOfDate);
+
+    BizfiFiCounterpartyCredit saveCreditConfig(BizfiFiCounterpartyCredit config, String operator);
+
+    List<BizfiFiCounterpartyCredit> listCreditConfigs(String docTypeRoot);
 }

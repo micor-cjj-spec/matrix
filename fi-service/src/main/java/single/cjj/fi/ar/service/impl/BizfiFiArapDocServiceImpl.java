@@ -9,7 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import single.cjj.bizfi.exception.BizException;
 import single.cjj.fi.ar.entity.BizfiFiArapDoc;
+import single.cjj.fi.ar.entity.BizfiFiCounterpartyCredit;
 import single.cjj.fi.ar.mapper.BizfiFiArapDocMapper;
+import single.cjj.fi.ar.mapper.BizfiFiCounterpartyCreditMapper;
 import single.cjj.fi.ar.service.BizfiFiArapDocService;
 import single.cjj.fi.gl.entity.BizfiFiVoucher;
 import single.cjj.fi.gl.entity.BizfiFiVoucherLine;
@@ -19,9 +21,9 @@ import single.cjj.fi.gl.mapper.BizfiFiVoucherMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
@@ -46,6 +48,9 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
 
     @Autowired
     private BizfiFiArapDocMapper mapper;
+
+    @Autowired
+    private BizfiFiCounterpartyCreditMapper creditMapper;
 
     @Autowired
     private BizfiFiVoucherMapper voucherMapper;
@@ -153,6 +158,141 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
         }
         w.orderByDesc(BizfiFiArapDoc::getFid);
         return mapper.selectList(w);
+    }
+
+    @Override
+    public Map<String, Object> agingSummary(String docTypeRoot, LocalDate asOfDate) {
+        String root = normalizeRoot(docTypeRoot);
+        LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+        List<BizfiFiArapDoc> docs = listOpenDocs(root);
+
+        BigDecimal b0_30 = BigDecimal.ZERO;
+        BigDecimal b31_60 = BigDecimal.ZERO;
+        BigDecimal b61_90 = BigDecimal.ZERO;
+        BigDecimal b91Plus = BigDecimal.ZERO;
+
+        for (BizfiFiArapDoc d : docs) {
+            long days = Math.max(0, ChronoUnit.DAYS.between(d.getFdate(), date));
+            BigDecimal amt = nz(d.getFamount());
+            if (days <= 30) b0_30 = b0_30.add(amt);
+            else if (days <= 60) b31_60 = b31_60.add(amt);
+            else if (days <= 90) b61_90 = b61_90.add(amt);
+            else b91Plus = b91Plus.add(amt);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("docTypeRoot", root);
+        result.put("asOfDate", date);
+        result.put("docCount", docs.size());
+        result.put("totalAmount", b0_30.add(b31_60).add(b61_90).add(b91Plus));
+
+        List<Map<String, Object>> buckets = new ArrayList<>();
+        buckets.add(bucket("0-30", b0_30));
+        buckets.add(bucket("31-60", b31_60));
+        buckets.add(bucket("61-90", b61_90));
+        buckets.add(bucket("91+", b91Plus));
+        result.put("buckets", buckets);
+        return result;
+    }
+
+    @Override
+    public List<Map<String, Object>> creditWarnings(String docTypeRoot, LocalDate asOfDate) {
+        String root = normalizeRoot(docTypeRoot);
+        LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+        List<BizfiFiArapDoc> docs = listOpenDocs(root);
+
+        Map<String, List<BizfiFiArapDoc>> byCounterparty = docs.stream()
+                .collect(Collectors.groupingBy(BizfiFiArapDoc::getFcounterparty));
+
+        LambdaQueryWrapper<BizfiFiCounterpartyCredit> qw = new LambdaQueryWrapper<>();
+        qw.eq(BizfiFiCounterpartyCredit::getFdocTypeRoot, root)
+                .eq(BizfiFiCounterpartyCredit::getFenabled, 1);
+        List<BizfiFiCounterpartyCredit> configs = creditMapper.selectList(qw);
+        Map<String, BizfiFiCounterpartyCredit> configMap = configs.stream()
+                .collect(Collectors.toMap(BizfiFiCounterpartyCredit::getFcounterparty, c -> c, (a, b) -> a));
+
+        List<Map<String, Object>> warnings = new ArrayList<>();
+        for (Map.Entry<String, List<BizfiFiArapDoc>> e : byCounterparty.entrySet()) {
+            String counterparty = e.getKey();
+            BizfiFiCounterpartyCredit conf = configMap.get(counterparty);
+            if (conf == null) {
+                continue;
+            }
+            BigDecimal totalOutstanding = e.getValue().stream()
+                    .map(BizfiFiArapDoc::getFamount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            long maxOverdueDays = e.getValue().stream()
+                    .mapToLong(d -> Math.max(0, ChronoUnit.DAYS.between(d.getFdate(), date)))
+                    .max()
+                    .orElse(0);
+            boolean overLimit = conf.getFcreditLimit() != null && totalOutstanding.compareTo(conf.getFcreditLimit()) > 0;
+            int overdueThreshold = conf.getFoverdueDaysThreshold() == null ? 30 : conf.getFoverdueDaysThreshold();
+            boolean overdue = maxOverdueDays > overdueThreshold;
+            if (!overLimit && !overdue) {
+                continue;
+            }
+
+            Map<String, Object> w = new LinkedHashMap<>();
+            w.put("docTypeRoot", root);
+            w.put("counterparty", counterparty);
+            w.put("creditLimit", conf.getFcreditLimit());
+            w.put("overdueDaysThreshold", overdueThreshold);
+            w.put("totalOutstanding", totalOutstanding);
+            w.put("maxOverdueDays", maxOverdueDays);
+            w.put("overLimit", overLimit);
+            w.put("overdue", overdue);
+            warnings.add(w);
+        }
+
+        warnings.sort((a, b) -> ((BigDecimal) b.get("totalOutstanding")).compareTo((BigDecimal) a.get("totalOutstanding")));
+        return warnings;
+    }
+
+    @Override
+    public BizfiFiCounterpartyCredit saveCreditConfig(BizfiFiCounterpartyCredit config, String operator) {
+        if (config == null || !StringUtils.hasText(config.getFcounterparty())) {
+            throw new BizException("往来方不能为空");
+        }
+        String root = normalizeRoot(config.getFdocTypeRoot());
+        if (config.getFcreditLimit() == null || config.getFcreditLimit().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BizException("信用额度必须大于0");
+        }
+        if (config.getFoverdueDaysThreshold() == null || config.getFoverdueDaysThreshold() < 0) {
+            config.setFoverdueDaysThreshold(30);
+        }
+        if (config.getFenabled() == null) {
+            config.setFenabled(1);
+        }
+
+        LambdaQueryWrapper<BizfiFiCounterpartyCredit> q = new LambdaQueryWrapper<>();
+        q.eq(BizfiFiCounterpartyCredit::getFcounterparty, config.getFcounterparty().trim())
+                .eq(BizfiFiCounterpartyCredit::getFdocTypeRoot, root)
+                .last("limit 1");
+        BizfiFiCounterpartyCredit db = creditMapper.selectOne(q);
+
+        config.setFcounterparty(config.getFcounterparty().trim());
+        config.setFdocTypeRoot(root);
+        config.setFupdatedBy(StringUtils.hasText(operator) ? operator : "system");
+        config.setFupdatedTime(LocalDateTime.now());
+
+        if (db == null) {
+            creditMapper.insert(config);
+            return config;
+        }
+
+        config.setFid(db.getFid());
+        creditMapper.updateById(config);
+        return creditMapper.selectById(db.getFid());
+    }
+
+    @Override
+    public List<BizfiFiCounterpartyCredit> listCreditConfigs(String docTypeRoot) {
+        String root = normalizeRoot(docTypeRoot);
+        LambdaQueryWrapper<BizfiFiCounterpartyCredit> q = new LambdaQueryWrapper<>();
+        q.eq(BizfiFiCounterpartyCredit::getFdocTypeRoot, root)
+                .orderByAsc(BizfiFiCounterpartyCredit::getFcounterparty);
+        return creditMapper.selectList(q);
     }
 
     @Override
@@ -274,5 +414,33 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
         if (doc.getFdate() == null) doc.setFdate(LocalDate.now());
         if (doc.getFamount() == null || doc.getFamount().compareTo(BigDecimal.ZERO) <= 0) throw new BizException("金额必须大于0");
         if (!StringUtils.hasText(doc.getFcounterparty())) throw new BizException("往来方不能为空");
+    }
+
+    private String normalizeRoot(String docTypeRoot) {
+        String root = StringUtils.hasText(docTypeRoot) ? docTypeRoot.trim().toUpperCase() : "AR";
+        if (!"AR".equals(root) && !"AP".equals(root)) {
+            throw new BizException("docTypeRoot 仅支持 AR/AP");
+        }
+        return root;
+    }
+
+    private List<BizfiFiArapDoc> listOpenDocs(String docTypeRoot) {
+        LambdaQueryWrapper<BizfiFiArapDoc> q = new LambdaQueryWrapper<>();
+        q.likeRight(BizfiFiArapDoc::getFdoctype, docTypeRoot)
+                .in(BizfiFiArapDoc::getFstatus, Arrays.asList(SUBMITTED, AUDITED))
+                .orderByDesc(BizfiFiArapDoc::getFdate)
+                .orderByDesc(BizfiFiArapDoc::getFid);
+        return mapper.selectList(q);
+    }
+
+    private BigDecimal nz(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
+    }
+
+    private Map<String, Object> bucket(String range, BigDecimal amount) {
+        Map<String, Object> b = new LinkedHashMap<>();
+        b.put("range", range);
+        b.put("amount", amount);
+        return b;
     }
 }

@@ -5,10 +5,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.fi.ar.entity.BizfiFiArapDoc;
+import single.cjj.fi.ar.entity.BizfiFiCounterpartyCredit;
 import single.cjj.fi.ar.service.BizfiFiArapDocService;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/arap-doc")
@@ -87,5 +90,30 @@ public class BizfiFiArapDocController {
     public ApiResponse<List<BizfiFiArapDoc>> listByVoucher(@RequestParam(value = "voucherId", required = false) Long voucherId,
                                                             @RequestParam(value = "voucherNumber", required = false) String voucherNumber) {
         return ApiResponse.success(service.listByVoucher(voucherId, voucherNumber));
+    }
+
+    @GetMapping("/aging/summary")
+    public ApiResponse<Map<String, Object>> agingSummary(@RequestParam(value = "docTypeRoot", defaultValue = "AR") String docTypeRoot,
+                                                          @RequestParam(value = "asOfDate", required = false) String asOfDate) {
+        LocalDate d = asOfDate == null || asOfDate.trim().isEmpty() ? LocalDate.now() : LocalDate.parse(asOfDate);
+        return ApiResponse.success(service.agingSummary(docTypeRoot, d));
+    }
+
+    @GetMapping("/credit/warnings")
+    public ApiResponse<List<Map<String, Object>>> creditWarnings(@RequestParam(value = "docTypeRoot", defaultValue = "AR") String docTypeRoot,
+                                                                  @RequestParam(value = "asOfDate", required = false) String asOfDate) {
+        LocalDate d = asOfDate == null || asOfDate.trim().isEmpty() ? LocalDate.now() : LocalDate.parse(asOfDate);
+        return ApiResponse.success(service.creditWarnings(docTypeRoot, d));
+    }
+
+    @PostMapping("/credit/config")
+    public ApiResponse<BizfiFiCounterpartyCredit> saveCreditConfig(@RequestBody BizfiFiCounterpartyCredit config,
+                                                                    @RequestParam(value = "operator", required = false) String operator) {
+        return ApiResponse.success(service.saveCreditConfig(config, operator));
+    }
+
+    @GetMapping("/credit/config/list")
+    public ApiResponse<List<BizfiFiCounterpartyCredit>> listCreditConfig(@RequestParam(value = "docTypeRoot", defaultValue = "AR") String docTypeRoot) {
+        return ApiResponse.success(service.listCreditConfigs(docTypeRoot));
     }
 }

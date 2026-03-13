@@ -33,4 +33,5 @@
 - `gl/voucher-business.md`：总账-凭证业务路径（初版）
 - `gl/balance-business.md`：总账-余额表业务设计（初版）
 - `ar-ap/ar-ap-seven-docs-business.md`：应收应付七类单据业务设计（MVP）
+- `ar-ap/aging-credit-business.md`：应收应付账龄分析与信用控制（预警版）
 - `00-overview/code-doc-alignment-2026-03-12.md`：代码与业务文档对齐检查
