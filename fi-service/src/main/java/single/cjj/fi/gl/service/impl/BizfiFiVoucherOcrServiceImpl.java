@@ -14,6 +14,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,6 +22,20 @@ import java.util.regex.Pattern;
 public class BizfiFiVoucherOcrServiceImpl implements BizfiFiVoucherOcrService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final Map<String, String> COMMON_REPLACEMENTS = Map.ofEntries(
+            Map.entry("银行存炊", "银行存款"),
+            Map.entry("银行存歀", "银行存款"),
+            Map.entry("应收账教", "应收账款"),
+            Map.entry("盅收账款", "应收账款"),
+            Map.entry("支付B客户项目货数", "支付B客户项目货款"),
+            Map.entry("支付D客户项目货教", "支付D客户项目货款"),
+            Map.entry("制单", "制单"),
+            Map.entry("记涨", "记账"),
+            Map.entry("财务主餘", "财务主管")
+    );
+
+    private static final List<String> KNOWN_SUBJECTS = Arrays.asList("应收账款", "应付账款", "银行存款", "库存现金", "其他应收款", "其他应付款");
 
     @Override
     public Map<String, Object> parseFile(MultipartFile file) {
@@ -122,12 +137,21 @@ public class BizfiFiVoucherOcrServiceImpl implements BizfiFiVoucherOcrService {
 
     private String normalizeOcrText(String text) {
         if (text == null) return "";
-        return text
+        String normalized = text
                 .replace('　', ' ')
                 .replace("凭証", "凭证")
                 .replace("憑证", "凭证")
-                .replace("银行存歀", "银行存款")
-                .replace("明目科目", "明细科目");
+                .replace("明目科目", "明细科目")
+                .replace("\r", "\n");
+        for (Map.Entry<String, String> e : COMMON_REPLACEMENTS.entrySet()) {
+            normalized = normalized.replace(e.getKey(), e.getValue());
+        }
+        normalized = normalized.replaceAll("[ \t]+", " ");
+        normalized = Arrays.stream(normalized.split("\\n"))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.joining("\n"));
+        return normalized;
     }
 
     private void writeField(ByteArrayOutputStream out, String boundary, String name, String value) throws Exception {
@@ -157,14 +181,14 @@ public class BizfiFiVoucherOcrServiceImpl implements BizfiFiVoucherOcrService {
         String[] lines = text.split("\\r?\\n");
         for (String l : lines) {
             String s = l.trim();
-            if (s.contains("摘要") && s.length() > 2) {
-                return s.replace("摘要", "").replace(":", "").replace("：", "").trim();
+            if (s.startsWith("支付") && s.contains("项目")) {
+                return s.replaceAll("[0-9]+\\.[0-9]{1,2}.*$", "").trim();
             }
         }
         for (String l : lines) {
             String s = l.trim();
-            if (s.length() >= 4 && s.length() <= 40 && !s.contains("借") && !s.contains("贷")) {
-                return s;
+            if (s.contains("摘要") && s.length() > 2) {
+                return s.replace("摘要", "").replace(":", "").replace("：", "").trim();
             }
         }
         return "OCR导入凭证";
@@ -186,36 +210,79 @@ public class BizfiFiVoucherOcrServiceImpl implements BizfiFiVoucherOcrService {
     private List<Map<String, Object>> extractLines(String text, double amount, String summary) {
         List<Map<String, Object>> lines = new ArrayList<>();
         String[] arr = text.split("\\r?\\n");
-        Pattern accountPattern = Pattern.compile("\\b(\\d{3,6})\\b");
-        for (String line : arr) {
-            Matcher am = accountPattern.matcher(line);
+
+        // 优先按凭证模板行抽取：支付X客户项目货款 + 科目 + 金额
+        Pattern amountPattern = Pattern.compile("([0-9]+\\.[0-9]{1,2})");
+        for (String raw : arr) {
+            String line = raw.trim();
+            if (line.isEmpty()) continue;
+            if (!line.contains("支付") || !line.contains("项目")) continue;
+
+            Matcher am = amountPattern.matcher(line);
             if (!am.find()) continue;
-            String acc = am.group(1);
-            Matcher nm = Pattern.compile("([0-9]+\\.[0-9]{1,2})").matcher(line);
-            double val = 0;
-            while (nm.find()) {
-                try {
-                    val = Math.max(val, Double.parseDouble(nm.group(1)));
-                } catch (Exception ignore) {}
+            double val;
+            try {
+                val = Double.parseDouble(am.group(1));
+            } catch (Exception e) {
+                continue;
             }
-            if (val <= 0) continue;
-            boolean debit = line.contains("借");
+
+            String subject = KNOWN_SUBJECTS.stream().filter(line::contains).findFirst().orElse("应收账款");
+            String detail = extractCounterparty(line);
+            String rowSummary = line.replaceAll("[0-9]+\\.[0-9]{1,2}.*$", "").trim();
+            if (rowSummary.length() > 32) rowSummary = rowSummary.substring(0, 32);
+
             Map<String, Object> item = new HashMap<>();
-            item.put("faccountCode", acc);
-            item.put("fsummary", summary);
-            item.put("fdebitAmount", debit ? val : 0);
-            item.put("fcreditAmount", debit ? 0 : val);
+            item.put("faccountCode", inferAccountCode(subject));
+            item.put("fsummary", rowSummary.isEmpty() ? summary : rowSummary);
+            item.put("fdebitAmount", val);
+            item.put("fcreditAmount", 0);
+            item.put("faccountName", subject);
+            item.put("fdetailName", detail);
             lines.add(item);
+        }
+
+        // 没抽到模板行时，退化为数字行抽取
+        if (lines.isEmpty()) {
+            for (String line : arr) {
+                Matcher nm = amountPattern.matcher(line);
+                if (!nm.find()) continue;
+                double val;
+                try {
+                    val = Double.parseDouble(nm.group(1));
+                } catch (Exception e) {
+                    continue;
+                }
+                if (val <= 0) continue;
+                Map<String, Object> item = new HashMap<>();
+                item.put("faccountCode", "1122");
+                item.put("fsummary", summary);
+                item.put("fdebitAmount", val);
+                item.put("fcreditAmount", 0);
+                item.put("faccountName", "应收账款");
+                lines.add(item);
+            }
+        }
+
+        double debitTotal = lines.stream().mapToDouble(it -> ((Number) it.getOrDefault("fdebitAmount", 0)).doubleValue()).sum();
+        if (!lines.isEmpty()) {
+            Map<String, Object> credit = new HashMap<>();
+            credit.put("faccountCode", "1002");
+            credit.put("fsummary", summary);
+            credit.put("fdebitAmount", 0);
+            credit.put("fcreditAmount", round2(debitTotal > 0 ? debitTotal : amount));
+            credit.put("faccountName", "银行存款");
+            lines.add(credit);
         }
 
         if (lines.isEmpty()) {
             Map<String, Object> l1 = new HashMap<>();
-            l1.put("faccountCode", "1002");
+            l1.put("faccountCode", "1122");
             l1.put("fsummary", summary);
             l1.put("fdebitAmount", amount);
             l1.put("fcreditAmount", 0);
             Map<String, Object> l2 = new HashMap<>();
-            l2.put("faccountCode", "1001");
+            l2.put("faccountCode", "1002");
             l2.put("fsummary", summary);
             l2.put("fdebitAmount", 0);
             l2.put("fcreditAmount", amount);
@@ -223,5 +290,27 @@ public class BizfiFiVoucherOcrServiceImpl implements BizfiFiVoucherOcrService {
             lines.add(l2);
         }
         return lines;
+    }
+
+    private String extractCounterparty(String line) {
+        Matcher m = Pattern.compile("([A-Za-z])客户").matcher(line);
+        if (m.find()) {
+            return m.group(1).toUpperCase() + "客户";
+        }
+        return "";
+    }
+
+    private String inferAccountCode(String subject) {
+        if ("应收账款".equals(subject)) return "1122";
+        if ("应付账款".equals(subject)) return "2202";
+        if ("银行存款".equals(subject)) return "1002";
+        if ("库存现金".equals(subject)) return "1001";
+        if ("其他应收款".equals(subject)) return "1221";
+        if ("其他应付款".equals(subject)) return "2241";
+        return "1122";
+    }
+
+    private double round2(double v) {
+        return Math.round(v * 100.0d) / 100.0d;
     }
 }
