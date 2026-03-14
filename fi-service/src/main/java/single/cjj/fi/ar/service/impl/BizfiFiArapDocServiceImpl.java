@@ -449,12 +449,32 @@ public class BizfiFiArapDocServiceImpl implements BizfiFiArapDocService {
 
         if ((overLimit && blockOverLimit) || (overdue && blockOverdue)) {
             StringBuilder sb = new StringBuilder(actionName).append("已被信用规则拦截：");
+            boolean hasDetail = false;
             if (overLimit && blockOverLimit) {
-                sb.append("超额度");
+                BigDecimal limit = conf.getFcreditLimit() == null ? BigDecimal.ZERO : conf.getFcreditLimit();
+                BigDecimal current = hit.get("totalOutstanding") instanceof BigDecimal
+                        ? (BigDecimal) hit.get("totalOutstanding")
+                        : BigDecimal.ZERO;
+                sb.append("超额度(阈值:")
+                        .append(limit.stripTrailingZeros().toPlainString())
+                        .append("，当前:")
+                        .append(current.stripTrailingZeros().toPlainString())
+                        .append(")");
+                hasDetail = true;
             }
             if (overdue && blockOverdue) {
-                if (sb.length() > 0) sb.append(" ");
-                sb.append("超逾期");
+                int threshold = conf.getFoverdueDaysThreshold() == null ? 30 : conf.getFoverdueDaysThreshold();
+                long currentDays = hit.get("maxOverdueDays") instanceof Number
+                        ? ((Number) hit.get("maxOverdueDays")).longValue()
+                        : 0L;
+                if (hasDetail) {
+                    sb.append("；");
+                }
+                sb.append("超逾期(阈值:")
+                        .append(threshold)
+                        .append("天，当前:")
+                        .append(currentDays)
+                        .append("天)");
             }
             throw new BizException(sb.toString().trim());
         }
