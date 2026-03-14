@@ -31,31 +31,16 @@ public class BizfiFiVoucherOcrServiceImpl implements BizfiFiVoucherOcrService {
             String filename = Optional.ofNullable(file.getOriginalFilename()).orElse("voucher");
             String contentType = Optional.ofNullable(file.getContentType()).orElse("application/octet-stream");
 
-            String boundary = "----BizfiBoundary" + System.currentTimeMillis();
-            URL url = new URL("https://api.ocr.space/parse/image");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setDoOutput(true);
-            conn.setRequestProperty("apikey", "helloworld");
-            conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
-
-            ByteArrayOutputStream body = new ByteArrayOutputStream();
-            writeField(body, boundary, "language", "chs");
-            writeField(body, boundary, "isTable", "true");
-            writeFile(body, boundary, "file", filename, contentType, file.getBytes());
-            body.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-
-            conn.getOutputStream().write(body.toByteArray());
-            int code = conn.getResponseCode();
-            InputStream in = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
-            String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
-
-            JsonNode root = objectMapper.readTree(json);
-            String parsedText = "";
-            JsonNode parsedResults = root.path("ParsedResults");
-            if (parsedResults.isArray() && !parsedResults.isEmpty()) {
-                parsedText = parsedResults.get(0).path("ParsedText").asText("");
+            byte[] bytes = file.getBytes();
+            String parsedText = requestOcr(filename, contentType, bytes, true);
+            // 表格模式下中文质量不佳时，自动降级重试一次（非表格模式）
+            if (isLikelyGarbled(parsedText)) {
+                String retry = requestOcr(filename, contentType, bytes, false);
+                if (!isLikelyGarbled(retry) || retry.length() > parsedText.length()) {
+                    parsedText = retry;
+                }
             }
+            parsedText = normalizeOcrText(parsedText);
 
             Map<String, Object> voucher = new HashMap<>();
             voucher.put("fdate", extractDate(parsedText));
@@ -69,13 +54,80 @@ public class BizfiFiVoucherOcrServiceImpl implements BizfiFiVoucherOcrService {
             result.put("voucher", voucher);
             result.put("lines", lines);
             result.put("engine", "ocr.space-demo");
-            result.put("warning", "当前为OCR初版，分录请人工核对后导入");
+            result.put("warning", "已启用中文增强识别与乱码重试，分录请人工核对后导入");
             return result;
         } catch (BizException e) {
             throw e;
         } catch (Exception e) {
             throw new BizException("OCR解析失败: " + e.getMessage());
         }
+    }
+
+    private String requestOcr(String filename, String contentType, byte[] bytes, boolean isTable) throws Exception {
+        String boundary = "----BizfiBoundary" + System.currentTimeMillis();
+        URL url = new URL("https://api.ocr.space/parse/image");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setConnectTimeout(15000);
+        conn.setReadTimeout(30000);
+        conn.setRequestProperty("apikey", "helloworld");
+        conn.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        writeField(body, boundary, "language", "chs");
+        writeField(body, boundary, "isTable", String.valueOf(isTable));
+        writeField(body, boundary, "scale", "true");
+        writeField(body, boundary, "detectOrientation", "true");
+        writeField(body, boundary, "OCREngine", "2");
+        writeFile(body, boundary, "file", filename, contentType, bytes);
+        body.write(("--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+
+        conn.getOutputStream().write(body.toByteArray());
+        int code = conn.getResponseCode();
+        InputStream in = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
+        String json = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+
+        JsonNode root = objectMapper.readTree(json);
+        JsonNode parsedResults = root.path("ParsedResults");
+        if (parsedResults.isArray() && !parsedResults.isEmpty()) {
+            return parsedResults.get(0).path("ParsedText").asText("");
+        }
+        return "";
+    }
+
+    private boolean isLikelyGarbled(String text) {
+        if (text == null || text.isBlank()) return true;
+        int total = 0;
+        int chinese = 0;
+        int weird = 0;
+        for (char c : text.toCharArray()) {
+            if (Character.isWhitespace(c)) continue;
+            total++;
+            Character.UnicodeBlock ub = Character.UnicodeBlock.of(c);
+            if (ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS
+                    || ub == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A
+                    || ub == Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS) {
+                chinese++;
+            } else if (!Character.isLetterOrDigit(c)
+                    && "，。；：、？！￥¥.-_/()（）[]【】+*\"'".indexOf(c) < 0) {
+                weird++;
+            }
+        }
+        if (total == 0) return true;
+        double chineseRate = chinese * 1.0 / total;
+        double weirdRate = weird * 1.0 / total;
+        return chineseRate < 0.08 || weirdRate > 0.22;
+    }
+
+    private String normalizeOcrText(String text) {
+        if (text == null) return "";
+        return text
+                .replace('　', ' ')
+                .replace("凭証", "凭证")
+                .replace("憑证", "凭证")
+                .replace("银行存歀", "银行存款")
+                .replace("明目科目", "明细科目");
     }
 
     private void writeField(ByteArrayOutputStream out, String boundary, String name, String value) throws Exception {
