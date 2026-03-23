@@ -1,8 +1,15 @@
 package single.cjj.bizfi.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -12,6 +19,18 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AiAssistantController {
 
     private static final Map<String, Conversation> CONVERSATIONS = new ConcurrentHashMap<>();
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+
+    @Value("${AI_API_KEY:}")
+    private String aiApiKey;
+
+    @Value("${AI_BASE_URL:https://api.openai.com/v1}")
+    private String aiBaseUrl;
+
+    @Value("${AI_CHAT_MODEL:gpt-4o-mini}")
+    private String aiChatModel;
 
     @PostMapping("/conversations")
     public ApiResponse<Map<String, Object>> createConversation(@RequestBody(required = false) CreateConversationRequest req) {
@@ -51,6 +70,16 @@ public class AiAssistantController {
         return ApiResponse.success(data);
     }
 
+    @GetMapping("/config/status")
+    public ApiResponse<Map<String, Object>> configStatus() {
+        Map<String, Object> data = new HashMap<>();
+        data.put("configured", isRealAiConfigured());
+        data.put("baseUrl", aiBaseUrl);
+        data.put("model", aiChatModel);
+        data.put("mode", isRealAiConfigured() ? "real-model" : "fallback");
+        return ApiResponse.success(data);
+    }
+
     @PostMapping("/chat")
     public ApiResponse<Map<String, Object>> chat(@RequestBody ChatRequest req) {
         if (req == null || req.getUserMessage() == null || req.getUserMessage().isBlank()) {
@@ -79,7 +108,20 @@ public class AiAssistantController {
         userMsg.setContent(req.getUserMessage());
         conversation.getMessages().add(userMsg);
 
-        String answer = buildAnswer(req.getUserMessage());
+        String answer;
+        String mode;
+        try {
+            if (isRealAiConfigured()) {
+                answer = callRealModel(req.getUserMessage());
+                mode = "real-model";
+            } else {
+                answer = buildFallbackAnswer(req.getUserMessage());
+                mode = "fallback";
+            }
+        } catch (Exception e) {
+            answer = "AI 服务调用失败：" + (e.getMessage() == null ? "unknown error" : e.getMessage());
+            mode = "error-fallback";
+        }
 
         Message assistantMsg = new Message();
         assistantMsg.setRole("assistant");
@@ -96,7 +138,7 @@ public class AiAssistantController {
         citation.put("docId", "demo_doc");
         citation.put("docName", "AI助手演示知识库");
         citation.put("chunkId", "demo_chunk_001");
-        citation.put("snippet", "当前为占位实现：后续接入真实 RAG 检索与引用。");
+        citation.put("snippet", "当前为演示实现：后续可接入真实 RAG 检索与引用。");
 
         Map<String, Object> data = new HashMap<>();
         data.put("conversationId", conversationId);
@@ -104,6 +146,7 @@ public class AiAssistantController {
         data.put("citations", Collections.singletonList(citation));
         data.put("usage", usage);
         data.put("traceId", "trace_" + System.currentTimeMillis());
+        data.put("mode", mode);
         return ApiResponse.success(data);
     }
 
@@ -112,14 +155,52 @@ public class AiAssistantController {
         return ApiResponse.success(true);
     }
 
-    private String buildAnswer(String userMessage) {
+    private boolean isRealAiConfigured() {
+        return aiApiKey != null && !aiApiKey.isBlank();
+    }
+
+    private String callRealModel(String userMessage) throws Exception {
+        String endpoint = aiBaseUrl.endsWith("/") ? aiBaseUrl + "chat/completions" : aiBaseUrl + "/chat/completions";
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("model", aiChatModel);
+
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "system", "content", "你是企业财务系统AI助手，请给出简洁、可执行的中文建议。"));
+        messages.add(Map.of("role", "user", "content", userMessage));
+        body.put("messages", messages);
+        body.put("temperature", 0.3);
+
+        String json = objectMapper.writeValueAsString(body);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(endpoint))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + aiApiKey)
+                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new RuntimeException("HTTP " + response.statusCode());
+        }
+
+        JsonNode root = objectMapper.readTree(response.body());
+        JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
+        if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
+            throw new RuntimeException("模型返回为空");
+        }
+        return contentNode.asText();
+    }
+
+    private String buildFallbackAnswer(String userMessage) {
         if (userMessage.contains("应付") || userMessage.contains("报销")) {
             return "建议先按‘单据状态 + 时间范围 + 组织’三维筛查，再定位异常明细。你也可以在完整版里继续追问，我会按步骤拆解。";
         }
         if (userMessage.contains("总账") || userMessage.contains("凭证")) {
             return "先核对期间、账簿与科目范围，再做余额与发生额勾稽。若有差异，优先检查凭证来源与过账状态。";
         }
-        return "收到。当前已打通 AI 对话接口骨架，下一步可接入真实大模型与知识库检索，实现可引用来源的业务问答。";
+        return "当前未配置 AI_API_KEY，正在使用本地占位回复。配置后将自动切换到真实大模型。";
     }
 
     public static class CreateConversationRequest {
