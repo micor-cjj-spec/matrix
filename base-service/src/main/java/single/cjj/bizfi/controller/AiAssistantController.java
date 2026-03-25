@@ -112,7 +112,7 @@ public class AiAssistantController {
         String mode;
         try {
             if (isRealAiConfigured()) {
-                answer = callRealModel(req.getUserMessage());
+                answer = callRealModel(conversation, req.getUserMessage());
                 mode = "real-model";
             } else {
                 answer = buildFallbackAnswer(req.getUserMessage());
@@ -159,15 +159,29 @@ public class AiAssistantController {
         return aiApiKey != null && !aiApiKey.isBlank();
     }
 
-    private String callRealModel(String userMessage) throws Exception {
+    private String callRealModel(Conversation conversation, String userMessage) throws Exception {
         String endpoint = aiBaseUrl.endsWith("/") ? aiBaseUrl + "chat/completions" : aiBaseUrl + "/chat/completions";
 
         Map<String, Object> body = new HashMap<>();
         body.put("model", aiChatModel);
 
         List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", "你是企业财务系统AI助手，请给出简洁、可执行的中文建议。"));
-        messages.add(Map.of("role", "user", "content", userMessage));
+        messages.add(Map.of("role", "system", "content", "你是企业财务系统AI助手，请给出简洁、可执行的中文建议。优先结合上下文连续回答，避免重复寒暄。"));
+        if (conversation != null && conversation.getMessages() != null) {
+            int start = Math.max(0, conversation.getMessages().size() - 12);
+            for (int i = start; i < conversation.getMessages().size(); i++) {
+                Message msg = conversation.getMessages().get(i);
+                if (msg == null || msg.getRole() == null || msg.getContent() == null || msg.getContent().isBlank()) {
+                    continue;
+                }
+                if (!"user".equals(msg.getRole()) && !"assistant".equals(msg.getRole()) && !"system".equals(msg.getRole())) {
+                    continue;
+                }
+                messages.add(Map.of("role", msg.getRole(), "content", msg.getContent()));
+            }
+        } else {
+            messages.add(Map.of("role", "user", "content", userMessage));
+        }
         body.put("messages", messages);
         body.put("temperature", 0.3);
 
