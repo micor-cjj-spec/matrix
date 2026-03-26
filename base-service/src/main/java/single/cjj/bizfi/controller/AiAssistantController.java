@@ -6,10 +6,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
 
+import java.net.InetSocketAddress;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,7 +24,7 @@ public class AiAssistantController {
     private static final Map<String, Conversation> CONVERSATIONS = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final HttpClient httpClient = buildHttpClient();
 
     @Value("${AI_API_KEY:}")
     private String aiApiKey;
@@ -29,7 +32,7 @@ public class AiAssistantController {
     @Value("${AI_BASE_URL:https://api.openai.com/v1}")
     private String aiBaseUrl;
 
-    @Value("${AI_CHAT_MODEL:gpt-4o-mini}")
+    @Value("${AI_CHAT_MODEL:gemini-3-flash-preview}")
     private String aiChatModel;
 
     @PostMapping("/conversations")
@@ -77,6 +80,9 @@ public class AiAssistantController {
         data.put("baseUrl", aiBaseUrl);
         data.put("model", aiChatModel);
         data.put("mode", isRealAiConfigured() ? "real-model" : "fallback");
+        data.put("keyPrefix", maskPrefix(aiApiKey));
+        data.put("keySuffix", maskSuffix(aiApiKey));
+        data.put("endpoint", buildEndpoint());
         return ApiResponse.success(data);
     }
 
@@ -119,7 +125,11 @@ public class AiAssistantController {
                 mode = "fallback";
             }
         } catch (Exception e) {
-            answer = "AI 服务调用失败：" + (e.getMessage() == null ? "unknown error" : e.getMessage());
+            String msg = e.getMessage() == null ? "unknown error" : e.getMessage();
+            if (msg.length() > 500) {
+                msg = msg.substring(0, 500);
+            }
+            answer = "AI 服务调用失败：" + msg;
             mode = "error-fallback";
         }
 
@@ -159,36 +169,70 @@ public class AiAssistantController {
         return aiApiKey != null && !aiApiKey.isBlank();
     }
 
+    private boolean isGeminiNativeBaseUrl() {
+        return aiBaseUrl != null
+                && aiBaseUrl.contains("generativelanguage.googleapis.com")
+                && !aiBaseUrl.contains("/openai");
+    }
+
+    private String buildEndpoint() {
+        if (isGeminiNativeBaseUrl()) {
+            return aiBaseUrl.endsWith("/") ? aiBaseUrl + "models/" + aiChatModel + ":generateContent?key=" + aiApiKey
+                    : aiBaseUrl + "/models/" + aiChatModel + ":generateContent?key=" + aiApiKey;
+        }
+        return aiBaseUrl.endsWith("/") ? aiBaseUrl + "chat/completions" : aiBaseUrl + "/chat/completions";
+    }
+
+    private String maskPrefix(String value) {
+        if (value == null || value.isBlank()) return "";
+        return value.substring(0, Math.min(8, value.length()));
+    }
+
+    private String maskSuffix(String value) {
+        if (value == null || value.isBlank()) return "";
+        return value.substring(Math.max(0, value.length() - 4));
+    }
+
+    private HttpClient buildHttpClient() {
+        HttpClient.Builder builder = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10));
+
+        String httpsProxy = System.getenv("HTTPS_PROXY");
+        String httpProxy = System.getenv("HTTP_PROXY");
+        String proxy = (httpsProxy != null && !httpsProxy.isBlank()) ? httpsProxy : httpProxy;
+        if (proxy != null && !proxy.isBlank()) {
+            try {
+                URI proxyUri = URI.create(proxy);
+                String host = proxyUri.getHost();
+                int port = proxyUri.getPort();
+                if (host != null && port > 0) {
+                    builder.proxy(ProxySelector.of(new InetSocketAddress(host, port)));
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return builder.build();
+    }
+
     private String callRealModel(Conversation conversation, String userMessage) throws Exception {
-        String endpoint = aiBaseUrl.endsWith("/") ? aiBaseUrl + "chat/completions" : aiBaseUrl + "/chat/completions";
+        if (isGeminiNativeBaseUrl()) {
+            return callGeminiNativeModel(userMessage);
+        }
+
+        String endpoint = buildEndpoint();
 
         Map<String, Object> body = new HashMap<>();
         body.put("model", aiChatModel);
 
         List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", "你是企业财务系统AI助手，请给出简洁、可执行的中文建议。优先结合上下文连续回答，避免重复寒暄。"));
-        if (conversation != null && conversation.getMessages() != null) {
-            int start = Math.max(0, conversation.getMessages().size() - 12);
-            for (int i = start; i < conversation.getMessages().size(); i++) {
-                Message msg = conversation.getMessages().get(i);
-                if (msg == null || msg.getRole() == null || msg.getContent() == null || msg.getContent().isBlank()) {
-                    continue;
-                }
-                if (!"user".equals(msg.getRole()) && !"assistant".equals(msg.getRole()) && !"system".equals(msg.getRole())) {
-                    continue;
-                }
-                messages.add(Map.of("role", msg.getRole(), "content", msg.getContent()));
-            }
-        } else {
-            messages.add(Map.of("role", "user", "content", userMessage));
-        }
+        messages.add(Map.of("role", "user", "content", userMessage));
         body.put("messages", messages);
-        body.put("temperature", 0.3);
 
         String json = objectMapper.writeValueAsString(body);
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(endpoint))
+                .timeout(Duration.ofSeconds(25))
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + aiApiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(json))
@@ -196,15 +240,76 @@ public class AiAssistantController {
 
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw new RuntimeException("HTTP " + response.statusCode());
+            throw new RuntimeException("HTTP " + response.statusCode() + ": " + response.body());
         }
 
         JsonNode root = objectMapper.readTree(response.body());
         JsonNode contentNode = root.path("choices").path(0).path("message").path("content");
-        if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {
-            throw new RuntimeException("模型返回为空");
+        String content = extractAssistantContent(contentNode);
+        if (content.isBlank()) {
+            throw new RuntimeException("模型返回为空: " + response.body());
         }
-        return contentNode.asText();
+        return content;
+    }
+
+    private String callGeminiNativeModel(String userMessage) throws Exception {
+        String endpoint = buildEndpoint();
+
+        Map<String, Object> textPart = new HashMap<>();
+        textPart.put("text", userMessage);
+        Map<String, Object> content = new HashMap<>();
+        content.put("parts", Collections.singletonList(textPart));
+        Map<String, Object> body = new HashMap<>();
+        body.put("contents", Collections.singletonList(content));
+
+        String json = objectMapper.writeValueAsString(body);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(endpoint))
+                .timeout(Duration.ofSeconds(25))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new RuntimeException("HTTP " + response.statusCode() + ": " + response.body());
+        }
+
+        JsonNode root = objectMapper.readTree(response.body());
+        JsonNode textNode = root.path("candidates").path(0).path("content").path("parts").path(0).path("text");
+        String contentText = textNode.asText("").trim();
+        if (contentText.isBlank()) {
+            throw new RuntimeException("模型返回为空: " + response.body());
+        }
+        return contentText;
+    }
+
+    private String extractAssistantContent(JsonNode contentNode) {
+        if (contentNode == null || contentNode.isMissingNode() || contentNode.isNull()) {
+            return "";
+        }
+        if (contentNode.isTextual()) {
+            return contentNode.asText("").trim();
+        }
+        if (contentNode.isArray()) {
+            StringBuilder sb = new StringBuilder();
+            for (JsonNode item : contentNode) {
+                if (item == null || item.isNull()) {
+                    continue;
+                }
+                if (item.isTextual()) {
+                    sb.append(item.asText(""));
+                    continue;
+                }
+                JsonNode textNode = item.path("text");
+                if (textNode.isTextual()) {
+                    if (sb.length() > 0) sb.append("\n");
+                    sb.append(textNode.asText(""));
+                }
+            }
+            return sb.toString().trim();
+        }
+        return contentNode.asText("").trim();
     }
 
     private String buildFallbackAnswer(String userMessage) {
