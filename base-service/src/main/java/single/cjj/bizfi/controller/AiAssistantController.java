@@ -125,7 +125,14 @@ public class AiAssistantController {
                 mode = "fallback";
             }
         } catch (Exception e) {
-            String msg = e.getMessage() == null ? "unknown error" : e.getMessage();
+            e.printStackTrace();
+            String msg = e.getMessage();
+            if ((msg == null || msg.isBlank()) && e.getCause() != null) {
+                msg = e.getCause().getMessage();
+            }
+            if ((msg == null || msg.isBlank()) && e.getClass() != null) {
+                msg = e.getClass().getName();
+            }
             if (msg.length() > 500) {
                 msg = msg.substring(0, 500);
             }
@@ -216,7 +223,7 @@ public class AiAssistantController {
 
     private String callRealModel(Conversation conversation, String userMessage) throws Exception {
         if (isGeminiNativeBaseUrl()) {
-            return callGeminiNativeModel(userMessage);
+            return callGeminiNativeModel(conversation, userMessage);
         }
 
         String endpoint = buildEndpoint();
@@ -225,7 +232,15 @@ public class AiAssistantController {
         body.put("model", aiChatModel);
 
         List<Map<String, String>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "user", "content", userMessage));
+        for (Message item : conversation.getMessages()) {
+            if (item == null || item.getRole() == null || item.getContent() == null || item.getContent().isBlank()) {
+                continue;
+            }
+            messages.add(Map.of("role", item.getRole(), "content", item.getContent()));
+        }
+        if (messages.isEmpty()) {
+            messages.add(Map.of("role", "user", "content", userMessage));
+        }
         body.put("messages", messages);
 
         String json = objectMapper.writeValueAsString(body);
@@ -252,15 +267,31 @@ public class AiAssistantController {
         return content;
     }
 
-    private String callGeminiNativeModel(String userMessage) throws Exception {
+    private String callGeminiNativeModel(Conversation conversation, String userMessage) throws Exception {
         String endpoint = buildEndpoint();
 
-        Map<String, Object> textPart = new HashMap<>();
-        textPart.put("text", userMessage);
-        Map<String, Object> content = new HashMap<>();
-        content.put("parts", Collections.singletonList(textPart));
+        List<Map<String, Object>> contents = new ArrayList<>();
+        for (Message item : conversation.getMessages()) {
+            if (item == null || item.getRole() == null || item.getContent() == null || item.getContent().isBlank()) {
+                continue;
+            }
+            Map<String, Object> textPart = new HashMap<>();
+            textPart.put("text", item.getContent());
+            Map<String, Object> content = new HashMap<>();
+            content.put("role", "assistant".equals(item.getRole()) ? "model" : "user");
+            content.put("parts", Collections.singletonList(textPart));
+            contents.add(content);
+        }
+        if (contents.isEmpty()) {
+            Map<String, Object> textPart = new HashMap<>();
+            textPart.put("text", userMessage);
+            Map<String, Object> content = new HashMap<>();
+            content.put("role", "user");
+            content.put("parts", Collections.singletonList(textPart));
+            contents.add(content);
+        }
         Map<String, Object> body = new HashMap<>();
-        body.put("contents", Collections.singletonList(content));
+        body.put("contents", contents);
 
         String json = objectMapper.writeValueAsString(body);
         HttpRequest request = HttpRequest.newBuilder()

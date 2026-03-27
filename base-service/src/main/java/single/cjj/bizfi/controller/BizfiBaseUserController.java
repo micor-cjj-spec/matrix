@@ -1,6 +1,7 @@
 package single.cjj.bizfi.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
@@ -19,6 +20,7 @@ import java.util.Map;
  * @author micor
  * @since 2025-06-04
  */
+@Slf4j
 @RestController
 @RequestMapping("/user")
 public class BizfiBaseUserController {
@@ -26,8 +28,15 @@ public class BizfiBaseUserController {
     private BizfiBaseUserService baseUserService;
     @GetMapping("/account/{account}")
     public ApiResponse<BizfiBaseUser> getByAccount(@PathVariable("account") String account) {
-        BizfiBaseUser userByAccount = baseUserService.getUserByAccount(account);
-        return ApiResponse.success(userByAccount);
+        long start = System.currentTimeMillis();
+        try {
+            BizfiBaseUser userByAccount = baseUserService.getUserByAccount(account);
+            log.info("getByAccount success, account={}, found={}, costMs={}", account, userByAccount != null, System.currentTimeMillis() - start);
+            return ApiResponse.success(userByAccount);
+        } catch (Exception e) {
+            log.error("getByAccount failed, account={}, costMs={}", account, System.currentTimeMillis() - start, e);
+            return ApiResponse.error("查询用户失败: " + e.getMessage());
+        }
     }
 
     // 新增
