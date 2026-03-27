@@ -32,6 +32,7 @@ public class BizfiFiGlEntry implements Serializable {
     private String fsummary;
     private BigDecimal fdebitAmount;
     private BigDecimal fcreditAmount;
+    private String fcashflowItem;
     private LocalDateTime fpostedTime;
     private String fpostedBy;
 }

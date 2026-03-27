@@ -48,4 +48,7 @@ public class BizfiFiVoucherLine implements Serializable {
 
     /** 原币金额 */
     private BigDecimal foriginalAmount;
+
+    /** 现金流项目编码 */
+    private String fcashflowItem;
 }

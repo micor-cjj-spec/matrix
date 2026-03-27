@@ -149,6 +149,7 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             entry.setFsummary(StringUtils.hasText(line.getFsummary()) ? line.getFsummary() : db.getFsummary());
             entry.setFdebitAmount(normalizeBaseAmount(line.getFdebitAmount()));
             entry.setFcreditAmount(normalizeBaseAmount(line.getFcreditAmount()));
+            entry.setFcashflowItem(StringUtils.hasText(line.getFcashflowItem()) ? line.getFcashflowItem().trim() : null);
             entry.setFpostedBy(postedBy);
             entry.setFpostedTime(now);
             glEntryMapper.insert(entry);
@@ -244,6 +245,7 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             reverseLine.setFcurrency(line.getFcurrency());
             reverseLine.setFrate(line.getFrate());
             reverseLine.setForiginalAmount(line.getForiginalAmount());
+            reverseLine.setFcashflowItem(line.getFcashflowItem());
             lineMapper.insert(reverseLine);
 
             BizfiFiGlEntry entry = new BizfiFiGlEntry();
@@ -255,6 +257,7 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             entry.setFsummary(reverseLine.getFsummary());
             entry.setFdebitAmount(normalizeBaseAmount(reverseLine.getFdebitAmount()));
             entry.setFcreditAmount(normalizeBaseAmount(reverseLine.getFcreditAmount()));
+            entry.setFcashflowItem(reverseLine.getFcashflowItem());
             entry.setFpostedBy(op);
             entry.setFpostedTime(now);
             glEntryMapper.insert(entry);
@@ -345,6 +348,7 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             line.setFcreditAmount(credit);
             line.setFrate(normalizeRate(line.getFrate()));
             line.setForiginalAmount(normalizeOriginalAmount(line.getForiginalAmount(), line.getFcurrency()));
+            line.setFcashflowItem(StringUtils.hasText(line.getFcashflowItem()) ? line.getFcashflowItem().trim() : null);
             line.setFid(null);
             line.setFvoucherId(voucherId);
             line.setFlineNo(line.getFlineNo() == null ? idx : line.getFlineNo());
