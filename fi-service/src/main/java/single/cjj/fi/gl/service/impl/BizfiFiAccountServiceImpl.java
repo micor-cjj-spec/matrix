@@ -55,7 +55,19 @@ public class BizfiFiAccountServiceImpl extends ServiceImpl<BizfiFiAccountMapper,
             if (StringUtils.hasText((String) query.get("fname"))) {
                 wrapper.like(BizfiFiAccount::getFname, query.get("fname"));
             }
+            if (query.get("forg") instanceof Long forg) {
+                wrapper.eq(BizfiFiAccount::getForg, forg);
+            } else if (query.get("forg") instanceof Number number) {
+                wrapper.eq(BizfiFiAccount::getForg, number.longValue());
+            }
+            if (StringUtils.hasText((String) query.get("ftype"))) {
+                wrapper.eq(BizfiFiAccount::getFtype, query.get("ftype"));
+            }
+            if (StringUtils.hasText((String) query.get("fpltype"))) {
+                wrapper.eq(BizfiFiAccount::getFpltype, query.get("fpltype"));
+            }
         }
+        wrapper.orderByAsc(BizfiFiAccount::getFcode);
         Page<BizfiFiAccount> pageObj = new Page<>(page, size);
         return mapper.selectPage(pageObj, wrapper);
     }

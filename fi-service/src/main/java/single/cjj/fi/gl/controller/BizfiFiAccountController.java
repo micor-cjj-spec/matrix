@@ -50,11 +50,17 @@ public class BizfiFiAccountController {
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "10") int size,
             @RequestParam(value = "fcode", required = false) String fcode,
-            @RequestParam(value = "fname", required = false) String fname
+            @RequestParam(value = "fname", required = false) String fname,
+            @RequestParam(value = "forg", required = false) Long forg,
+            @RequestParam(value = "ftype", required = false) String ftype,
+            @RequestParam(value = "fpltype", required = false) String fpltype
     ) {
         Map<String, Object> query = new HashMap<>();
         query.put("fcode", fcode);
         query.put("fname", fname);
+        query.put("forg", forg);
+        query.put("ftype", ftype);
+        query.put("fpltype", fpltype);
         return ApiResponse.success(service.list(page, size, query));
     }
 }
