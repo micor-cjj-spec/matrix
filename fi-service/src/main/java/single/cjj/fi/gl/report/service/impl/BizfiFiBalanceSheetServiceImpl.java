@@ -353,15 +353,16 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
     }
 
     private Map<String, List<BizfiFiGlEntry>> loadEntriesByCode(Set<String> accountCodes, LocalDate endDate) {
-        if (accountCodes.isEmpty()) {
+        if (endDate == null) {
             return Collections.emptyMap();
         }
         List<BizfiFiGlEntry> entries = glEntryMapper.selectList(new LambdaQueryWrapper<BizfiFiGlEntry>()
-                .in(BizfiFiGlEntry::getFaccountCode, accountCodes)
                 .le(BizfiFiGlEntry::getFvoucherDate, endDate)
                 .orderByAsc(BizfiFiGlEntry::getFvoucherDate)
                 .orderByAsc(BizfiFiGlEntry::getFid));
-        return entries.stream().collect(Collectors.groupingBy(BizfiFiGlEntry::getFaccountCode));
+        return entries.stream()
+                .filter(entry -> StringUtils.hasText(entry.getFaccountCode()))
+                .collect(Collectors.groupingBy(BizfiFiGlEntry::getFaccountCode));
     }
 
     private Map<Long, Long> loadExplicitMapping(Long templateId) {
