@@ -164,6 +164,44 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
             mappingStats.merge(mapping.getSource(), 1, Integer::sum);
         }
 
+        Set<String> knownAccountCodes = accounts.stream()
+                .map(BizfiFiAccount::getFcode)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.toSet());
+        for (Map.Entry<String, List<BizfiFiGlEntry>> entry : entriesByCode.entrySet()) {
+            String accountCode = entry.getKey();
+            if (!StringUtils.hasText(accountCode) || knownAccountCodes.contains(accountCode)) {
+                continue;
+            }
+            BalanceSheetMapping mapping = resolveCodeOnlyMapping(accountCode, itemByCode);
+            if (mapping.getItemId() == null) {
+                unmappedAccounts.add(accountCode + "-MISSING_ACCOUNT_MASTER");
+                continue;
+            }
+            BigDecimal beginDebit = BigDecimal.ZERO;
+            BigDecimal beginCredit = BigDecimal.ZERO;
+            BigDecimal endDebit = BigDecimal.ZERO;
+            BigDecimal endCredit = BigDecimal.ZERO;
+            for (BizfiFiGlEntry glEntry : entry.getValue()) {
+                LocalDate voucherDate = glEntry.getFvoucherDate();
+                if (voucherDate != null && voucherDate.isBefore(yearStart)) {
+                    beginDebit = beginDebit.add(safe(glEntry.getFdebitAmount()));
+                    beginCredit = beginCredit.add(safe(glEntry.getFcreditAmount()));
+                }
+                endDebit = endDebit.add(safe(glEntry.getFdebitAmount()));
+                endCredit = endCredit.add(safe(glEntry.getFcreditAmount()));
+            }
+            boolean debitDirection = isDebitDirectionByCode(accountCode);
+            BigDecimal beginBalance = calculateNormalBalance(beginDebit, beginCredit, debitDirection);
+            BigDecimal endBalance = calculateNormalBalance(endDebit, endCredit, debitDirection);
+            if (beginBalance.compareTo(BigDecimal.ZERO) == 0 && endBalance.compareTo(BigDecimal.ZERO) == 0) {
+                continue;
+            }
+            directBeginAmount.merge(mapping.getItemId(), beginBalance, BigDecimal::add);
+            directEndAmount.merge(mapping.getItemId(), endBalance, BigDecimal::add);
+            mappingStats.merge(mapping.getSource(), 1, Integer::sum);
+        }
+
         if (!unmappedAccounts.isEmpty()) {
             result.getWarnings().add("Unmapped balance-sheet accounts: " + String.join(", ", unmappedAccounts.stream().limit(8).toList()));
         }
@@ -607,6 +645,33 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
 
     private boolean isCashLike(BizfiFiAccount account) {
         return isTrue(account.getFcash()) || isTrue(account.getFbank()) || isTrue(account.getFequivalent());
+    }
+
+    private BalanceSheetMapping resolveCodeOnlyMapping(String accountCode, Map<String, BizfiFiReportItem> itemByCode) {
+        if (!StringUtils.hasText(accountCode)) {
+            return new BalanceSheetMapping(null, "UNMAPPED");
+        }
+        if (accountCode.startsWith("1")) {
+            BizfiFiReportItem cashItem = itemByCode.get("BS_CASH");
+            if (cashItem != null && accountCode.startsWith("100")) {
+                return new BalanceSheetMapping(cashItem.getFid(), "CODE_ONLY_ASSET");
+            }
+            BizfiFiReportItem assetItem = itemByCode.get("BS_ASSET");
+            if (assetItem != null) {
+                return new BalanceSheetMapping(assetItem.getFid(), "CODE_ONLY_ASSET");
+            }
+        }
+        if (accountCode.startsWith("2") || accountCode.startsWith("3") || accountCode.startsWith("4")) {
+            BizfiFiReportItem liabilityItem = itemByCode.get("BS_LIAB_EQ");
+            if (liabilityItem != null) {
+                return new BalanceSheetMapping(liabilityItem.getFid(), "CODE_ONLY_LIAB_EQ");
+            }
+        }
+        return new BalanceSheetMapping(null, "UNMAPPED");
+    }
+
+    private boolean isDebitDirectionByCode(String accountCode) {
+        return StringUtils.hasText(accountCode) && accountCode.startsWith("1");
     }
 
     private boolean isTrue(Integer value) {
