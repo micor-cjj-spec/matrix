@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="single.cjj.fi.gl.mapper.BizfiFiOrgFinanceConfigMapper">
+    <resultMap id="BaseResultMap" type="single.cjj.fi.gl.entity.BizfiFiOrgFinanceConfig">
+        <id column="fid" property="fid" />
+        <result column="forg" property="forg" />
+        <result column="fbase_currency" property="fbaseCurrency" />
+        <result column="fcurrent_period" property="fcurrentPeriod" />
+        <result column="fperiod_control_mode" property="fperiodControlMode" />
+        <result column="fdefault_voucher_type" property="fdefaultVoucherType" />
+        <result column="fstatus" property="fstatus" />
+        <result column="fremark" property="fremark" />
+        <result column="fcreatetime" property="fcreatetime" />
+        <result column="fupdatetime" property="fupdatetime" />
+    </resultMap>
+</mapper>
