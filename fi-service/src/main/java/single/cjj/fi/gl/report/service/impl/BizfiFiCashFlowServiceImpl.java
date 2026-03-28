@@ -15,6 +15,7 @@ import single.cjj.fi.gl.report.mapper.BizfiFiCashflowItemMapper;
 import single.cjj.fi.gl.report.service.BizfiFiCashFlowService;
 import single.cjj.fi.gl.report.service.BizfiFiReportItemService;
 import single.cjj.fi.gl.report.service.BizfiFiReportTemplateService;
+import single.cjj.fi.gl.report.util.ReportTextFixer;
 import single.cjj.fi.gl.report.vo.ReportCheckResultVO;
 import single.cjj.fi.gl.report.vo.ReportQueryResultVO;
 import single.cjj.fi.gl.report.vo.ReportRowVO;
@@ -396,7 +397,7 @@ public class BizfiFiCashFlowServiceImpl implements BizfiFiCashFlowService {
                 .map(item -> new ReportRowVO(
                         item.getFid(),
                         item.getFcode(),
-                        item.getFname(),
+                        ReportTextFixer.fix(item.getFname()),
                         item.getFrowNo(),
                         item.getFlevel(),
                         item.getFlineType(),

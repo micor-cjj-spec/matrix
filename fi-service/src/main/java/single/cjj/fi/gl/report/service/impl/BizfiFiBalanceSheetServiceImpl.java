@@ -17,6 +17,7 @@ import single.cjj.fi.gl.report.service.BizfiFiReportItemService;
 import single.cjj.fi.gl.report.service.BizfiFiReportTemplateService;
 import single.cjj.fi.gl.report.vo.BalanceSheetDrillResultVO;
 import single.cjj.fi.gl.report.vo.BalanceSheetDrillRowVO;
+import single.cjj.fi.gl.report.util.ReportTextFixer;
 import single.cjj.fi.gl.report.vo.ReportCheckResultVO;
 import single.cjj.fi.gl.report.vo.ReportQueryResultVO;
 import single.cjj.fi.gl.report.vo.ReportRowVO;
@@ -439,7 +440,7 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
                 .map(item -> new ReportRowVO(
                         item.getFid(),
                         item.getFcode(),
-                        item.getFname(),
+                        ReportTextFixer.fix(item.getFname()),
                         item.getFrowNo(),
                         item.getFlevel(),
                         item.getFlineType(),
