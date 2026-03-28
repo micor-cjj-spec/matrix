@@ -57,6 +57,7 @@ public class BizfiBizUnitServiceImpl extends ServiceImpl<BizfiBizUnitMapper, Biz
                 wrapper.eq(BizfiBizUnit::getFusagestatus, query.get("fusagestatus"));
             }
         }
+        wrapper.orderByAsc(BizfiBizUnit::getFcode);
         Page<BizfiBizUnit> pageObj = new Page<>(page, size);
         return mapper.selectPage(pageObj, wrapper);
     }
