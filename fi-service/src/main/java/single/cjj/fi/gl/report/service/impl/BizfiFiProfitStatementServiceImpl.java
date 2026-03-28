@@ -94,7 +94,7 @@ public class BizfiFiProfitStatementServiceImpl implements BizfiFiProfitStatement
         result.setStartPeriod(startYm.toString());
         result.setEndPeriod(endYm.toString());
         result.setTemplateId(template.getFid());
-        result.setTemplateName(template.getFname());
+        result.setTemplateName(ReportTextFixer.fixTemplateName(template.getFcode(), template.getFname()));
 
         List<BizfiFiReportItem> items = reportItemService.listByTemplateId(template.getFid());
         if (items.isEmpty()) {
@@ -348,7 +348,7 @@ public class BizfiFiProfitStatementServiceImpl implements BizfiFiProfitStatement
                 .map(item -> new ReportRowVO(
                         item.getFid(),
                         item.getFcode(),
-                        ReportTextFixer.fix(item.getFname()),
+                        ReportTextFixer.fixItemName(item.getFcode(), item.getFname()),
                         item.getFrowNo(),
                         item.getFlevel(),
                         item.getFlineType(),

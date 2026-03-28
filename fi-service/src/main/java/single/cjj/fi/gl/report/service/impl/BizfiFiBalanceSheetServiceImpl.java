@@ -85,7 +85,7 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
 
         result.setPeriod(targetPeriod.toString());
         result.setTemplateId(template.getFid());
-        result.setTemplateName(template.getFname());
+        result.setTemplateName(ReportTextFixer.fixTemplateName(template.getFcode(), template.getFname()));
         appendTemplateWarnings(result.getWarnings(), template, orgId, templateId);
 
         List<BizfiFiReportItem> items = reportItemService.listByTemplateId(template.getFid());
@@ -203,7 +203,7 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
         }
 
         result.setTemplateId(template.getFid());
-        result.setTemplateName(template.getFname());
+        result.setTemplateName(ReportTextFixer.fixTemplateName(template.getFcode(), template.getFname()));
         result.setPeriod(targetPeriod.toString());
         appendTemplateWarnings(result.getWarnings(), template, orgId, templateId);
 
@@ -221,7 +221,7 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
 
         result.setItemId(selectedItem.getFid());
         result.setItemCode(selectedItem.getFcode());
-        result.setItemName(selectedItem.getFname());
+        result.setItemName(ReportTextFixer.fixItemName(selectedItem.getFcode(), selectedItem.getFname()));
         if (selectedItem.getFdrillable() != null && selectedItem.getFdrillable() != 1) {
             result.getWarnings().add("The selected row is not marked as drillable in the template. Detail is shown for debugging only.");
         }
@@ -440,7 +440,7 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
                 .map(item -> new ReportRowVO(
                         item.getFid(),
                         item.getFcode(),
-                        ReportTextFixer.fix(item.getFname()),
+                        ReportTextFixer.fixItemName(item.getFcode(), item.getFname()),
                         item.getFrowNo(),
                         item.getFlevel(),
                         item.getFlineType(),
