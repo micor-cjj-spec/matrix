@@ -16,12 +16,20 @@ import single.cjj.fi.gl.report.service.BizfiFiCashFlowService;
 import single.cjj.fi.gl.report.service.BizfiFiReportItemService;
 import single.cjj.fi.gl.report.service.BizfiFiReportTemplateService;
 import single.cjj.fi.gl.report.util.ReportTextFixer;
+import single.cjj.fi.gl.report.vo.CashFlowSupplementCategoryVO;
+import single.cjj.fi.gl.report.vo.CashFlowSupplementResultVO;
+import single.cjj.fi.gl.report.vo.CashFlowSupplementTaskVO;
+import single.cjj.fi.gl.report.vo.CashFlowSupplementVoucherVO;
+import single.cjj.fi.gl.report.vo.CashFlowTraceResultVO;
+import single.cjj.fi.gl.report.vo.CashFlowTraceRowVO;
 import single.cjj.fi.gl.report.vo.ReportCheckResultVO;
 import single.cjj.fi.gl.report.vo.ReportQueryResultVO;
 import single.cjj.fi.gl.report.vo.ReportRowVO;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -29,6 +37,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -211,6 +220,60 @@ public class BizfiFiCashFlowServiceImpl implements BizfiFiCashFlowService {
         return result;
     }
 
+    @Override
+    public CashFlowTraceResultVO trace(
+            Long orgId,
+            String period,
+            String currency,
+            String cashflowItemCode,
+            String categoryCode,
+            String sourceType,
+            String accountCode,
+            String keyword
+    ) {
+        AnalysisContext context = analyzeCashVouchers(orgId, period, currency);
+        CashFlowTraceResultVO result = initTraceResult(context);
+        if (context.targetPeriod == null) {
+            return result;
+        }
+
+        List<VoucherFlowRecord> filteredRecords = context.records.stream()
+                .filter(record -> matchesCashflowItem(record, cashflowItemCode))
+                .filter(record -> matchesCategory(record, categoryCode))
+                .filter(record -> matchesSourceType(record, sourceType))
+                .filter(record -> matchesAccount(record, accountCode))
+                .filter(record -> matchesKeyword(record, keyword))
+                .toList();
+
+        result.setRecords(filteredRecords.stream().map(this::toTraceRow).toList());
+        result.setCashVoucherCount((long) filteredRecords.size());
+        result.setDirectCount(countBySource(filteredRecords, "DIRECT"));
+        result.setHeuristicCount(countBySource(filteredRecords, "HEURISTIC"));
+        result.setUnknownCount(countBySource(filteredRecords, "UNKNOWN_ITEM"));
+        result.setMixedCount(countBySource(filteredRecords, "MIXED_ITEM"));
+        result.setTransferCount(countBySource(filteredRecords, "CASH_TRANSFER"));
+        result.setCashInAmount(scale(sumTraceAmount(filteredRecords, true)));
+        result.setCashOutAmount(scale(sumTraceAmount(filteredRecords, false)));
+        result.setNetAmount(scale(sumTraceNet(filteredRecords)));
+
+        if (context.records.isEmpty()) {
+            result.getWarnings().add("The selected period has no cash-related posted vouchers.");
+        } else if (filteredRecords.isEmpty()) {
+            result.getWarnings().add("No cash-flow trace records matched the current filters.");
+        }
+        return result;
+    }
+
+    @Override
+    public CashFlowSupplementResultVO supplement(Long orgId, String period, String currency) {
+        AnalysisContext context = analyzeCashVouchers(orgId, period, currency);
+        CashFlowSupplementResultVO result = initSupplementResult(context);
+        result.setTasks(buildSupplementTasks(context));
+        result.setCategories(buildSupplementCategories(context.records));
+        result.setPendingVouchers(buildPendingVouchers(context.records));
+        return result;
+    }
+
     private BizfiFiReportTemplate resolveTemplate(Long templateId) {
         if (templateId != null) {
             return reportTemplateService.get(templateId);
@@ -249,6 +312,388 @@ public class BizfiFiCashFlowServiceImpl implements BizfiFiCashFlowService {
                         item -> item,
                         (left, right) -> left
                 ));
+    }
+
+    private AnalysisContext analyzeCashVouchers(Long orgId, String period, String currency) {
+        AnalysisContext context = new AnalysisContext();
+        context.orgId = orgId;
+        context.currency = StringUtils.hasText(currency) ? currency.trim() : CNY;
+        context.records = new ArrayList<>();
+        context.warnings = new ArrayList<>();
+
+        YearMonth targetPeriod = parsePeriod(period);
+        if (targetPeriod == null) {
+            context.warnings.add("Invalid or missing period. Use yyyy-MM, for example 2026-03.");
+            return context;
+        }
+        context.targetPeriod = targetPeriod;
+        context.period = targetPeriod.toString();
+        context.startDate = targetPeriod.atDay(1);
+        context.endDate = targetPeriod.atEndOfMonth();
+
+        List<BizfiFiAccount> accounts = loadAccounts(orgId);
+        context.cashAccountCount = (int) accounts.stream().filter(this::isCashLike).count();
+        if (accounts.isEmpty()) {
+            context.warnings.add("No accounts were found for the requested organization.");
+            return context;
+        }
+
+        context.accountByCode = accounts.stream()
+                .filter(account -> StringUtils.hasText(account.getFcode()))
+                .collect(Collectors.toMap(
+                        account -> account.getFcode().toUpperCase(Locale.ROOT),
+                        account -> account,
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        if (context.accountByCode.isEmpty()) {
+            context.warnings.add("No valid account codes were found for the requested organization.");
+            return context;
+        }
+
+        context.cashflowItemByCode = loadCashflowItemByCode();
+        context.cashflowItemCount = context.cashflowItemByCode.size();
+
+        context.entries = glEntryMapper.selectList(new LambdaQueryWrapper<BizfiFiGlEntry>()
+                .in(BizfiFiGlEntry::getFaccountCode, context.accountByCode.keySet())
+                .ge(BizfiFiGlEntry::getFvoucherDate, context.startDate)
+                .le(BizfiFiGlEntry::getFvoucherDate, context.endDate)
+                .orderByAsc(BizfiFiGlEntry::getFvoucherDate)
+                .orderByAsc(BizfiFiGlEntry::getFvoucherId)
+                .orderByAsc(BizfiFiGlEntry::getFvoucherLineId)
+                .orderByAsc(BizfiFiGlEntry::getFid));
+        if (context.entries.isEmpty()) {
+            context.warnings.add("No posted ledger entries were found for the requested period.");
+            return context;
+        }
+
+        context.postedVoucherCount = context.entries.stream()
+                .map(this::voucherGroupKey)
+                .distinct()
+                .count();
+        context.records = buildVoucherFlowRecords(context.entries, context.accountByCode, context.cashflowItemByCode);
+
+        long heuristicCount = countBySource(context.records, "HEURISTIC");
+        long unknownCount = countBySource(context.records, "UNKNOWN_ITEM");
+        long mixedCount = countBySource(context.records, "MIXED_ITEM");
+        long transferCount = countBySource(context.records, "CASH_TRANSFER");
+        if (heuristicCount > 0) {
+            context.warnings.add("Some vouchers still rely on account-type heuristics because no cash-flow item was entered.");
+        }
+        if (unknownCount > 0) {
+            context.warnings.add("Some vouchers use unknown cash-flow item codes and are not included in the statement until they are corrected.");
+        }
+        if (mixedCount > 0) {
+            context.warnings.add("Some vouchers carry multiple cash-flow item codes and should be reviewed before final reporting.");
+        }
+        if (transferCount > 0) {
+            context.warnings.add("Pure cash-transfer vouchers are separated for review and are skipped by the statement.");
+        }
+        if (orgId != null) {
+            context.warnings.add("Cash-flow amounts are currently aggregated by account code. If multiple organizations reuse the same code set, add org-level ledger isolation later.");
+        }
+        return context;
+    }
+
+    private List<VoucherFlowRecord> buildVoucherFlowRecords(
+            List<BizfiFiGlEntry> entries,
+            Map<String, BizfiFiAccount> accountByCode,
+            Map<String, BizfiFiCashflowItem> cashflowItemByCode
+    ) {
+        Map<String, List<BizfiFiGlEntry>> entriesByVoucher = entries.stream()
+                .collect(Collectors.groupingBy(this::voucherGroupKey, LinkedHashMap::new, Collectors.toList()));
+
+        List<VoucherFlowRecord> records = new ArrayList<>();
+        for (List<BizfiFiGlEntry> voucherEntries : entriesByVoucher.values()) {
+            List<BizfiFiGlEntry> cashEntries = voucherEntries.stream()
+                    .filter(entry -> isCashLike(accountByCode.get(normalizeCode(entry.getFaccountCode()))))
+                    .toList();
+            if (cashEntries.isEmpty()) {
+                continue;
+            }
+
+            List<BizfiFiGlEntry> nonCashEntries = voucherEntries.stream()
+                    .filter(entry -> !isCashLike(accountByCode.get(normalizeCode(entry.getFaccountCode()))))
+                    .toList();
+
+            VoucherFlowRecord record = new VoucherFlowRecord();
+            BizfiFiGlEntry firstEntry = voucherEntries.get(0);
+            record.voucherId = firstEntry.getFvoucherId();
+            record.voucherNumber = firstNonBlank(voucherEntries.stream().map(BizfiFiGlEntry::getFvoucherNumber).toList());
+            record.voucherDate = firstEntry.getFvoucherDate();
+            record.summary = firstNonBlank(voucherEntries.stream().map(BizfiFiGlEntry::getFsummary).toList());
+            record.cashEntryCount = cashEntries.size();
+            record.counterpartyEntryCount = nonCashEntries.size();
+            record.cashInAmount = scale(cashEntries.stream().map(BizfiFiGlEntry::getFdebitAmount).reduce(BigDecimal.ZERO, this::safeAdd));
+            record.cashOutAmount = scale(cashEntries.stream().map(BizfiFiGlEntry::getFcreditAmount).reduce(BigDecimal.ZERO, this::safeAdd));
+            record.netAmount = scale(record.cashInAmount.subtract(record.cashOutAmount));
+            record.cashAccountCodes = joinCodes(cashEntries.stream().map(BizfiFiGlEntry::getFaccountCode).toList());
+            record.counterpartyAccountCodes = joinCodes(nonCashEntries.stream().map(BizfiFiGlEntry::getFaccountCode).toList());
+            record.postedBy = firstNonBlank(voucherEntries.stream().map(BizfiFiGlEntry::getFpostedBy).toList());
+            record.postedTime = voucherEntries.stream()
+                    .map(BizfiFiGlEntry::getFpostedTime)
+                    .filter(item -> item != null)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(null);
+
+            List<String> explicitCodes = voucherEntries.stream()
+                    .map(BizfiFiGlEntry::getFcashflowItem)
+                    .filter(StringUtils::hasText)
+                    .map(String::trim)
+                    .distinct()
+                    .toList();
+            record.cashflowItemCode = explicitCodes.isEmpty() ? null : explicitCodes.get(0);
+
+            if (nonCashEntries.isEmpty()) {
+                record.sourceType = "CASH_TRANSFER";
+                record.categoryCode = null;
+                record.categoryName = "Cash transfer";
+                record.reason = "Only cash-like accounts were found in the voucher, so the statement skips it to avoid overstating external cash flow.";
+            } else if (explicitCodes.size() > 1) {
+                ExplicitResolution resolution = resolveExplicitCode(explicitCodes.get(0), cashflowItemByCode);
+                applyResolution(record, resolution);
+                record.sourceType = "MIXED_ITEM";
+                record.reason = "Multiple cash-flow item codes were found in one voucher. Review the voucher lines before final reporting.";
+            } else if (!explicitCodes.isEmpty()) {
+                ExplicitResolution resolution = resolveExplicitCode(explicitCodes.get(0), cashflowItemByCode);
+                applyResolution(record, resolution);
+                if (resolution.recognized) {
+                    record.sourceType = "DIRECT";
+                    record.reason = "The voucher carries an explicit cash-flow item code.";
+                } else {
+                    record.sourceType = "UNKNOWN_ITEM";
+                    record.categoryCode = null;
+                    record.categoryName = "Unknown code";
+                    record.reason = "The cash-flow item code is unknown and the statement does not include this voucher until the code is corrected.";
+                }
+            } else {
+                record.sourceType = "HEURISTIC";
+                record.categoryCode = inferCategoryFromNonCashAccounts(nonCashEntries, accountByCode);
+                record.categoryName = categoryNameOf(record.categoryCode);
+                record.reason = "No cash-flow item code was entered, so the voucher is classified by counterparty account type.";
+            }
+
+            records.add(record);
+        }
+
+        return records.stream()
+                .sorted(Comparator.comparing((VoucherFlowRecord item) -> item.voucherDate, Comparator.nullsLast(LocalDate::compareTo))
+                        .thenComparing(item -> item.voucherNumber, Comparator.nullsLast(String::compareTo))
+                        .thenComparing(item -> item.voucherId, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+    }
+
+    private void applyResolution(VoucherFlowRecord record, ExplicitResolution resolution) {
+        record.cashflowItemCode = resolution.code;
+        record.cashflowItemName = resolution.name;
+        record.categoryCode = resolution.categoryCode;
+        record.categoryName = resolution.categoryName;
+    }
+
+    private ExplicitResolution resolveExplicitCode(String rawCode, Map<String, BizfiFiCashflowItem> cashflowItemByCode) {
+        String code = trim(rawCode);
+        if (!StringUtils.hasText(code)) {
+            return new ExplicitResolution(null, null, null, null, false);
+        }
+
+        String normalizedCode = normalizeCode(code);
+        if (OPERATING_CODE.equals(normalizedCode) || INVESTING_CODE.equals(normalizedCode) || FINANCING_CODE.equals(normalizedCode)) {
+            return new ExplicitResolution(code, categoryNameOf(normalizedCode), normalizedCode, categoryNameOf(normalizedCode), true);
+        }
+
+        BizfiFiCashflowItem item = cashflowItemByCode.get(normalizedCode);
+        if (item == null) {
+            return new ExplicitResolution(code, code, null, null, false);
+        }
+
+        String categoryCode = mapCategoryToReportCode(item.getFcategory());
+        return new ExplicitResolution(
+                item.getFcode(),
+                ReportTextFixer.fix(item.getFname()),
+                categoryCode,
+                categoryNameOf(categoryCode),
+                true
+        );
+    }
+
+    private CashFlowTraceResultVO initTraceResult(AnalysisContext context) {
+        CashFlowTraceResultVO result = new CashFlowTraceResultVO();
+        result.setOrgId(context.orgId);
+        result.setPeriod(context.period);
+        result.setStartDate(context.startDate == null ? null : context.startDate.toString());
+        result.setEndDate(context.endDate == null ? null : context.endDate.toString());
+        result.setCurrency(context.currency);
+        result.setPostedVoucherCount(context.postedVoucherCount);
+        result.setCashVoucherCount(0L);
+        result.setDirectCount(0L);
+        result.setHeuristicCount(0L);
+        result.setUnknownCount(0L);
+        result.setMixedCount(0L);
+        result.setTransferCount(0L);
+        result.setCashInAmount(scale(BigDecimal.ZERO));
+        result.setCashOutAmount(scale(BigDecimal.ZERO));
+        result.setNetAmount(scale(BigDecimal.ZERO));
+        result.setRecords(new ArrayList<>());
+        result.setWarnings(new ArrayList<>(context.warnings));
+        return result;
+    }
+
+    private CashFlowSupplementResultVO initSupplementResult(AnalysisContext context) {
+        CashFlowSupplementResultVO result = new CashFlowSupplementResultVO();
+        result.setOrgId(context.orgId);
+        result.setPeriod(context.period);
+        result.setStartDate(context.startDate == null ? null : context.startDate.toString());
+        result.setEndDate(context.endDate == null ? null : context.endDate.toString());
+        result.setCurrency(context.currency);
+        result.setPostedVoucherCount(context.postedVoucherCount);
+        result.setCashVoucherCount((long) context.records.size());
+        result.setDirectCount(countBySource(context.records, "DIRECT"));
+        result.setHeuristicCount(countBySource(context.records, "HEURISTIC"));
+        result.setUnknownCount(countBySource(context.records, "UNKNOWN_ITEM"));
+        result.setMixedCount(countBySource(context.records, "MIXED_ITEM"));
+        result.setTransferCount(countBySource(context.records, "CASH_TRANSFER"));
+        result.setCashAccountCount(context.cashAccountCount);
+        result.setCashflowItemCount(context.cashflowItemCount);
+        result.setCashInAmount(scale(sumTraceAmount(context.records, true)));
+        result.setCashOutAmount(scale(sumTraceAmount(context.records, false)));
+        result.setNetAmount(scale(sumTraceNet(context.records)));
+        result.setTasks(new ArrayList<>());
+        result.setCategories(new ArrayList<>());
+        result.setPendingVouchers(new ArrayList<>());
+        result.setWarnings(new ArrayList<>(context.warnings));
+        return result;
+    }
+
+    private List<CashFlowSupplementTaskVO> buildSupplementTasks(AnalysisContext context) {
+        List<CashFlowSupplementTaskVO> tasks = new ArrayList<>();
+        long directCount = countBySource(context.records, "DIRECT");
+        long heuristicCount = countBySource(context.records, "HEURISTIC");
+        long unknownCount = countBySource(context.records, "UNKNOWN_ITEM");
+        long mixedCount = countBySource(context.records, "MIXED_ITEM");
+        long transferCount = countBySource(context.records, "CASH_TRANSFER");
+        long pendingCount = heuristicCount + unknownCount + mixedCount + transferCount;
+
+        tasks.add(new CashFlowSupplementTaskVO(
+                "CASH_ACCOUNT_READY",
+                "Cash account setup",
+                context.cashAccountCount > 0 ? "READY" : "WARNING",
+                context.cashAccountCount > 0
+                        ? "Detected " + context.cashAccountCount + " cash-like accounts that can participate in the cash-flow statement."
+                        : "No cash-like accounts are configured, so the system cannot identify cash-flow vouchers correctly.",
+                "Maintain cash/bank/equivalent flags in account subjects."
+        ));
+        tasks.add(new CashFlowSupplementTaskVO(
+                "CASHFLOW_ITEM_READY",
+                "Cashflow item master",
+                context.cashflowItemCount > 0 ? "READY" : "WARNING",
+                context.cashflowItemCount > 0
+                        ? "Detected " + context.cashflowItemCount + " cash-flow items for voucher tagging and statement review."
+                        : "No cash-flow item master data is configured yet.",
+                "Complete cash-flow item maintenance before large-scale voucher tagging."
+        ));
+        tasks.add(new CashFlowSupplementTaskVO(
+                "DIRECT_COVERAGE",
+                "Direct tagging coverage",
+                pendingCount == 0 ? "READY" : "WARNING",
+                "Directly tagged vouchers: " + directCount + ", heuristic vouchers: " + heuristicCount + ", pending review vouchers: " + (unknownCount + mixedCount + transferCount) + ".",
+                "Prefer explicit cash-flow item tagging on voucher lines to reduce heuristic classification."
+        ));
+        tasks.add(new CashFlowSupplementTaskVO(
+                "UNKNOWN_CODE_REVIEW",
+                "Unknown code review",
+                unknownCount == 0 ? "READY" : "WARNING",
+                unknownCount == 0
+                        ? "No unknown cash-flow item codes were found in the selected period."
+                        : "Found " + unknownCount + " vouchers with unknown cash-flow item codes.",
+                "Correct invalid cash-flow item codes or align the master data before final reporting."
+        ));
+        tasks.add(new CashFlowSupplementTaskVO(
+                "MIXED_CODE_REVIEW",
+                "Mixed-code voucher review",
+                mixedCount == 0 ? "READY" : "WARNING",
+                mixedCount == 0
+                        ? "No vouchers carry multiple cash-flow item codes."
+                        : "Found " + mixedCount + " vouchers that carry multiple cash-flow item codes.",
+                "Split or correct voucher lines so one voucher follows a clear cash-flow tagging rule."
+        ));
+        tasks.add(new CashFlowSupplementTaskVO(
+                "TRANSFER_REVIEW",
+                "Cash transfer review",
+                transferCount == 0 ? "READY" : "INFO",
+                transferCount == 0
+                        ? "No pure cash-transfer vouchers were detected in the selected period."
+                        : "Detected " + transferCount + " pure cash-transfer vouchers that are excluded from the statement.",
+                "Review whether internal transfers need separate disclosure or supporting notes."
+        ));
+        tasks.add(new CashFlowSupplementTaskVO(
+                "ORG_ISOLATION",
+                "Org isolation note",
+                context.orgId == null ? "INFO" : "WARNING",
+                context.orgId == null
+                        ? "The current query is not narrowed to one organization."
+                        : "The current implementation still aggregates by account code and does not isolate ledger entries by organization.",
+                "When multiple business units reuse the same account code set, add org-level dimensions to general-ledger entries."
+        ));
+        return tasks;
+    }
+
+    private List<CashFlowSupplementCategoryVO> buildSupplementCategories(List<VoucherFlowRecord> records) {
+        Map<String, SupplementCategoryAccumulator> grouped = new LinkedHashMap<>();
+        for (VoucherFlowRecord record : records) {
+            String key = categoryBucketKey(record);
+            grouped.computeIfAbsent(key, ignore -> new SupplementCategoryAccumulator(categoryBucketCode(record), categoryBucketName(record)));
+            grouped.get(key).add(record);
+        }
+        return grouped.values().stream()
+                .map(SupplementCategoryAccumulator::toVO)
+                .sorted(Comparator.comparing(CashFlowSupplementCategoryVO::getCategoryCode, Comparator.nullsLast(String::compareTo)))
+                .toList();
+    }
+
+    private List<CashFlowSupplementVoucherVO> buildPendingVouchers(List<VoucherFlowRecord> records) {
+        return records.stream()
+                .filter(record -> !"DIRECT".equals(record.sourceType))
+                .sorted(Comparator.comparingInt((VoucherFlowRecord item) -> sourcePriority(item.sourceType))
+                        .thenComparing(item -> item.voucherDate, Comparator.nullsLast(LocalDate::compareTo))
+                        .thenComparing(item -> item.voucherNumber, Comparator.nullsLast(String::compareTo)))
+                .map(record -> new CashFlowSupplementVoucherVO(
+                        record.voucherId,
+                        record.voucherNumber,
+                        record.voucherDate == null ? null : record.voucherDate.toString(),
+                        record.summary,
+                        record.sourceType,
+                        record.cashflowItemCode,
+                        record.cashflowItemName,
+                        categoryBucketName(record),
+                        scale(record.netAmount),
+                        pendingIssue(record.sourceType),
+                        pendingSuggestion(record.sourceType)
+                ))
+                .toList();
+    }
+
+    private CashFlowTraceRowVO toTraceRow(VoucherFlowRecord record) {
+        return new CashFlowTraceRowVO(
+                record.voucherId,
+                record.voucherNumber,
+                record.voucherDate == null ? null : record.voucherDate.toString(),
+                record.summary,
+                record.cashAccountCodes,
+                record.counterpartyAccountCodes,
+                record.cashflowItemCode,
+                record.cashflowItemName,
+                record.categoryCode,
+                record.categoryName,
+                record.sourceType,
+                scale(record.cashInAmount),
+                scale(record.cashOutAmount),
+                scale(record.netAmount),
+                record.cashEntryCount,
+                record.counterpartyEntryCount,
+                record.postedBy,
+                record.postedTime == null ? null : record.postedTime.toString(),
+                record.reason
+        );
     }
 
     private Resolution resolveVoucherCategory(
@@ -449,6 +894,200 @@ public class BizfiFiCashFlowServiceImpl implements BizfiFiCashFlowService {
         return item;
     }
 
+    private boolean matchesCashflowItem(VoucherFlowRecord record, String cashflowItemCode) {
+        return !StringUtils.hasText(cashflowItemCode)
+                || normalizeCode(cashflowItemCode).equals(normalizeCode(record.cashflowItemCode));
+    }
+
+    private boolean matchesCategory(VoucherFlowRecord record, String categoryCode) {
+        return !StringUtils.hasText(categoryCode)
+                || normalizeCode(categoryCode).equals(normalizeCode(record.categoryCode));
+    }
+
+    private boolean matchesSourceType(VoucherFlowRecord record, String sourceType) {
+        return !StringUtils.hasText(sourceType)
+                || normalizeCode(sourceType).equals(normalizeCode(record.sourceType));
+    }
+
+    private boolean matchesAccount(VoucherFlowRecord record, String accountCode) {
+        if (!StringUtils.hasText(accountCode)) {
+            return true;
+        }
+        String keyword = normalizeCode(accountCode);
+        return normalizeCode(record.cashAccountCodes).contains(keyword)
+                || normalizeCode(record.counterpartyAccountCodes).contains(keyword);
+    }
+
+    private boolean matchesKeyword(VoucherFlowRecord record, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return true;
+        }
+        String value = keyword.trim().toLowerCase(Locale.ROOT);
+        return containsText(record.voucherNumber, value)
+                || containsText(record.summary, value)
+                || containsText(record.cashflowItemCode, value)
+                || containsText(record.cashflowItemName, value);
+    }
+
+    private boolean containsText(String source, String keyword) {
+        return source != null && source.toLowerCase(Locale.ROOT).contains(keyword);
+    }
+
+    private long countBySource(List<VoucherFlowRecord> records, String sourceType) {
+        return records.stream().filter(item -> sourceType.equals(item.sourceType)).count();
+    }
+
+    private BigDecimal sumTraceAmount(List<VoucherFlowRecord> records, boolean inbound) {
+        return records.stream()
+                .map(item -> inbound ? item.cashInAmount : item.cashOutAmount)
+                .reduce(BigDecimal.ZERO, this::safeAdd);
+    }
+
+    private BigDecimal sumTraceNet(List<VoucherFlowRecord> records) {
+        return records.stream()
+                .map(item -> item.netAmount)
+                .reduce(BigDecimal.ZERO, this::safeAdd);
+    }
+
+    private BigDecimal safeAdd(BigDecimal left, BigDecimal right) {
+        return safe(left).add(safe(right));
+    }
+
+    private String joinCodes(List<String> values) {
+        return values.stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .distinct()
+                .collect(Collectors.joining(", "));
+    }
+
+    private String firstNonBlank(List<String> values) {
+        return values.stream().filter(StringUtils::hasText).map(String::trim).findFirst().orElse(null);
+    }
+
+    private String voucherGroupKey(BizfiFiGlEntry entry) {
+        if (entry == null) {
+            return "ENTRY-NULL";
+        }
+        if (entry.getFvoucherId() != null) {
+            return "V-" + entry.getFvoucherId();
+        }
+        return "E-" + entry.getFid();
+    }
+
+    private String categoryNameOf(String categoryCode) {
+        if (!StringUtils.hasText(categoryCode)) {
+            return null;
+        }
+        String normalizedCode = normalizeCode(categoryCode);
+        if (OPERATING_CODE.equals(normalizedCode)) {
+            return "Operating";
+        }
+        if (INVESTING_CODE.equals(normalizedCode)) {
+            return "Investing";
+        }
+        if (FINANCING_CODE.equals(normalizedCode)) {
+            return "Financing";
+        }
+        return categoryCode;
+    }
+
+    private String categoryBucketKey(VoucherFlowRecord record) {
+        if (StringUtils.hasText(record.categoryCode)) {
+            return normalizeCode(record.categoryCode);
+        }
+        if ("CASH_TRANSFER".equals(record.sourceType)) {
+            return "ZZ_CASH_TRANSFER";
+        }
+        if ("MIXED_ITEM".equals(record.sourceType)) {
+            return "ZY_MIXED_ITEM";
+        }
+        if ("UNKNOWN_ITEM".equals(record.sourceType)) {
+            return "ZX_UNKNOWN_ITEM";
+        }
+        return "ZW_PENDING";
+    }
+
+    private String categoryBucketCode(VoucherFlowRecord record) {
+        if (StringUtils.hasText(record.categoryCode)) {
+            return record.categoryCode;
+        }
+        if ("CASH_TRANSFER".equals(record.sourceType)) {
+            return "CASH_TRANSFER";
+        }
+        if ("MIXED_ITEM".equals(record.sourceType)) {
+            return "MIXED_ITEM";
+        }
+        if ("UNKNOWN_ITEM".equals(record.sourceType)) {
+            return "UNKNOWN_ITEM";
+        }
+        return "PENDING";
+    }
+
+    private String categoryBucketName(VoucherFlowRecord record) {
+        if (StringUtils.hasText(record.categoryName)) {
+            return record.categoryName;
+        }
+        if ("CASH_TRANSFER".equals(record.sourceType)) {
+            return "Cash transfer";
+        }
+        if ("MIXED_ITEM".equals(record.sourceType)) {
+            return "Mixed-code review";
+        }
+        if ("UNKNOWN_ITEM".equals(record.sourceType)) {
+            return "Unknown code";
+        }
+        return "Pending supplement";
+    }
+
+    private int sourcePriority(String sourceType) {
+        if ("UNKNOWN_ITEM".equals(sourceType)) {
+            return 0;
+        }
+        if ("MIXED_ITEM".equals(sourceType)) {
+            return 1;
+        }
+        if ("HEURISTIC".equals(sourceType)) {
+            return 2;
+        }
+        if ("CASH_TRANSFER".equals(sourceType)) {
+            return 3;
+        }
+        return 9;
+    }
+
+    private String pendingIssue(String sourceType) {
+        if ("UNKNOWN_ITEM".equals(sourceType)) {
+            return "Unknown cashflow item code";
+        }
+        if ("MIXED_ITEM".equals(sourceType)) {
+            return "Multiple cashflow item codes in one voucher";
+        }
+        if ("HEURISTIC".equals(sourceType)) {
+            return "No explicit tag; classified by account-type heuristic";
+        }
+        if ("CASH_TRANSFER".equals(sourceType)) {
+            return "Transfer between cash-like accounts; skipped by statement";
+        }
+        return "Needs review";
+    }
+
+    private String pendingSuggestion(String sourceType) {
+        if ("UNKNOWN_ITEM".equals(sourceType)) {
+            return "Correct the cashflow item code or complete the master data.";
+        }
+        if ("MIXED_ITEM".equals(sourceType)) {
+            return "Review voucher lines and keep one clear cashflow tagging rule.";
+        }
+        if ("HEURISTIC".equals(sourceType)) {
+            return "Add an explicit cashflow item to the voucher lines.";
+        }
+        if ("CASH_TRANSFER".equals(sourceType)) {
+            return "Decide whether internal transfers need separate disclosure.";
+        }
+        return "Review with business context and provide supporting notes.";
+    }
+
     private String mapCategoryToReportCode(String category) {
         String value = normalize(category);
         if (containsAny(value, "\u6295\u8d44", "invest")) {
@@ -485,8 +1124,16 @@ public class BizfiFiCashFlowServiceImpl implements BizfiFiCashFlowService {
         return value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
     }
 
+    private String trim(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
     private BigDecimal safe(BigDecimal value) {
         return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private BigDecimal scale(BigDecimal value) {
+        return safe(value).setScale(2, RoundingMode.HALF_UP);
     }
 
     private YearMonth parsePeriod(String period) {
@@ -509,6 +1156,107 @@ public class BizfiFiCashFlowServiceImpl implements BizfiFiCashFlowService {
             this.itemId = itemId;
             this.heuristic = heuristic;
             this.rawCode = rawCode;
+        }
+    }
+
+    private static class AnalysisContext {
+        private Long orgId;
+        private String period;
+        private String currency;
+        private YearMonth targetPeriod;
+        private LocalDate startDate;
+        private LocalDate endDate;
+        private long postedVoucherCount;
+        private int cashAccountCount;
+        private int cashflowItemCount;
+        private List<BizfiFiGlEntry> entries = new ArrayList<>();
+        private Map<String, BizfiFiAccount> accountByCode = Collections.emptyMap();
+        private Map<String, BizfiFiCashflowItem> cashflowItemByCode = Collections.emptyMap();
+        private List<VoucherFlowRecord> records = new ArrayList<>();
+        private List<String> warnings = new ArrayList<>();
+    }
+
+    private static class VoucherFlowRecord {
+        private Long voucherId;
+        private String voucherNumber;
+        private LocalDate voucherDate;
+        private String summary;
+        private String cashAccountCodes;
+        private String counterpartyAccountCodes;
+        private String cashflowItemCode;
+        private String cashflowItemName;
+        private String categoryCode;
+        private String categoryName;
+        private String sourceType;
+        private BigDecimal cashInAmount = BigDecimal.ZERO;
+        private BigDecimal cashOutAmount = BigDecimal.ZERO;
+        private BigDecimal netAmount = BigDecimal.ZERO;
+        private int cashEntryCount;
+        private int counterpartyEntryCount;
+        private String postedBy;
+        private LocalDateTime postedTime;
+        private String reason;
+    }
+
+    private static class ExplicitResolution {
+        private final String code;
+        private final String name;
+        private final String categoryCode;
+        private final String categoryName;
+        private final boolean recognized;
+
+        private ExplicitResolution(String code, String name, String categoryCode, String categoryName, boolean recognized) {
+            this.code = code;
+            this.name = name;
+            this.categoryCode = categoryCode;
+            this.categoryName = categoryName;
+            this.recognized = recognized;
+        }
+    }
+
+    private static class SupplementCategoryAccumulator {
+        private final String categoryCode;
+        private final String categoryName;
+        private int voucherCount;
+        private BigDecimal cashInAmount = BigDecimal.ZERO;
+        private BigDecimal cashOutAmount = BigDecimal.ZERO;
+        private BigDecimal netAmount = BigDecimal.ZERO;
+        private int directCount;
+        private int heuristicCount;
+        private int pendingCount;
+
+        private SupplementCategoryAccumulator(String categoryCode, String categoryName) {
+            this.categoryCode = categoryCode;
+            this.categoryName = categoryName;
+        }
+
+        private void add(VoucherFlowRecord record) {
+            voucherCount += 1;
+            cashInAmount = cashInAmount.add(record.cashInAmount == null ? BigDecimal.ZERO : record.cashInAmount);
+            cashOutAmount = cashOutAmount.add(record.cashOutAmount == null ? BigDecimal.ZERO : record.cashOutAmount);
+            netAmount = netAmount.add(record.netAmount == null ? BigDecimal.ZERO : record.netAmount);
+            if ("DIRECT".equals(record.sourceType)) {
+                directCount += 1;
+            } else if ("HEURISTIC".equals(record.sourceType)) {
+                heuristicCount += 1;
+                pendingCount += 1;
+            } else {
+                pendingCount += 1;
+            }
+        }
+
+        private CashFlowSupplementCategoryVO toVO() {
+            return new CashFlowSupplementCategoryVO(
+                    categoryCode,
+                    categoryName,
+                    voucherCount,
+                    cashInAmount.setScale(2, RoundingMode.HALF_UP),
+                    cashOutAmount.setScale(2, RoundingMode.HALF_UP),
+                    netAmount.setScale(2, RoundingMode.HALF_UP),
+                    directCount,
+                    heuristicCount,
+                    pendingCount
+            );
         }
     }
 }
