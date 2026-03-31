@@ -188,8 +188,15 @@ public class BizfiFiLedgerCollaborationServiceImpl implements BizfiFiLedgerColla
             }
         }
 
-        rows.sort(Comparator.comparing(item -> text(item.get("originalDate")), Comparator.nullsLast(String::compareTo)).reversed()
-                .thenComparing(item -> text(item.get("originalNumber")), Comparator.nullsLast(String::compareTo)));
+        rows.sort(
+                Comparator.comparing(
+                        (Map<String, Object> item) -> text(item.get("originalDate")),
+                        Comparator.nullsLast(String::compareTo)
+                ).reversed().thenComparing(
+                        (Map<String, Object> item) -> text(item.get("originalNumber")),
+                        Comparator.nullsLast(String::compareTo)
+                )
+        );
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("startDate", formatDate(range.startDate));
@@ -247,10 +254,16 @@ public class BizfiFiLedgerCollaborationServiceImpl implements BizfiFiLedgerColla
                     duplicateCountByNumber.getOrDefault(text(voucher.getFnumber()), 0L)
             );
 
-            if (issues.isEmpty() && !issueOnly) {
-                rows.add(toHealthyVoucherRow(voucher,
-                        linesByVoucherId.getOrDefault(voucher.getFid(), List.of()),
-                        entriesByVoucherId.getOrDefault(voucher.getFid(), List.of())));
+            if (issues.isEmpty()) {
+                boolean noIssueFilter = !StringUtils.hasText(issueFilter) || "ALL".equals(issueFilter);
+                boolean noSeverityFilter = !StringUtils.hasText(severityFilter) || "ALL".equals(severityFilter);
+                if (!issueOnly && noIssueFilter && noSeverityFilter) {
+                    rows.add(toHealthyVoucherRow(
+                            voucher,
+                            linesByVoucherId.getOrDefault(voucher.getFid(), List.of()),
+                            entriesByVoucherId.getOrDefault(voucher.getFid(), List.of())
+                    ));
+                }
                 continue;
             }
 
