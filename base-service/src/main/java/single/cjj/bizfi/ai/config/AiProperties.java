@@ -14,4 +14,5 @@ public class AiProperties {
     private Boolean fallbackEnabled = true;
     private Integer maxHistoryMessages = 20;
     private Integer maxKnowledgeChunks = 5;
+    private Integer requestTimeoutSeconds = 60;
 }
