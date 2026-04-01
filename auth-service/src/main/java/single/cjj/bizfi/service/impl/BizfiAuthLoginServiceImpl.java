@@ -1,6 +1,7 @@
 package single.cjj.bizfi.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -21,11 +22,19 @@ import single.cjj.bizfi.utils.EmailUtils;
 import single.cjj.bizfi.utils.JwtUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+
+@Slf4j
 @Service
 public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
+
+    private static final int CAPTCHA_REQUIRED_FAIL_THRESHOLD = 3;
+    private static final long LOGIN_FAIL_EXPIRE_MINUTES = 30;
 
     @Autowired
     private BaseUserClient baseUserClient;
@@ -56,27 +65,32 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
             throw new BizException("请输入正确的账号密码");
         }
 
-        if (!StringUtils.hasText(captcha) || !StringUtils.hasText(captchaKey)) {
-            throw new BizException("请输入验证码");
-        }
+        long failedTimes = getLoginFailCount(account);
+        if (failedTimes >= CAPTCHA_REQUIRED_FAIL_THRESHOLD) {
+            if (!StringUtils.hasText(captcha) || !StringUtils.hasText(captchaKey)) {
+                throw new BizException("登录失败3次及以上，请输入验证码");
+            }
 
-        String redisKey = "captcha:" + captchaKey;
-        String cachedCaptcha = redisTemplate.opsForValue().get(redisKey);
-        if (!StringUtils.hasText(cachedCaptcha)) {
-            throw new BizException("验证码已失效，请重新获取");
-        }
+            String redisKey = "captcha:" + captchaKey;
+            String cachedCaptcha = redisTemplate.opsForValue().get(redisKey);
+            if (!StringUtils.hasText(cachedCaptcha)) {
+                throw new BizException("验证码已失效，请重新获取");
+            }
 
-        if (!captcha.equalsIgnoreCase(cachedCaptcha)) {
-            throw new BizException("验证码错误");
-        }
+            if (!captcha.equalsIgnoreCase(cachedCaptcha)) {
+                throw new BizException("验证码错误");
+            }
 
-        // 删除验证码，防止重用
-        redisTemplate.delete(redisKey);
+            // 删除验证码，防止重用
+            redisTemplate.delete(redisKey);
+        }
 
         // 远程获取用户
         ApiResponse<BizfiBaseUser> userResp = baseUserClient.getByAccount(account);
         BizfiBaseUser user = userResp != null ? userResp.getData() : null;
         if (user == null) {
+            increaseLoginFailCount(account);
+            log.warn("login failed: account not found, account={}", account);
             throw new BizException("用户不存在");
         }
 
@@ -87,13 +101,20 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
         );
 
         if (authLogin == null) {
+            increaseLoginFailCount(account);
+            log.warn("login failed: password record missing, account={}", account);
             throw new BizException("该用户没有维护密码，请使用其他方式登录");
         }
 
         String inputPasswordMd5 = DigestUtils.md5DigestAsHex(password.getBytes(StandardCharsets.UTF_8));
         if (!inputPasswordMd5.equalsIgnoreCase(authLogin.getFpassword())) {
+            increaseLoginFailCount(account);
+            log.warn("login failed: wrong password, account={}", account);
             throw new BizException("密码错误");
         }
+
+        // 登录成功，清空失败次数
+        clearLoginFailCount(account);
 
         // 生成登录 Token，并写入 Redis，1 小时未操作自动过期
         String token = JwtUtils.generateToken(user.getFid(), user.getFid());
@@ -108,19 +129,77 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
         response.setToken(token);
         response.setExpireIn(JwtUtils.EXPIRE / 1000);
 
+        log.info("login success: account={}, userId={}", account, user.getFid());
         return response;
     }
 
     /**
-     * 手机号+验证码登录（待实现/留空）
-     *
-     * @param request 登录请求参数
-     * @return 登录响应（此处为null）
+     * 手机号+验证码登录
      */
     @Override
     public LoginResponse loginByPhone(LoginRequest request) {
-        // 你已有手机号+验证码登录接口逻辑，此处不做处理
-        return null;
+        String mobile = request.getMobile();
+        String code = request.getCode();
+        if (!StringUtils.hasText(mobile) || !StringUtils.hasText(code)) {
+            throw new BizException("手机号或验证码不能为空");
+        }
+
+        String cacheCode = redisTemplate.opsForValue().get("sms:code:" + mobile);
+        if (!StringUtils.hasText(cacheCode) || !code.equals(cacheCode)) {
+            throw new BizException("短信验证码错误或已过期");
+        }
+        redisTemplate.delete("sms:code:" + mobile);
+        return doLoginWithoutCaptcha(mobile);
+    }
+
+    @Override
+    public LoginResponse loginByEmail(LoginRequest request) {
+        String email = StringUtils.hasText(request.getEmail()) ? request.getEmail() : request.getUsername();
+        String password = request.getPassword();
+        if (!StringUtils.hasText(email) || !StringUtils.hasText(password)) {
+            throw new BizException("邮箱或密码不能为空");
+        }
+
+        LoginRequest accountReq = new LoginRequest();
+        accountReq.setUsername(email);
+        accountReq.setPassword(password);
+        accountReq.setCaptcha(request.getCaptcha());
+        accountReq.setCaptchaKey(request.getCaptchaKey());
+        return loginByAccount(accountReq);
+    }
+
+    @Override
+    public Boolean sendSmsCode(String mobile) {
+        if (!StringUtils.hasText(mobile) || !mobile.matches("^1\\d{10}$")) {
+            throw new BizException("手机号格式不正确");
+        }
+        String code = String.format("%06d", new Random().nextInt(999999));
+        redisTemplate.opsForValue().set("sms:code:" + mobile, code, 5, TimeUnit.MINUTES);
+        return true;
+    }
+
+    @Override
+    public Map<String, Object> generateQrCode() {
+        String token = UUID.randomUUID().toString();
+        redisTemplate.opsForValue().set("qrcode:login:" + token, "pending", 2, TimeUnit.MINUTES);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("token", token);
+        result.put("imageUrl", "/qrcode-placeholder.png");
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> checkQrStatus(String qrcodeToken) {
+        String status = redisTemplate.opsForValue().get("qrcode:login:" + qrcodeToken);
+
+        Map<String, Object> result = new HashMap<>();
+        if (!StringUtils.hasText(status)) {
+            result.put("status", "expired");
+            return result;
+        }
+        result.put("status", status);
+        return result;
     }
 
     /**
@@ -207,5 +286,53 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
         }
         // 没查到才是唯一（true）
         return userResp == null || userResp.getData() == null;
+    }
+
+    private LoginResponse doLoginWithoutCaptcha(String account) {
+        ApiResponse<BizfiBaseUser> userResp = baseUserClient.getByAccount(account);
+        BizfiBaseUser user = userResp != null ? userResp.getData() : null;
+        if (user == null) {
+            throw new BizException("用户不存在");
+        }
+
+        String token = JwtUtils.generateToken(user.getFid(), user.getFid());
+        redisTemplate.opsForValue()
+                .set("token:" + token, String.valueOf(user.getFid()), 1, TimeUnit.HOURS);
+
+        LoginResponse response = new LoginResponse();
+        response.setFid(user.getFid());
+        response.setUserName(user.getFnumber());
+        response.setPhoneNumber(user.getFphone());
+        response.setEmail(user.getFemail());
+        response.setToken(token);
+        response.setExpireIn(JwtUtils.EXPIRE / 1000);
+        return response;
+    }
+
+    private String loginFailKey(String account) {
+        return "login:fail:account:" + account;
+    }
+
+    private long getLoginFailCount(String account) {
+        String value = redisTemplate.opsForValue().get(loginFailKey(account));
+        if (!StringUtils.hasText(value)) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
+    }
+
+    private void increaseLoginFailCount(String account) {
+        Long count = redisTemplate.opsForValue().increment(loginFailKey(account));
+        if (count != null && count == 1L) {
+            redisTemplate.expire(loginFailKey(account), LOGIN_FAIL_EXPIRE_MINUTES, TimeUnit.MINUTES);
+        }
+    }
+
+    private void clearLoginFailCount(String account) {
+        redisTemplate.delete(loginFailKey(account));
     }
 }

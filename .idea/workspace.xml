@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8f8c52bb-e4e1-4914-89a9-82579bab4cd9" name="Changes" comment="Changes" />
+    <list default="true" id="8f8c52bb-e4e1-4914-89a9-82579bab4cd9" name="Changes" comment="Changes">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -101,10 +103,11 @@
     &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
     &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
     &quot;run.configurations.included.in.services&quot;: &quot;true&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;project.propVCSSupport.DirectoryMappings&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;configurable.group.tools&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;,
     &quot;应用程序.AuthApplication.executor&quot;: &quot;Debug&quot;,
-    &quot;应用程序.CodeGenerator.executor&quot;: &quot;Run&quot;
+    &quot;应用程序.CodeGenerator.executor&quot;: &quot;Run&quot;,
+    &quot;应用程序.Main (1).executor&quot;: &quot;Run&quot;
   },
   &quot;keyToStringList&quot;: {
     &quot;DatabaseDriversLRU&quot;: [
@@ -147,7 +150,7 @@
       </set>
     </option>
   </component>
-  <component name="RunManager" selected="Spring Boot.FinanceApplication">
+  <component name="RunManager" selected="应用程序.Main (1)">
     <configuration name="AuthApplication" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
       <option name="MAIN_CLASS_NAME" value="single.cjj.bizfi.AuthApplication" />
       <module name="auth-service" />
@@ -174,15 +177,9 @@
         <option name="Make" enabled="true" />
       </method>
     </configuration>
-    <configuration name="Main" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
-      <option name="MAIN_CLASS_NAME" value="single.cjj.Main" />
-      <module name="gateway" />
-      <extension name="coverage">
-        <pattern>
-          <option name="PATTERN" value="single.cjj.*" />
-          <option name="ENABLED" value="true" />
-        </pattern>
-      </extension>
+    <configuration name="Main (1)" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="Main" />
+      <module name="share-service" />
       <method v="2">
         <option name="Make" enabled="true" />
       </method>
@@ -258,18 +255,19 @@
       </method>
     </configuration>
     <list>
-      <item itemvalue="Spring Boot.ShareServiceApplication" />
-      <item itemvalue="Spring Boot.GatewayApplication" />
-      <item itemvalue="Spring Boot.CommonApplication" />
-      <item itemvalue="Spring Boot.AuthApplication" />
-      <item itemvalue="Spring Boot.FinanceApplication" />
-      <item itemvalue="Spring Boot.BaseApplication" />
       <item itemvalue="应用程序.AuthApplication" />
       <item itemvalue="应用程序.CodeGenerator" />
-      <item itemvalue="应用程序.Main" />
+      <item itemvalue="应用程序.Main (1)" />
+      <item itemvalue="Spring Boot.AuthApplication" />
+      <item itemvalue="Spring Boot.BaseApplication" />
+      <item itemvalue="Spring Boot.CommonApplication" />
+      <item itemvalue="Spring Boot.FinanceApplication" />
+      <item itemvalue="Spring Boot.GatewayApplication" />
+      <item itemvalue="Spring Boot.ShareServiceApplication" />
     </list>
     <recent_temporary>
       <list>
+        <item itemvalue="应用程序.Main (1)" />
         <item itemvalue="Spring Boot.BaseApplication" />
         <item itemvalue="Spring Boot.FinanceApplication" />
         <item itemvalue="应用程序.AuthApplication" />
@@ -346,6 +344,13 @@
       <workItem from="1751105182383" duration="1557000" />
       <workItem from="1751378122916" duration="1080000" />
       <workItem from="1751382111794" duration="12529000" />
+      <workItem from="1770449558474" duration="825000" />
+      <workItem from="1772123199375" duration="117000" />
+      <workItem from="1772123339571" duration="1914000" />
+      <workItem from="1772983557126" duration="1571000" />
+      <workItem from="1773649143784" duration="4816000" />
+      <workItem from="1774423238650" duration="5194000" />
+      <workItem from="1774630519863" duration="6233000" />
     </task>
     <task id="LOCAL-00001" summary="Changes">
       <option name="closed" value="true" />
@@ -483,7 +488,23 @@
       <option name="project" value="LOCAL" />
       <updated>1751596857896</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="Changes">
+      <option name="closed" value="true" />
+      <created>1774634952051</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1774634952051</updated>
+    </task>
+    <task id="LOCAL-00019" summary="Changes">
+      <option name="closed" value="true" />
+      <created>1774636840256</created>
+      <option name="number" value="00019" />
+      <option name="presentableId" value="LOCAL-00019" />
+      <option name="project" value="LOCAL" />
+      <updated>1774636840256</updated>
+    </task>
+    <option name="localTasksCounter" value="20" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="single.cjj.fi.gl.report.mapper.BizfiFiReportAccountMapMapper">
+    <resultMap id="BaseResultMap" type="single.cjj.fi.gl.report.entity.BizfiFiReportAccountMap">
+        <id column="fid" property="fid" />
+        <result column="ftemplate_id" property="ftemplateId" />
+        <result column="fitem_id" property="fitemId" />
+        <result column="faccount_id" property="faccountId" />
+        <result column="fmapping_type" property="fmappingType" />
+        <result column="feffective_from" property="feffectiveFrom" />
+        <result column="feffective_to" property="feffectiveTo" />
+        <result column="fremark" property="fremark" />
+        <result column="fcreatetime" property="fcreatetime" />
+        <result column="fupdatetime" property="fupdatetime" />
+    </resultMap>
+</mapper>
+

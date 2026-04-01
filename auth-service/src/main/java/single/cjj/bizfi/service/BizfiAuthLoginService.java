@@ -5,10 +5,20 @@ import single.cjj.bizfi.dto.LoginRequest;
 import single.cjj.bizfi.dto.LoginResponse;
 import single.cjj.bizfi.dto.RegisterRequest;
 
+import java.util.Map;
+
 public interface BizfiAuthLoginService {
     LoginResponse loginByAccount(LoginRequest request);
 
     LoginResponse loginByPhone(LoginRequest request);
+
+    LoginResponse loginByEmail(LoginRequest request);
+
+    Boolean sendSmsCode(String mobile);
+
+    Map<String, Object> generateQrCode();
+
+    Map<String, Object> checkQrStatus(String qrcodeToken);
 
     Boolean sendEmailCode(EmailSendRequest request);     // 返回是否发送成功
 

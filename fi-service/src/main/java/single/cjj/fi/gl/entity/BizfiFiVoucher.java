@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * 财务凭证实体
@@ -35,4 +36,28 @@ public class BizfiFiVoucher implements Serializable {
 
     /** 金额 */
     private BigDecimal famount;
+
+    /** 状态：DRAFT/SUBMITTED/AUDITED/POSTED */
+    private String fstatus;
+
+    /** 制单人 */
+    private String fcreatedBy;
+
+    /** 制单时间 */
+    private LocalDateTime fcreatedTime;
+
+    /** 审核人 */
+    private String fauditedBy;
+
+    /** 审核时间 */
+    private LocalDateTime fauditedTime;
+
+    /** 过账人 */
+    private String fpostedBy;
+
+    /** 过账时间 */
+    private LocalDateTime fpostedTime;
+
+    /** 备注 */
+    private String fremark;
 }

@@ -24,3 +24,12 @@ spring:
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
