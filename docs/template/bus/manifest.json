@@ -1,0 +1,21 @@
+{
+  "domain": "fi",
+  "subDomain": "er",
+  "bizCode": "expense-reimbursement",
+  "bizName": "费用报销单",
+  "busDocs": [
+    "business.md",
+    "fields.md",
+    "flow.md",
+    "rules.md",
+    "page.md",
+    "api.md"
+  ],
+  "promptDocs": [
+    "../../../prompt/fi/er/expense-reimbursement/backend.md",
+    "../../../prompt/fi/er/expense-reimbursement/frontend.md",
+    "../../../prompt/fi/er/expense-reimbursement/sql.md",
+    "../../../prompt/fi/er/expense-reimbursement/test.md"
+  ],
+  "draftPaths": []
+}
