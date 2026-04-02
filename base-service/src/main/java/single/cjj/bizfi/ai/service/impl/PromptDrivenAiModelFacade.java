@@ -5,7 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import single.cjj.bizfi.ai.dto.*;
+import single.cjj.bizfi.ai.config.AiProperties;
+import single.cjj.bizfi.ai.dto.AiConfigStatusResponse;
+import single.cjj.bizfi.ai.dto.AiMessageResponse;
+import single.cjj.bizfi.ai.dto.AiModelRequest;
+import single.cjj.bizfi.ai.dto.AiModelResult;
 import single.cjj.bizfi.ai.service.AiModelFacade;
 import single.cjj.bizfi.ai.service.AiPromptDocService;
 
@@ -16,7 +20,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class PromptDrivenAiModelFacade implements AiModelFacade {
@@ -24,6 +32,7 @@ public class PromptDrivenAiModelFacade implements AiModelFacade {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = buildHttpClient();
     private final AiPromptDocService promptDocService;
+    private final AiProperties aiProperties;
 
     @Value("${AI_API_KEY:}")
     private String aiApiKey;
@@ -34,8 +43,9 @@ public class PromptDrivenAiModelFacade implements AiModelFacade {
     @Value("${AI_CHAT_MODEL:gemini-3-flash-preview}")
     private String aiChatModel;
 
-    public PromptDrivenAiModelFacade(AiPromptDocService promptDocService) {
+    public PromptDrivenAiModelFacade(AiPromptDocService promptDocService, AiProperties aiProperties) {
         this.promptDocService = promptDocService;
+        this.aiProperties = aiProperties;
     }
 
     @Override
@@ -59,14 +69,17 @@ public class PromptDrivenAiModelFacade implements AiModelFacade {
             if (msg != null && msg.length() > 500) {
                 msg = msg.substring(0, 500);
             }
-            return buildFallbackResult("AI 服务调用失败：" + msg, "error-fallback");
+            return buildFallbackResult("AI 服务调用失败: " + msg, "error-fallback");
         }
     }
 
     @Override
     public AiConfigStatusResponse configStatus() {
-        return new AiConfigStatusResponse(isRealAiConfigured(), aiChatModel,
-                isRealAiConfigured() ? "real-model" : "fallback");
+        return new AiConfigStatusResponse(
+                isRealAiConfigured(),
+                aiChatModel,
+                isRealAiConfigured() ? "real-model" : "fallback"
+        );
     }
 
     private boolean isRealAiConfigured() {
@@ -81,7 +94,8 @@ public class PromptDrivenAiModelFacade implements AiModelFacade {
 
     private String buildEndpoint() {
         if (isGeminiNativeBaseUrl()) {
-            return aiBaseUrl.endsWith("/") ? aiBaseUrl + "models/" + aiChatModel + ":generateContent?key=" + aiApiKey
+            return aiBaseUrl.endsWith("/")
+                    ? aiBaseUrl + "models/" + aiChatModel + ":generateContent?key=" + aiApiKey
                     : aiBaseUrl + "/models/" + aiChatModel + ":generateContent?key=" + aiApiKey;
         }
         return aiBaseUrl.endsWith("/") ? aiBaseUrl + "chat/completions" : aiBaseUrl + "/chat/completions";
@@ -142,7 +156,7 @@ public class PromptDrivenAiModelFacade implements AiModelFacade {
         String json = objectMapper.writeValueAsString(body);
         HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(endpoint))
-                .timeout(Duration.ofSeconds(25))
+                .timeout(Duration.ofSeconds(resolveRequestTimeoutSeconds()))
                 .header("Content-Type", "application/json")
                 .header("Authorization", "Bearer " + aiApiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(json))
@@ -214,7 +228,7 @@ public class PromptDrivenAiModelFacade implements AiModelFacade {
 
         HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(endpoint))
-                .timeout(Duration.ofSeconds(25))
+                .timeout(Duration.ofSeconds(resolveRequestTimeoutSeconds()))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
@@ -252,7 +266,9 @@ public class PromptDrivenAiModelFacade implements AiModelFacade {
                 }
                 JsonNode textNode = item.path("text");
                 if (textNode.isTextual()) {
-                    if (sb.length() > 0) sb.append("\n");
+                    if (sb.length() > 0) {
+                        sb.append("\n");
+                    }
                     sb.append(textNode.asText(""));
                 }
             }
@@ -272,11 +288,16 @@ public class PromptDrivenAiModelFacade implements AiModelFacade {
 
     private String buildFallbackAnswer(String userMessage) {
         if (userMessage.contains("应付") || userMessage.contains("报销")) {
-            return "建议先按‘单据状态 + 时间范围 + 组织’三维筛查，再定位异常明细。你也可以在完整版里继续追问，我会按步骤拆解。";
+            return "建议先按“单据状态 + 时间范围 + 组织”三个维度筛查，再定位异常明细。你也可以在完整页里继续追问，我会按步骤拆解。";
         }
         if (userMessage.contains("总账") || userMessage.contains("凭证")) {
             return "先核对期间、账簿与科目范围，再做余额与发生额勾稽。若有差异，优先检查凭证来源与过账状态。";
         }
-        return "当前未配置 AI_API_KEY，正在使用本地占位回复。配置后将自动切换到真实大模型。";
+        return "当前未配置 AI_API_KEY，正在使用本地占位回答。配置后将自动切换到真实大模型。";
+    }
+
+    private long resolveRequestTimeoutSeconds() {
+        Integer configured = aiProperties.getRequestTimeoutSeconds();
+        return configured != null && configured > 0 ? configured : 60L;
     }
 }

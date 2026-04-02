@@ -61,7 +61,7 @@ public class AiAssistantController {
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
-    public ApiResponse<Map<String, Object>> getMessages(@PathVariable String conversationId) {
+    public ApiResponse<Map<String, Object>> getMessages(@PathVariable("conversationId") String conversationId) {
         Conversation conversation = CONVERSATIONS.get(conversationId);
         if (conversation == null) {
             return ApiResponse.error(404, "会话不存在");

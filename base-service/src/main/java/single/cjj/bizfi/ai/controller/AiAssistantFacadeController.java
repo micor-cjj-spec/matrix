@@ -42,7 +42,7 @@ public class AiAssistantFacadeController {
     }
 
     @GetMapping("/conversations/{conversationId}/messages")
-    public ApiResponse<AiConversationMessagesResponse> getMessages(@PathVariable String conversationId) {
+    public ApiResponse<AiConversationMessagesResponse> getMessages(@PathVariable("conversationId") String conversationId) {
         Long userId = currentUserService.currentUserId();
         List<BizfiAiMessage> dbMessages = conversationService.listMessages(userId, conversationId);
         List<AiMessageResponse> messages = dbMessages.stream()

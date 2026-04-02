@@ -1,0 +1,33 @@
+package single.cjj.fi.gl.init.entity;
+
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@TableName("bizfi_fi_counterparty_opening_balance")
+public class BizfiFiCounterpartyOpeningBalance implements Serializable {
+    @TableId("fid")
+    private Long fid;
+    private Long forg;
+    private String fperiod;
+    private String fcounterpartyType;
+    private Long fcounterpartyId;
+    private String fcounterpartyCode;
+    private String fcounterpartyName;
+    private String faccountCode;
+    private String faccountName;
+    private BigDecimal famount;
+    private String fdirection;
+    private String fremark;
+    private LocalDateTime fcreatetime;
+    private LocalDateTime fupdatetime;
+}
