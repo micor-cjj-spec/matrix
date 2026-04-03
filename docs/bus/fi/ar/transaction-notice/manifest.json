@@ -1,0 +1,26 @@
+{
+  "domain": "fi",
+  "subDomain": "ar",
+  "bizCode": "transaction-notice",
+  "bizName": "往来通知单",
+  "status": "draft",
+  "version": "0.1.0",
+  "draftPaths": [
+    "docs/draft/2026/04/01/001-transaction-notice/"
+  ],
+  "busDocs": [
+    "business.md",
+    "fields.md",
+    "flow.md",
+    "rules.md",
+    "page.md",
+    "api.md"
+  ],
+  "promptDocs": [
+    "docs/prompt/fi/ar/transaction-notice/backend.md",
+    "docs/prompt/fi/ar/transaction-notice/frontend.md",
+    "docs/prompt/fi/ar/transaction-notice/test.md"
+  ],
+  "owner": "",
+  "updatedAt": "2026-04-03"
+}
