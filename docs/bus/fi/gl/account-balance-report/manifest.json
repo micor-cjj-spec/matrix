@@ -1,0 +1,26 @@
+{
+  "domain": "fi",
+  "subDomain": "gl",
+  "bizCode": "account-balance-report",
+  "bizName": "科目余额表",
+  "status": "draft",
+  "version": "0.1.0",
+  "draftPaths": [
+    "docs/draft/2026/03/25/001-account-balance-report/"
+  ],
+  "busDocs": [
+    "business.md",
+    "fields.md",
+    "flow.md",
+    "rules.md",
+    "page.md",
+    "api.md"
+  ],
+  "promptDocs": [
+    "docs/prompt/fi/gl/account-balance-report/backend.md",
+    "docs/prompt/fi/gl/account-balance-report/frontend.md",
+    "docs/prompt/fi/gl/account-balance-report/test.md"
+  ],
+  "owner": "",
+  "updatedAt": "2026-04-03"
+}
