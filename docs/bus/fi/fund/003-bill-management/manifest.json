@@ -1,0 +1,11 @@
+{
+  "domain": "fi",
+  "subDomain": "fund",
+  "bizCode": "bill-management",
+  "bizName": "票据管理",
+  "status": "not_implemented",
+  "version": "0.1.0",
+  "busDocs": ["business.md","fields.md","flow.md","rules.md","page.md","api.md"],
+  "owner": "",
+  "updatedAt": "2026-04-04"
+}
