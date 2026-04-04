@@ -1,0 +1,11 @@
+{
+  "domain": "fi",
+  "subDomain": "ap",
+  "bizCode": "estimated-payable",
+  "bizName": "暂估应付",
+  "status": "draft",
+  "version": "0.1.0",
+  "busDocs": ["business.md","fields.md","flow.md","rules.md","page.md","api.md"],
+  "owner": "",
+  "updatedAt": "2026-04-04"
+}
