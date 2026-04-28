@@ -1,0 +1,11 @@
+{
+  "domain": "fi/gl",
+  "module": "007-period-end-processing",
+  "scene": "007-month-end-close-workbench",
+  "name": "财务月结工作台 / 关账前检查中心",
+  "draft": "docs/draft/2026/04/28/001-month-end-close-workbench",
+  "frontend": "matrix-web/src/views/login/ledger/period-process/MonthEndCloseWorkbenchView.vue",
+  "backend": "matrix/fi-service/src/main/java/single/cjj/fi/gl",
+  "status": "confirmed-for-implementation"
+}
+

@@ -5,20 +5,31 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import single.cjj.fi.gl.entity.BizfiFiAccountingPeriod;
+import single.cjj.fi.gl.entity.BizfiFiGlEntry;
 import single.cjj.fi.gl.entity.BizfiFiOrgFinanceConfig;
 import single.cjj.fi.gl.entity.BizfiFiVoucher;
 import single.cjj.fi.gl.mapper.BizfiFiAccountingPeriodMapper;
+import single.cjj.fi.gl.mapper.BizfiFiGlEntryMapper;
 import single.cjj.fi.gl.mapper.BizfiFiVoucherMapper;
+import single.cjj.fi.gl.report.service.BizfiFiBalanceSheetService;
+import single.cjj.fi.gl.report.service.BizfiFiCashFlowService;
+import single.cjj.fi.gl.report.service.BizfiFiProfitStatementService;
+import single.cjj.fi.gl.report.vo.ReportQueryResultVO;
 import single.cjj.fi.gl.service.BizfiFiDataHealthCheckService;
 import single.cjj.fi.gl.service.BizfiFiOrgFinanceConfigService;
 import single.cjj.fi.gl.service.BizfiFiPeriodProcessService;
 import single.cjj.fi.gl.vo.BizfiFiHealthCheckResultVO;
+import single.cjj.fi.gl.vo.BizfiFiHealthCheckIssueVO;
+import single.cjj.fi.gl.vo.MonthEndCheckItemVO;
+import single.cjj.fi.gl.vo.MonthEndStepVO;
+import single.cjj.fi.gl.vo.MonthEndWorkbenchResultVO;
 import single.cjj.fi.gl.vo.PeriodMonitorCenterResultVO;
 import single.cjj.fi.gl.vo.PeriodMonitorModuleVO;
 import single.cjj.fi.gl.vo.PeriodProcessResultVO;
 import single.cjj.fi.gl.vo.VoucherCarryTaskVO;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
@@ -27,6 +38,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class BizfiFiPeriodProcessServiceImpl implements BizfiFiPeriodProcessService {
@@ -41,6 +53,9 @@ public class BizfiFiPeriodProcessServiceImpl implements BizfiFiPeriodProcessServ
     private BizfiFiVoucherMapper voucherMapper;
 
     @Autowired
+    private BizfiFiGlEntryMapper glEntryMapper;
+
+    @Autowired
     private BizfiFiAccountingPeriodMapper accountingPeriodMapper;
 
     @Autowired
@@ -48,6 +63,15 @@ public class BizfiFiPeriodProcessServiceImpl implements BizfiFiPeriodProcessServ
 
     @Autowired
     private BizfiFiDataHealthCheckService dataHealthCheckService;
+
+    @Autowired
+    private BizfiFiBalanceSheetService balanceSheetService;
+
+    @Autowired
+    private BizfiFiProfitStatementService profitStatementService;
+
+    @Autowired
+    private BizfiFiCashFlowService cashFlowService;
 
     @Override
     public PeriodProcessResultVO profitLoss(Long forg, String period) {
@@ -171,6 +195,566 @@ public class BizfiFiPeriodProcessServiceImpl implements BizfiFiPeriodProcessServ
         }
         result.setWarnings(warnings);
         return result;
+    }
+
+    @Override
+    public MonthEndWorkbenchResultVO monthEndWorkbench(Long forg, String period) {
+        PeriodProcessResultVO profitLoss = profitLoss(forg, period);
+        PeriodProcessResultVO autoTransfer = autoTransfer(forg, period);
+        PeriodProcessResultVO fxRevalue = fxRevalue(forg, period);
+        PeriodProcessResultVO amortization = voucherAmortization(forg, period);
+        PeriodProcessResultVO closeBooks = closeBooks(forg, period);
+        List<PeriodProcessResultVO> modules = List.of(profitLoss, autoTransfer, fxRevalue, amortization, closeBooks);
+
+        MonthEndWorkbenchResultVO result = new MonthEndWorkbenchResultVO();
+        result.setForg(closeBooks.getForg());
+        result.setPeriod(closeBooks.getPeriod());
+        result.setPeriodSource(closeBooks.getPeriodSource());
+        result.setBaseCurrency(closeBooks.getBaseCurrency());
+        result.setCurrentPeriod(closeBooks.getCurrentPeriod());
+        result.setPeriodStatus(closeBooks.getPeriodStatus());
+        result.setPeriodVoucherCount(defaultInt(closeBooks.getPeriodVoucherCount()));
+        result.setPostedVoucherCount(defaultInt(closeBooks.getPostedVoucherCount()));
+        result.setPendingVoucherCount(defaultInt(closeBooks.getPendingVoucherCount()));
+        result.setExceptionVoucherCount(defaultInt(closeBooks.getExceptionVoucherCount()));
+        result.setCheckedAt(LocalDateTime.now());
+
+        List<MonthEndCheckItemVO> checkItems = new ArrayList<>();
+        appendFoundationChecks(checkItems, forg, closeBooks);
+        appendPeriodCheck(checkItems, closeBooks);
+        appendVoucherCheck(checkItems, closeBooks);
+        appendGlBalanceCheck(checkItems, closeBooks.getPeriod());
+        appendPeriodModuleChecks(checkItems, modules);
+        appendReportCheck(checkItems, result);
+        appendCloseDecisionCheck(checkItems, closeBooks);
+        result.setCheckItems(checkItems);
+        result.setSteps(buildMonthEndSteps(modules, checkItems));
+
+        int blockingCount = countCheckStatus(checkItems, "BLOCKED");
+        int warningCount = countCheckStatus(checkItems, "WARNING");
+        int pendingCount = countCheckStatus(checkItems, "PENDING");
+        int passedCount = countCheckStatus(checkItems, "PASSED");
+        result.setBlockingCount(blockingCount);
+        result.setWarningCount(warningCount);
+        result.setPendingCount(pendingCount);
+        result.setPassedCount(passedCount);
+        result.setTotalCheckCount(checkItems.size());
+        result.setReadinessScore(calculateReadinessScore(checkItems));
+
+        String periodStatus = normalize(closeBooks.getPeriodStatus());
+        if ("CLOSED".equals(periodStatus)) {
+            result.setCloseStatus("CLOSED");
+            result.setCanClose(false);
+        } else if (blockingCount > 0) {
+            result.setCloseStatus("BLOCKED");
+            result.setCanClose(false);
+        } else if (warningCount > 0 || pendingCount > 0) {
+            result.setCloseStatus("WARNING");
+            result.setCanClose(false);
+        } else {
+            result.setCloseStatus("READY");
+            result.setCanClose(true);
+        }
+
+        List<String> warnings = new ArrayList<>();
+        for (PeriodProcessResultVO module : modules) {
+            if (module.getWarnings() != null) {
+                module.getWarnings().stream()
+                        .filter(StringUtils::hasText)
+                        .forEach(warnings::add);
+            }
+        }
+        checkItems.stream()
+                .filter(item -> Boolean.TRUE.equals(item.getBlocking()))
+                .map(item -> item.getName() + ": " + item.getMessage())
+                .forEach(warnings::add);
+        result.setWarnings(warnings.stream().distinct().toList());
+        return result;
+    }
+
+    private void appendFoundationChecks(List<MonthEndCheckItemVO> checkItems, Long forg, PeriodProcessResultVO closeBooks) {
+        VoucherCarryTaskVO orgTask = findTask(closeBooks, "ORG_CONFIG");
+        if (orgTask == null || !StringUtils.hasText(closeBooks.getBaseCurrency())) {
+            checkItems.add(checkItem(
+                    "ORG_CONFIG",
+                    "组织财务参数",
+                    "FOUNDATION",
+                    "BLOCKED",
+                    "HIGH",
+                    orgTask == null ? "未识别到组织财务参数。" : orgTask.getMessage(),
+                    orgTask == null ? "先维护组织财务参数。" : orgTask.getActionHint(),
+                    "/ledger/period-monitor-center",
+                    1,
+                    true
+            ));
+        } else {
+            checkItems.add(checkItem(
+                    "ORG_CONFIG",
+                    "组织财务参数",
+                    "FOUNDATION",
+                    "PASSED",
+                    "LOW",
+                    orgTask.getMessage(),
+                    "可继续执行关账前检查。",
+                    "/ledger/period-monitor-center",
+                    0,
+                    false
+            ));
+        }
+
+        BizfiFiHealthCheckResultVO healthCheck = forg == null ? null : loadHealthQuietly(forg);
+        if (healthCheck == null) {
+            checkItems.add(checkItem(
+                    "FOUNDATION_HEALTH",
+                    "基础资料健康检查",
+                    "FOUNDATION",
+                    "PENDING",
+                    "MEDIUM",
+                    "未获取到基础资料健康检查结果。",
+                    "建议先执行基础资料健康检查，再推进关账。",
+                    "/finance/base-data/account-subject",
+                    0,
+                    false
+            ));
+            return;
+        }
+
+        int issueCount = defaultInt(healthCheck.getTotalIssueCount());
+        boolean highRisk = hasHighHealthIssue(healthCheck);
+        boolean healthy = Boolean.TRUE.equals(healthCheck.getHealthy());
+        checkItems.add(checkItem(
+                "FOUNDATION_HEALTH",
+                "基础资料健康检查",
+                "FOUNDATION",
+                healthy ? "PASSED" : highRisk ? "BLOCKED" : "WARNING",
+                highRisk ? "HIGH" : healthy ? "LOW" : "MEDIUM",
+                healthy ? "当前检查范围内未发现基础资料缺口。" : "基础资料健康检查发现 " + issueCount + " 条问题。",
+                healthy ? "可继续关账前检查。" : "先修复科目、报表映射、期间等主数据问题。",
+                "/finance/base-data/account-subject",
+                issueCount,
+                highRisk
+        ));
+    }
+
+    private void appendPeriodCheck(List<MonthEndCheckItemVO> checkItems, PeriodProcessResultVO closeBooks) {
+        String periodStatus = normalize(closeBooks.getPeriodStatus());
+        if (!StringUtils.hasText(periodStatus) || "MISSING".equals(periodStatus)) {
+            checkItems.add(checkItem(
+                    "ACCOUNTING_PERIOD",
+                    "会计期间",
+                    "FOUNDATION",
+                    "BLOCKED",
+                    "HIGH",
+                    "当前期间 " + safeText(closeBooks.getPeriod()) + " 没有会计期间档案。",
+                    "先补录会计期间，再执行关账前检查。",
+                    "/ledger/period-close-books",
+                    1,
+                    true
+            ));
+        } else if ("OPEN".equals(periodStatus) || "CLOSED".equals(periodStatus)) {
+            checkItems.add(checkItem(
+                    "ACCOUNTING_PERIOD",
+                    "会计期间",
+                    "FOUNDATION",
+                    "PASSED",
+                    "LOW",
+                    "当前期间状态为 " + periodStatus + "。",
+                    "可继续关账前检查。",
+                    "/ledger/period-close-books",
+                    0,
+                    false
+            ));
+        } else {
+            checkItems.add(checkItem(
+                    "ACCOUNTING_PERIOD",
+                    "会计期间",
+                    "FOUNDATION",
+                    "BLOCKED",
+                    "HIGH",
+                    "当前期间状态为 " + periodStatus + "，不属于 OPEN 或 CLOSED。",
+                    "先确认会计期间状态是否允许月结。",
+                    "/ledger/period-close-books",
+                    1,
+                    true
+            ));
+        }
+    }
+
+    private void appendVoucherCheck(List<MonthEndCheckItemVO> checkItems, PeriodProcessResultVO closeBooks) {
+        int total = defaultInt(closeBooks.getPeriodVoucherCount());
+        int pending = defaultInt(closeBooks.getPendingVoucherCount());
+        int exception = defaultInt(closeBooks.getExceptionVoucherCount());
+        if (pending > 0) {
+            checkItems.add(checkItem(
+                    "VOUCHER_POSTING",
+                    "期间凭证过账",
+                    "VOUCHER",
+                    "BLOCKED",
+                    "HIGH",
+                    "当前期间仍有 " + pending + " 张凭证未过账。",
+                    "先处理未过账凭证，再推进关账。",
+                    "/ledger/voucher",
+                    pending,
+                    true
+            ));
+        } else if (exception > 0) {
+            checkItems.add(checkItem(
+                    "VOUCHER_POSTING",
+                    "期间凭证过账",
+                    "VOUCHER",
+                    "WARNING",
+                    "MEDIUM",
+                    "当前期间存在 " + exception + " 张异常状态凭证。",
+                    "建议复核驳回、冲销等异常凭证是否已完成处理。",
+                    "/ledger/voucher",
+                    exception,
+                    false
+            ));
+        } else if (total == 0) {
+            checkItems.add(checkItem(
+                    "VOUCHER_POSTING",
+                    "期间凭证过账",
+                    "VOUCHER",
+                    "WARNING",
+                    "MEDIUM",
+                    "当前期间还没有凭证记录。",
+                    "若该期间确实无业务，可人工确认后继续。",
+                    "/ledger/voucher",
+                    0,
+                    false
+            ));
+        } else {
+            checkItems.add(checkItem(
+                    "VOUCHER_POSTING",
+                    "期间凭证过账",
+                    "VOUCHER",
+                    "PASSED",
+                    "LOW",
+                    "当前期间 " + total + " 张凭证已完成过账检查。",
+                    "可继续关账前检查。",
+                    "/ledger/voucher",
+                    total,
+                    false
+            ));
+        }
+    }
+
+    private void appendGlBalanceCheck(List<MonthEndCheckItemVO> checkItems, String period) {
+        GlBalanceSnapshot snapshot = buildGlBalanceSnapshot(period);
+        if (!snapshot.validPeriod) {
+            checkItems.add(checkItem(
+                    "GL_BALANCE",
+                    "总账借贷平衡",
+                    "LEDGER",
+                    "BLOCKED",
+                    "HIGH",
+                    "无法解析检查期间。",
+                    "先确认期间格式为 yyyy-MM。",
+                    "/ledger/general-ledger",
+                    1,
+                    true
+            ));
+            return;
+        }
+        if (snapshot.entryCount == 0) {
+            checkItems.add(checkItem(
+                    "GL_BALANCE",
+                    "总账借贷平衡",
+                    "LEDGER",
+                    "WARNING",
+                    "MEDIUM",
+                    "当前期间没有总账分录。",
+                    "若该期间已有凭证，请先检查凭证是否完成过账生成总账分录。",
+                    "/ledger/general-ledger",
+                    0,
+                    false
+            ));
+            return;
+        }
+        boolean balanced = snapshot.debitAmount.compareTo(snapshot.creditAmount) == 0;
+        checkItems.add(checkItem(
+                "GL_BALANCE",
+                "总账借贷平衡",
+                "LEDGER",
+                balanced ? "PASSED" : "BLOCKED",
+                balanced ? "LOW" : "HIGH",
+                balanced
+                        ? "当前期间总账分录借贷平衡，借方和贷方均为 " + snapshot.debitAmount + "。"
+                        : "当前期间总账借方 " + snapshot.debitAmount + "，贷方 " + snapshot.creditAmount + "，存在差额。",
+                balanced ? "可继续关账前检查。" : "先定位总账分录差异，再推进关账。",
+                "/ledger/general-ledger",
+                snapshot.entryCount,
+                !balanced
+        ));
+    }
+
+    private void appendPeriodModuleChecks(List<MonthEndCheckItemVO> checkItems, List<PeriodProcessResultVO> modules) {
+        for (PeriodProcessResultVO module : modules) {
+            if ("CL".equals(module.getModuleCode())) {
+                continue;
+            }
+            String status = moduleStatusToCheckStatus(module.getModuleStatus());
+            boolean blocking = false;
+            checkItems.add(checkItem(
+                    "PERIOD_MODULE_" + module.getModuleCode(),
+                    module.getModuleName(),
+                    "PERIOD_END",
+                    status,
+                    "PASSED".equals(status) ? "LOW" : "MEDIUM",
+                    moduleSummary(module),
+                    moduleActionHint(module),
+                    moduleRoutePath(module.getModuleCode()),
+                    defaultInt(module.getPendingVoucherCount()),
+                    blocking
+            ));
+        }
+    }
+
+    private void appendReportCheck(List<MonthEndCheckItemVO> checkItems, MonthEndWorkbenchResultVO result) {
+        String currency = StringUtils.hasText(result.getBaseCurrency()) ? result.getBaseCurrency() : "CNY";
+        List<ReportProbeResult> probes = List.of(
+                probeReport("资产负债表", () -> balanceSheetService.query(result.getForg(), result.getPeriod(), currency, null, true)),
+                probeReport("利润表", () -> profitStatementService.query(result.getForg(), firstMonthOfYear(result.getPeriod()), result.getPeriod(), currency, null, true)),
+                probeReport("现金流量表", () -> cashFlowService.query(result.getForg(), result.getPeriod(), currency, null, true))
+        );
+        long failedCount = probes.stream().filter(item -> !item.success).count();
+        int warningCount = probes.stream().mapToInt(item -> item.warningCount).sum();
+        String message = probes.stream()
+                .map(item -> item.message)
+                .filter(StringUtils::hasText)
+                .distinct()
+                .toList()
+                .toString();
+        String status = failedCount > 0 || warningCount > 0 ? "WARNING" : "PASSED";
+        checkItems.add(checkItem(
+                "REPORT_GENERATION",
+                "报表生成检查",
+                "REPORT",
+                status,
+                failedCount > 0 ? "MEDIUM" : "LOW",
+                "PASSED".equals(status) ? "资产负债表、利润表、现金流量表均可生成。" : message,
+                "PASSED".equals(status) ? "可继续关账前检查。" : "建议进入报表页面复核模板、映射和现金流项目。",
+                "/ledger/balance-sheet",
+                warningCount,
+                false
+        ));
+    }
+
+    private void appendCloseDecisionCheck(List<MonthEndCheckItemVO> checkItems, PeriodProcessResultVO closeBooks) {
+        String periodStatus = normalize(closeBooks.getPeriodStatus());
+        if ("CLOSED".equals(periodStatus)) {
+            checkItems.add(checkItem(
+                    "CLOSE_DECISION",
+                    "关账判断",
+                    "CLOSE",
+                    "PASSED",
+                    "LOW",
+                    "当前期间已经关闭，本页面作为关账结果复核。",
+                    "如需补做处理，请先确认是否允许反结账。",
+                    "/ledger/period-close-books",
+                    0,
+                    false
+            ));
+        } else {
+            int existingBlockingCount = countCheckStatus(checkItems, "BLOCKED");
+            int existingAttentionCount = countCheckStatus(checkItems, "WARNING") + countCheckStatus(checkItems, "PENDING");
+            String status = existingBlockingCount > 0 ? "BLOCKED" : existingAttentionCount > 0 ? "WARNING" : "PASSED";
+            checkItems.add(checkItem(
+                    "CLOSE_DECISION",
+                    "关账判断",
+                    "CLOSE",
+                    status,
+                    existingBlockingCount > 0 ? "HIGH" : existingAttentionCount > 0 ? "MEDIUM" : "LOW",
+                    existingBlockingCount > 0
+                            ? "仍有 " + existingBlockingCount + " 个阻塞项，暂不建议关账。"
+                            : existingAttentionCount > 0
+                            ? "没有强阻塞，但仍有 " + existingAttentionCount + " 个预警或待确认事项。"
+                            : "首版基础关账条件已完成检查。",
+                    existingBlockingCount > 0
+                            ? "先处理阻塞项，再重新执行关账前检查。"
+                            : existingAttentionCount > 0
+                            ? "复核预警事项后，再结合制度判断是否进入关账。"
+                            : "正式关账动作需结合审批和审计规则另行开放。",
+                    "/ledger/period-close-books",
+                    existingBlockingCount + existingAttentionCount,
+                    existingBlockingCount > 0
+            ));
+        }
+    }
+
+    private List<MonthEndStepVO> buildMonthEndSteps(List<PeriodProcessResultVO> modules, List<MonthEndCheckItemVO> checkItems) {
+        List<MonthEndStepVO> steps = new ArrayList<>();
+        int orderNo = 1;
+        for (PeriodProcessResultVO module : modules) {
+            steps.add(new MonthEndStepVO(
+                    orderNo++,
+                    module.getModuleCode(),
+                    module.getModuleName(),
+                    module.getModuleStatus(),
+                    moduleSummary(module),
+                    moduleActionHint(module),
+                    moduleRoutePath(module.getModuleCode()),
+                    "WARNING".equals(module.getModuleStatus()) ? 1 : 0,
+                    "PENDING".equals(module.getModuleStatus()) ? 1 : 0
+            ));
+        }
+        MonthEndCheckItemVO reportCheck = checkItems.stream()
+                .filter(item -> "REPORT_GENERATION".equals(item.getCode()))
+                .findFirst()
+                .orElse(null);
+        String reportStatus = reportCheck == null ? "PENDING" : checkStatusToStepStatus(reportCheck.getStatus());
+        steps.add(new MonthEndStepVO(
+                orderNo,
+                "RP",
+                "报表生成",
+                reportStatus,
+                reportCheck == null ? "尚未执行报表生成检查。" : reportCheck.getMessage(),
+                reportCheck == null ? "进入报表页面复核。" : reportCheck.getActionHint(),
+                "/ledger/balance-sheet",
+                reportCheck != null && "BLOCKED".equals(reportCheck.getStatus()) ? 1 : 0,
+                reportCheck != null && "WARNING".equals(reportCheck.getStatus()) ? 1 : 0
+        ));
+        return steps;
+    }
+
+    private GlBalanceSnapshot buildGlBalanceSnapshot(String period) {
+        YearMonth yearMonth = parsePeriod(period);
+        if (yearMonth == null) {
+            return new GlBalanceSnapshot(false, 0, BigDecimal.ZERO, BigDecimal.ZERO);
+        }
+        LocalDate startDate = yearMonth.atDay(1);
+        LocalDate endDate = yearMonth.atEndOfMonth();
+        List<BizfiFiGlEntry> entries = glEntryMapper.selectList(new LambdaQueryWrapper<BizfiFiGlEntry>()
+                .ge(BizfiFiGlEntry::getFvoucherDate, startDate)
+                .le(BizfiFiGlEntry::getFvoucherDate, endDate));
+        BigDecimal debit = entries.stream()
+                .map(BizfiFiGlEntry::getFdebitAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal credit = entries.stream()
+                .map(BizfiFiGlEntry::getFcreditAmount)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new GlBalanceSnapshot(true, entries.size(), debit, credit);
+    }
+
+    private MonthEndCheckItemVO checkItem(String code,
+                                          String name,
+                                          String category,
+                                          String status,
+                                          String severity,
+                                          String message,
+                                          String actionHint,
+                                          String routePath,
+                                          Integer relatedCount,
+                                          Boolean blocking) {
+        return new MonthEndCheckItemVO(code, name, category, status, severity, message, actionHint, routePath, relatedCount, blocking);
+    }
+
+    private VoucherCarryTaskVO findTask(PeriodProcessResultVO result, String code) {
+        if (result == null || result.getTasks() == null) {
+            return null;
+        }
+        return result.getTasks().stream()
+                .filter(item -> code.equals(item.getCode()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private boolean hasHighHealthIssue(BizfiFiHealthCheckResultVO healthCheck) {
+        return healthCheck != null
+                && healthCheck.getIssues() != null
+                && healthCheck.getIssues().stream()
+                .filter(Objects::nonNull)
+                .map(BizfiFiHealthCheckIssueVO::getSeverity)
+                .anyMatch(severity -> "HIGH".equals(normalize(severity)));
+    }
+
+    private String moduleStatusToCheckStatus(String status) {
+        String normalized = normalize(status);
+        if ("READY".equals(normalized) || "DONE".equals(normalized)) {
+            return "PASSED";
+        }
+        if ("WARNING".equals(normalized)) {
+            return "WARNING";
+        }
+        return "PENDING";
+    }
+
+    private String checkStatusToStepStatus(String status) {
+        String normalized = normalize(status);
+        if ("PASSED".equals(normalized)) {
+            return "READY";
+        }
+        if ("BLOCKED".equals(normalized)) {
+            return "WARNING";
+        }
+        return normalized;
+    }
+
+    private String moduleSummary(PeriodProcessResultVO module) {
+        if (module.getWarnings() != null && !module.getWarnings().isEmpty()) {
+            return module.getWarnings().get(0);
+        }
+        return safeText(module.getModuleName()) + " 已完成准备度检查。";
+    }
+
+    private String moduleActionHint(PeriodProcessResultVO module) {
+        if (module.getTasks() != null && !module.getTasks().isEmpty()) {
+            return module.getTasks().get(0).getActionHint();
+        }
+        return "进入模块查看详情。";
+    }
+
+    private String moduleRoutePath(String moduleCode) {
+        return switch (normalize(moduleCode)) {
+            case "PL" -> "/ledger/period-profit-loss";
+            case "AT" -> "/ledger/period-auto-transfer";
+            case "FX" -> "/ledger/period-fx-revalue";
+            case "AM" -> "/ledger/period-voucher-amortization";
+            case "CL" -> "/ledger/period-close-books";
+            default -> "/ledger/period-monitor-center";
+        };
+    }
+
+    private int countCheckStatus(List<MonthEndCheckItemVO> items, String status) {
+        return (int) items.stream()
+                .filter(item -> status.equals(item.getStatus()))
+                .count();
+    }
+
+    private int calculateReadinessScore(List<MonthEndCheckItemVO> items) {
+        if (items == null || items.isEmpty()) {
+            return 0;
+        }
+        int score = 0;
+        for (MonthEndCheckItemVO item : items) {
+            String status = normalize(item.getStatus());
+            if ("PASSED".equals(status)) {
+                score += 100;
+            } else if ("WARNING".equals(status) || "PENDING".equals(status)) {
+                score += 50;
+            }
+        }
+        return Math.round((float) score / items.size());
+    }
+
+    private ReportProbeResult probeReport(String reportName, ReportSupplier supplier) {
+        try {
+            ReportQueryResultVO report = supplier.get();
+            int warningCount = report == null || report.getWarnings() == null ? 0 : report.getWarnings().size();
+            boolean checksPassed = report == null || report.getChecks() == null
+                    || report.getChecks().stream().allMatch(check -> check.isPassed());
+            if (!checksPassed) {
+                warningCount++;
+            }
+            String message = warningCount == 0
+                    ? reportName + " 可生成。"
+                    : reportName + " 可生成，但存在 " + warningCount + " 条提示。";
+            return new ReportProbeResult(true, warningCount, message);
+        } catch (Exception ex) {
+            return new ReportProbeResult(false, 1, reportName + " 生成失败。");
+        }
     }
 
     private PeriodProcessResultVO buildModuleResult(String code,
@@ -520,6 +1104,36 @@ public class BizfiFiPeriodProcessServiceImpl implements BizfiFiPeriodProcessServ
 
     private String safeText(String value) {
         return StringUtils.hasText(value) ? value.trim() : "-";
+    }
+
+    private interface ReportSupplier {
+        ReportQueryResultVO get();
+    }
+
+    private static class ReportProbeResult {
+        private final boolean success;
+        private final int warningCount;
+        private final String message;
+
+        private ReportProbeResult(boolean success, int warningCount, String message) {
+            this.success = success;
+            this.warningCount = warningCount;
+            this.message = message;
+        }
+    }
+
+    private static class GlBalanceSnapshot {
+        private final boolean validPeriod;
+        private final int entryCount;
+        private final BigDecimal debitAmount;
+        private final BigDecimal creditAmount;
+
+        private GlBalanceSnapshot(boolean validPeriod, int entryCount, BigDecimal debitAmount, BigDecimal creditAmount) {
+            this.validPeriod = validPeriod;
+            this.entryCount = entryCount;
+            this.debitAmount = debitAmount;
+            this.creditAmount = creditAmount;
+        }
     }
 
     private static class ModuleContext {
