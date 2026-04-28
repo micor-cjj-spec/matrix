@@ -19,7 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/period-rollover")
+@RequestMapping({"/period-rollover", "/period-process/period-rollover"})
 public class BizfiFiPeriodRolloverController {
 
     @Autowired

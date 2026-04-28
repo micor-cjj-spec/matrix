@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/month-end-close-execution")
+@RequestMapping({"/month-end-close-execution", "/period-process/month-end-close-execution"})
 public class BizfiFiMonthEndCloseExecutionController {
 
     @Autowired

@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/month-end-check-batch")
+@RequestMapping({"/month-end-check-batch", "/period-process/month-end-check-batch"})
 public class BizfiFiMonthEndCheckBatchController {
 
     @Autowired

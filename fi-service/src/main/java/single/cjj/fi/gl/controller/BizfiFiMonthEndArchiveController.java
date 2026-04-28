@@ -10,7 +10,7 @@ import single.cjj.fi.gl.service.BizfiFiMonthEndArchiveService;
 import single.cjj.fi.gl.vo.MonthEndArchivePackageVO;
 
 @RestController
-@RequestMapping("/month-end-archive")
+@RequestMapping({"/month-end-archive", "/period-process/month-end-archive"})
 public class BizfiFiMonthEndArchiveController {
 
     @Autowired
