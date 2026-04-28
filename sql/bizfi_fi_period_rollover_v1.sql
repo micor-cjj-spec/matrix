@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS bizfi_fi_period_rollover (
+    fid BIGINT PRIMARY KEY AUTO_INCREMENT,
+    frollover_no VARCHAR(64) NOT NULL COMMENT '期间滚动编号',
+    fclose_execution_id BIGINT NOT NULL COMMENT '关账执行记录ID',
+    fclose_execution_no VARCHAR(64) NOT NULL COMMENT '关账执行编号',
+    forg BIGINT NOT NULL COMMENT '业务单元ID',
+    ffrom_period VARCHAR(16) NOT NULL COMMENT '原期间',
+    fto_period VARCHAR(16) NOT NULL COMMENT '下一期间',
+    fnext_period_id BIGINT NOT NULL COMMENT '下一会计期间ID',
+    fconfig_id BIGINT NOT NULL COMMENT '组织财务参数ID',
+    fbefore_current_period VARCHAR(16) NULL COMMENT '滚动前当前期间',
+    fafter_current_period VARCHAR(16) NOT NULL COMMENT '滚动后当前期间',
+    fcreated_next_period TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否自动创建下一期间',
+    frollover_status VARCHAR(32) NOT NULL COMMENT '滚动状态',
+    foperator VARCHAR(64) NULL COMMENT '操作人',
+    fremark VARCHAR(500) NULL COMMENT '备注',
+    frolled_time DATETIME NOT NULL COMMENT '滚动时间',
+    fcreated_time DATETIME NOT NULL COMMENT '创建时间',
+    UNIQUE KEY uk_bizfi_fi_period_rollover_no (frollover_no),
+    UNIQUE KEY uk_bizfi_fi_period_rollover_execution (fclose_execution_id),
+    KEY idx_bizfi_fi_period_rollover_period (forg, ffrom_period),
+    KEY idx_bizfi_fi_period_rollover_to_period (forg, fto_period)
+) COMMENT='财务期间滚动记录';

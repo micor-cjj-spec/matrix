@@ -1,0 +1,18 @@
+{
+  "code": "010-period-rollover",
+  "name": "财务期间滚动 / 下一期间初始化中心",
+  "module": "fi-gl-period-end-processing",
+  "version": "1.0.0",
+  "status": "drafted",
+  "dependsOn": [
+    "009-month-end-close-execution"
+  ],
+  "documents": [
+    "business.md",
+    "fields.md",
+    "flow.md",
+    "page.md",
+    "api.md",
+    "rules.md"
+  ]
+}
