@@ -1094,6 +1094,22 @@ public class BizfiFiPeriodProcessServiceImpl implements BizfiFiPeriodProcessServ
         }
     }
 
+    private String firstMonthOfYear(String period) {
+        YearMonth ym = YearMonth.parse(normalizePeriod(period));
+        return YearMonth.of(ym.getYear(), 1).toString();
+    }
+
+    private String normalizePeriod(String period) {
+        if (!StringUtils.hasText(period)) {
+            return YearMonth.now().toString();
+        }
+        try {
+            return YearMonth.parse(period).toString();
+        } catch (DateTimeParseException ex) {
+            return YearMonth.now().toString();
+        }
+    }
+
     private String normalize(String value) {
         return StringUtils.hasText(value) ? value.trim().toUpperCase(Locale.ROOT) : "";
     }
