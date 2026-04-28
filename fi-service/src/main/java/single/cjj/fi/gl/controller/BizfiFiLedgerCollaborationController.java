@@ -11,7 +11,7 @@ import single.cjj.fi.gl.service.BizfiFiLedgerCollaborationService;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/ledger-collaboration")
+@RequestMapping({"/ledger-collaboration", "/period-process/ledger-collaboration"})
 public class BizfiFiLedgerCollaborationController {
 
     @Autowired

@@ -13,7 +13,7 @@ import java.time.LocalDate;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/internal-notice")
+@RequestMapping({"/internal-notice", "/period-process/internal-notice"})
 public class BizfiFiInternalNoticeController {
 
     @Autowired

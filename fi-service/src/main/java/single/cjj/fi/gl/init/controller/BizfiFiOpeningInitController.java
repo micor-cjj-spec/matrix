@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
+@RequestMapping({"", "/period-process"})
 public class BizfiFiOpeningInitController {
 
     @Autowired

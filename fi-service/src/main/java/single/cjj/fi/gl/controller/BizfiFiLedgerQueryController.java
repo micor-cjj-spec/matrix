@@ -13,7 +13,7 @@ import single.cjj.fi.gl.vo.LedgerQueryResultVO;
  * 总账账表查询接口
  */
 @RestController
-@RequestMapping("/ledger")
+@RequestMapping({"/ledger", "/period-process/ledger"})
 public class BizfiFiLedgerQueryController {
 
     @Autowired
