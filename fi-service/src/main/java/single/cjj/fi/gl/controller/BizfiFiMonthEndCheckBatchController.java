@@ -14,6 +14,8 @@ import single.cjj.fi.gl.entity.BizfiFiMonthEndCheckBatch;
 import single.cjj.fi.gl.service.BizfiFiMonthEndCheckBatchService;
 import single.cjj.fi.gl.vo.MonthEndBatchActionRequestVO;
 import single.cjj.fi.gl.vo.MonthEndBatchCreateRequestVO;
+import single.cjj.fi.gl.vo.MonthEndCloseExecuteRequestVO;
+import single.cjj.fi.gl.vo.MonthEndCloseExecutionResultVO;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -65,5 +67,12 @@ public class BizfiFiMonthEndCheckBatchController {
     ) {
         return ApiResponse.success(service.approve(fid, request));
     }
-}
 
+    @PostMapping("/{fid}/execute-close")
+    public ApiResponse<MonthEndCloseExecutionResultVO> executeClose(
+            @PathVariable("fid") Long fid,
+            @RequestBody(required = false) MonthEndCloseExecuteRequestVO request
+    ) {
+        return ApiResponse.success(service.executeClose(fid, request));
+    }
+}

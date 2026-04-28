@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS bizfi_fi_month_end_close_execution (
+    fid BIGINT PRIMARY KEY AUTO_INCREMENT,
+    fexecution_no VARCHAR(64) NOT NULL COMMENT '关账执行号',
+    fbatch_id BIGINT NOT NULL COMMENT '月结检查批次ID',
+    fbatch_no VARCHAR(64) NOT NULL COMMENT '月结检查批次号',
+    forg BIGINT NULL COMMENT '业务单元ID',
+    fperiod VARCHAR(16) NOT NULL COMMENT '会计期间',
+    fperiod_id BIGINT NOT NULL COMMENT '会计期间ID',
+    fbefore_status VARCHAR(32) NULL COMMENT '执行前期间状态',
+    fafter_status VARCHAR(32) NULL COMMENT '执行后期间状态',
+    fexecution_status VARCHAR(32) NOT NULL COMMENT '执行状态',
+    fcheck_snapshot_json LONGTEXT NULL COMMENT '执行前实时检查快照',
+    foperator VARCHAR(64) NULL COMMENT '执行人',
+    fremark VARCHAR(500) NULL COMMENT '备注',
+    fexecuted_time DATETIME NOT NULL COMMENT '执行时间',
+    fcreated_time DATETIME NOT NULL COMMENT '创建时间',
+    UNIQUE KEY uk_bizfi_fi_month_end_close_execution_no (fexecution_no),
+    KEY idx_bizfi_fi_month_end_close_execution_batch (fbatch_id),
+    KEY idx_bizfi_fi_month_end_close_execution_period (forg, fperiod)
+) COMMENT='月结关账执行记录';

@@ -8,14 +8,22 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import single.cjj.bizfi.exception.BizException;
+import single.cjj.fi.gl.entity.BizfiFiAccountingPeriod;
 import single.cjj.fi.gl.entity.BizfiFiMonthEndCheckBatch;
+import single.cjj.fi.gl.entity.BizfiFiMonthEndCloseExecution;
+import single.cjj.fi.gl.mapper.BizfiFiAccountingPeriodMapper;
 import single.cjj.fi.gl.mapper.BizfiFiMonthEndCheckBatchMapper;
+import single.cjj.fi.gl.mapper.BizfiFiMonthEndCloseExecutionMapper;
+import single.cjj.fi.gl.service.BizfiFiAccountingPeriodService;
 import single.cjj.fi.gl.service.BizfiFiMonthEndCheckBatchService;
 import single.cjj.fi.gl.service.BizfiFiPeriodProcessService;
 import single.cjj.fi.gl.vo.MonthEndBatchActionRequestVO;
 import single.cjj.fi.gl.vo.MonthEndBatchCreateRequestVO;
+import single.cjj.fi.gl.vo.MonthEndCloseExecuteRequestVO;
+import single.cjj.fi.gl.vo.MonthEndCloseExecutionResultVO;
 import single.cjj.fi.gl.vo.MonthEndWorkbenchResultVO;
 
 import java.time.LocalDateTime;
@@ -32,10 +40,21 @@ public class BizfiFiMonthEndCheckBatchServiceImpl
     private static final String DRAFT = "DRAFT";
     private static final String SUBMITTED = "SUBMITTED";
     private static final String APPROVED = "APPROVED";
+    private static final String CLOSED = "CLOSED";
+    private static final String SUCCESS = "SUCCESS";
     private static final DateTimeFormatter BATCH_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     @Autowired
     private BizfiFiPeriodProcessService periodProcessService;
+
+    @Autowired
+    private BizfiFiAccountingPeriodService accountingPeriodService;
+
+    @Autowired
+    private BizfiFiAccountingPeriodMapper accountingPeriodMapper;
+
+    @Autowired
+    private BizfiFiMonthEndCloseExecutionMapper closeExecutionMapper;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -138,11 +157,77 @@ public class BizfiFiMonthEndCheckBatchServiceImpl
         return get(fid);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MonthEndCloseExecutionResultVO executeClose(Long fid, MonthEndCloseExecuteRequestVO request) {
+        BizfiFiMonthEndCheckBatch batch = get(fid);
+        String status = normalize(batch.getFapplicationStatus());
+        if (CLOSED.equals(status)) {
+            throw new BizException("该月结检查批次已经完成关账执行");
+        }
+        if (!APPROVED.equals(status)) {
+            throw new BizException("只有已批准的月结检查批次可以执行关账");
+        }
+        if (closeExecutionMapper.selectCount(new LambdaQueryWrapper<BizfiFiMonthEndCloseExecution>()
+                .eq(BizfiFiMonthEndCloseExecution::getFbatchId, fid)) > 0) {
+            throw new BizException("该月结检查批次已有执行记录，不能重复关账");
+        }
+
+        MonthEndWorkbenchResultVO snapshot = periodProcessService.monthEndWorkbench(batch.getForg(), batch.getFperiod());
+        if (!Boolean.TRUE.equals(snapshot.getCanClose())) {
+            throw new BizException("实时关账前检查未通过，不能执行关账");
+        }
+
+        BizfiFiAccountingPeriod period = loadAccountingPeriod(batch.getForg(), batch.getFperiod());
+        if (period == null) {
+            throw new BizException("未找到会计期间档案，无法执行关账");
+        }
+        String beforeStatus = normalize(period.getFstatus());
+        if (!"OPEN".equals(beforeStatus)) {
+            throw new BizException("只有OPEN状态的会计期间可以执行关账");
+        }
+
+        String operator = operatorOrDefault(request == null ? null : request.getOperator());
+        BizfiFiAccountingPeriod closedPeriod = accountingPeriodService.close(period.getFid(), operator);
+        LocalDateTime now = LocalDateTime.now();
+
+        BizfiFiMonthEndCloseExecution execution = new BizfiFiMonthEndCloseExecution();
+        execution.setFexecutionNo(buildExecutionNo(now));
+        execution.setFbatchId(batch.getFid());
+        execution.setFbatchNo(batch.getFbatchNo());
+        execution.setForg(batch.getForg());
+        execution.setFperiod(batch.getFperiod());
+        execution.setFperiodId(period.getFid());
+        execution.setFbeforeStatus(beforeStatus);
+        execution.setFafterStatus(normalize(closedPeriod.getFstatus()));
+        execution.setFexecutionStatus(SUCCESS);
+        execution.setFcheckSnapshotJson(toSnapshotJson(snapshot));
+        execution.setFoperator(operator);
+        execution.setFremark(trimToNull(request == null ? null : request.getRemark()));
+        execution.setFexecutedTime(now);
+        execution.setFcreatedTime(now);
+        closeExecutionMapper.insert(execution);
+
+        batch.setFapplicationStatus(CLOSED);
+        batch.setFperiodStatus(closedPeriod.getFstatus());
+        batch.setFcloseStatus(CLOSED);
+        batch.setFupdateTime(now);
+        mergeRemark(batch, request == null ? null : request.getRemark());
+        baseMapper.updateById(batch);
+
+        return new MonthEndCloseExecutionResultVO(execution, get(fid), closedPeriod, snapshot);
+    }
+
     private String buildBatchNo(MonthEndWorkbenchResultVO snapshot, LocalDateTime time) {
         String orgPart = snapshot.getForg() == null ? "ALL" : snapshot.getForg().toString();
         String periodPart = StringUtils.hasText(snapshot.getPeriod()) ? snapshot.getPeriod().replace("-", "") : "NOPERIOD";
         int randomPart = ThreadLocalRandom.current().nextInt(1000, 10000);
         return "MEC-" + BATCH_TIME_FORMATTER.format(time) + "-" + randomPart + "-" + orgPart + "-" + periodPart;
+    }
+
+    private String buildExecutionNo(LocalDateTime time) {
+        int randomPart = ThreadLocalRandom.current().nextInt(1000, 10000);
+        return "MECLOSE-" + BATCH_TIME_FORMATTER.format(time) + "-" + randomPart;
     }
 
     private String toSnapshotJson(MonthEndWorkbenchResultVO snapshot) {
@@ -163,6 +248,16 @@ public class BizfiFiMonthEndCheckBatchServiceImpl
         } else if (!batch.getFremark().contains(trimmed)) {
             batch.setFremark(batch.getFremark() + "；" + trimmed);
         }
+    }
+
+    private BizfiFiAccountingPeriod loadAccountingPeriod(Long forg, String period) {
+        if (forg == null || !StringUtils.hasText(period)) {
+            return null;
+        }
+        return accountingPeriodMapper.selectOne(new LambdaQueryWrapper<BizfiFiAccountingPeriod>()
+                .eq(BizfiFiAccountingPeriod::getForg, forg)
+                .eq(BizfiFiAccountingPeriod::getFperiod, period)
+                .last("limit 1"));
     }
 
     private String operatorOrDefault(String operator) {

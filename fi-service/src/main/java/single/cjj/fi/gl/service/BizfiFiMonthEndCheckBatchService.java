@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import single.cjj.fi.gl.entity.BizfiFiMonthEndCheckBatch;
 import single.cjj.fi.gl.vo.MonthEndBatchActionRequestVO;
 import single.cjj.fi.gl.vo.MonthEndBatchCreateRequestVO;
+import single.cjj.fi.gl.vo.MonthEndCloseExecuteRequestVO;
+import single.cjj.fi.gl.vo.MonthEndCloseExecutionResultVO;
 
 import java.util.Map;
 
@@ -18,5 +20,6 @@ public interface BizfiFiMonthEndCheckBatchService extends IService<BizfiFiMonthE
     BizfiFiMonthEndCheckBatch submit(Long fid, MonthEndBatchActionRequestVO request);
 
     BizfiFiMonthEndCheckBatch approve(Long fid, MonthEndBatchActionRequestVO request);
-}
 
+    MonthEndCloseExecutionResultVO executeClose(Long fid, MonthEndCloseExecuteRequestVO request);
+}
