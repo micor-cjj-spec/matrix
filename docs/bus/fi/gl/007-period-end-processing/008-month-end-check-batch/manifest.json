@@ -1,0 +1,10 @@
+{
+  "domain": "fi/gl",
+  "module": "007-period-end-processing",
+  "scene": "008-month-end-check-batch",
+  "name": "月结检查批次留痕与关账申请底座",
+  "draft": "docs/draft/2026/04/28/002-month-end-check-batch",
+  "dependsOn": "docs/bus/fi/gl/007-period-end-processing/007-month-end-close-workbench",
+  "status": "confirmed-for-implementation"
+}
+
