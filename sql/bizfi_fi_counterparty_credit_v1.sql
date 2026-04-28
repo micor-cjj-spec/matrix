@@ -14,6 +14,35 @@ CREATE TABLE IF NOT EXISTS bizfi_fi_counterparty_credit (
   KEY idx_root_enabled (fdoc_type_root, fenabled)
 );
 
-ALTER TABLE bizfi_fi_counterparty_credit
-  ADD COLUMN IF NOT EXISTS fblock_on_over_limit TINYINT NOT NULL DEFAULT 0 AFTER fenabled,
-  ADD COLUMN IF NOT EXISTS fblock_on_overdue TINYINT NOT NULL DEFAULT 0 AFTER fblock_on_over_limit;
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS bizfi_fi_add_counterparty_credit_columns$$
+CREATE PROCEDURE bizfi_fi_add_counterparty_credit_columns()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'bizfi_fi_counterparty_credit'
+      AND column_name = 'fblock_on_over_limit'
+  ) THEN
+    ALTER TABLE bizfi_fi_counterparty_credit
+      ADD COLUMN fblock_on_over_limit TINYINT NOT NULL DEFAULT 0 AFTER fenabled;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'bizfi_fi_counterparty_credit'
+      AND column_name = 'fblock_on_overdue'
+  ) THEN
+    ALTER TABLE bizfi_fi_counterparty_credit
+      ADD COLUMN fblock_on_overdue TINYINT NOT NULL DEFAULT 0 AFTER fblock_on_over_limit;
+  END IF;
+END$$
+
+CALL bizfi_fi_add_counterparty_credit_columns()$$
+DROP PROCEDURE IF EXISTS bizfi_fi_add_counterparty_credit_columns$$
+
+DELIMITER ;
