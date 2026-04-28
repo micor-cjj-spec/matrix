@@ -3,9 +3,9 @@
   "subDomain": "gl",
   "bizCode": "enterprise-tax",
   "bizName": "企业纳税表",
-  "status": "not_implemented",
-  "version": "0.1.0",
+  "status": "done",
+  "version": "0.2.0",
   "busDocs": ["business.md","fields.md","flow.md","rules.md","page.md","api.md"],
   "owner": "",
-  "updatedAt": "2026-04-03"
+  "updatedAt": "2026-04-29"
 }

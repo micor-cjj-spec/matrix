@@ -148,20 +148,36 @@ public class BizfiFiAnalysisReportServiceImpl implements BizfiFiAnalysisReportSe
         BigDecimal netProfit = amount(plRows, "PL_NET_PROFIT", "NET_PROFIT");
 
         BigDecimal vatRate = new BigDecimal("0.06");
-        BigDecimal surtaxRate = new BigDecimal("0.12");
+        BigDecimal urbanMaintenanceRate = new BigDecimal("0.07");
+        BigDecimal educationSurchargeRate = new BigDecimal("0.03");
+        BigDecimal localEducationSurchargeRate = new BigDecimal("0.02");
         BigDecimal incomeTaxRate = new BigDecimal("0.25");
+        BigDecimal stampTaxRate = new BigDecimal("0.0003");
 
         BigDecimal vatBase = revenue.max(BigDecimal.ZERO);
         BigDecimal vatAmount = percentOf(vatBase, vatRate);
         BigDecimal surtaxBase = vatAmount;
-        BigDecimal surtaxAmount = percentOf(surtaxBase, surtaxRate);
+        BigDecimal urbanMaintenanceAmount = percentOf(surtaxBase, urbanMaintenanceRate);
+        BigDecimal educationSurchargeAmount = percentOf(surtaxBase, educationSurchargeRate);
+        BigDecimal localEducationSurchargeAmount = percentOf(surtaxBase, localEducationSurchargeRate);
         BigDecimal incomeTaxBase = netProfit.max(BigDecimal.ZERO);
         BigDecimal incomeTaxAmount = percentOf(incomeTaxBase, incomeTaxRate);
+        BigDecimal stampTaxAmount = percentOf(vatBase, stampTaxRate);
+        BigDecimal totalTaxAmount = vatAmount
+                .add(urbanMaintenanceAmount)
+                .add(educationSurchargeAmount)
+                .add(localEducationSurchargeAmount)
+                .add(incomeTaxAmount)
+                .add(stampTaxAmount);
+        BigDecimal taxBurdenRate = dividePercentFree(totalTaxAmount, vatBase);
 
         List<EnterpriseTaxRowVO> rows = new ArrayList<>();
         rows.add(new EnterpriseTaxRowVO("VAT_EST", "增值税预估", vatBase, vatRate, vatAmount, "按营业收入与 6% 税率估算，需结合税制和抵扣规则复核。"));
-        rows.add(new EnterpriseTaxRowVO("SURTAX_EST", "附加税费预估", surtaxBase, surtaxRate, surtaxAmount, "按增值税估算额的 12% 测算。"));
+        rows.add(new EnterpriseTaxRowVO("URBAN_MAINTENANCE_TAX_EST", "城市维护建设税预估", surtaxBase, urbanMaintenanceRate, urbanMaintenanceAmount, "按增值税估算额的 7% 测算。"));
+        rows.add(new EnterpriseTaxRowVO("EDUCATION_SURCHARGE_EST", "教育费附加预估", surtaxBase, educationSurchargeRate, educationSurchargeAmount, "按增值税估算额的 3% 测算。"));
+        rows.add(new EnterpriseTaxRowVO("LOCAL_EDUCATION_SURCHARGE_EST", "地方教育附加预估", surtaxBase, localEducationSurchargeRate, localEducationSurchargeAmount, "按增值税估算额的 2% 测算。"));
         rows.add(new EnterpriseTaxRowVO("CIT_EST", "企业所得税预估", incomeTaxBase, incomeTaxRate, incomeTaxAmount, "按净利润正数部分与 25% 税率估算。"));
+        rows.add(new EnterpriseTaxRowVO("STAMP_TAX_EST", "印花税预估", vatBase, stampTaxRate, stampTaxAmount, "按营业收入的 0.03% 测算，实际应以合同和应税凭证为准。"));
 
         EnterpriseTaxResultVO result = new EnterpriseTaxResultVO();
         result.setOrgId(orgId);
@@ -169,7 +185,8 @@ public class BizfiFiAnalysisReportServiceImpl implements BizfiFiAnalysisReportSe
         result.setCurrency(targetCurrency);
         result.setRevenueAmount(revenue);
         result.setNetProfitAmount(netProfit);
-        result.setTotalTaxAmount(vatAmount.add(surtaxAmount).add(incomeTaxAmount));
+        result.setTotalTaxAmount(totalTaxAmount);
+        result.setTaxBurdenRate(taxBurdenRate);
         result.setRows(rows);
         result.setChecks(new ArrayList<>());
         result.setWarnings(new ArrayList<>(profitStatement.getWarnings() == null ? Collections.emptyList() : profitStatement.getWarnings()));
@@ -178,11 +195,19 @@ public class BizfiFiAnalysisReportServiceImpl implements BizfiFiAnalysisReportSe
                 true,
                 "企业纳税表当前为分析预估口径，正式申报前仍需结合税务规则和抵扣数据复核。"
         ));
+        result.getChecks().add(new ReportCheckResultVO(
+                "TAX_BREAKDOWN_READY",
+                rows.size() >= 5,
+                rows.size() >= 5 ? "企业纳税表已生成不少于 5 条税种拆分行。" : "企业纳税表税种拆分行不足 5 条。"
+        ));
         if (isZero(revenue)) {
             result.getWarnings().add("营业收入为 0，本期增值税与附加税费预估可能为空。");
         }
         if (netProfit.compareTo(BigDecimal.ZERO) <= 0) {
             result.getWarnings().add("净利润小于等于 0，企业所得税预估按 0 处理。");
+        }
+        if (taxBurdenRate.compareTo(new BigDecimal("0.10")) > 0) {
+            result.getWarnings().add("综合税负率超过 10%，建议复核利润表口径、税收优惠和可抵扣数据。");
         }
         return result;
     }

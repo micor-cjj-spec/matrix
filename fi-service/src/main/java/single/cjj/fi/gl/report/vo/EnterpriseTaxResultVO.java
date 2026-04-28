@@ -17,6 +17,7 @@ public class EnterpriseTaxResultVO {
     private BigDecimal revenueAmount;
     private BigDecimal netProfitAmount;
     private BigDecimal totalTaxAmount;
+    private BigDecimal taxBurdenRate;
     private List<EnterpriseTaxRowVO> rows;
     private List<ReportCheckResultVO> checks;
     private List<String> warnings;
