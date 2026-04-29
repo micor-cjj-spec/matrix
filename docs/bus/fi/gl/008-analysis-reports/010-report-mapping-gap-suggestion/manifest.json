@@ -1,0 +1,11 @@
+{
+  "id": "010-report-mapping-gap-suggestion",
+  "name": "报表映射缺口治理建议与推荐项目带入",
+  "module": "fi/gl/analysis-reports",
+  "date": "2026-04-29",
+  "scope": [
+    "matrix-web/src/views/login/ledger/report/EnterpriseTaxView.vue",
+    "matrix-web/src/views/login/ledger/report/ReportAccountMapView.vue"
+  ],
+  "backendRuntimeChanged": false
+}
