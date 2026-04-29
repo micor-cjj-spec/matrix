@@ -11,6 +11,7 @@ import single.cjj.fi.gl.report.vo.EnterpriseTaxRowVO;
 import single.cjj.fi.gl.report.vo.FinancialIndicatorResultVO;
 import single.cjj.fi.gl.report.vo.FinancialIndicatorRowVO;
 import single.cjj.fi.gl.report.vo.ReportCheckResultVO;
+import single.cjj.fi.gl.report.vo.ReportMappingGapVO;
 import single.cjj.fi.gl.report.vo.ReportQueryResultVO;
 import single.cjj.fi.gl.report.vo.ReportRowVO;
 
@@ -53,6 +54,7 @@ public class BizfiFiAnalysisReportServiceImpl implements BizfiFiAnalysisReportSe
         result.setRows(new ArrayList<>());
         result.setChecks(new ArrayList<>());
         result.setWarnings(mergeWarnings(balanceSheet, profitStatement));
+        result.setMappingGaps(mergeMappingGaps(balanceSheet, profitStatement));
 
         Map<String, ReportRowVO> bsRows = rowsByCode(balanceSheet);
         Map<String, ReportRowVO> plRows = rowsByCode(profitStatement);
@@ -190,6 +192,7 @@ public class BizfiFiAnalysisReportServiceImpl implements BizfiFiAnalysisReportSe
         result.setRows(rows);
         result.setChecks(new ArrayList<>());
         result.setWarnings(new ArrayList<>(profitStatement.getWarnings() == null ? Collections.emptyList() : profitStatement.getWarnings()));
+        result.setMappingGaps(new ArrayList<>(profitStatement.getMappingGaps() == null ? Collections.emptyList() : profitStatement.getMappingGaps()));
         result.getChecks().add(new ReportCheckResultVO(
                 "TAX_ESTIMATE_READY",
                 true,
@@ -253,6 +256,35 @@ public class BizfiFiAnalysisReportServiceImpl implements BizfiFiAnalysisReportSe
             }
         }
         return warnings;
+    }
+
+    private List<ReportMappingGapVO> mergeMappingGaps(ReportQueryResultVO left, ReportQueryResultVO right) {
+        List<ReportMappingGapVO> gaps = new ArrayList<>();
+        addMappingGaps(gaps, left);
+        addMappingGaps(gaps, right);
+        return gaps;
+    }
+
+    private void addMappingGaps(List<ReportMappingGapVO> gaps, ReportQueryResultVO result) {
+        if (result == null || result.getMappingGaps() == null) {
+            return;
+        }
+        for (ReportMappingGapVO gap : result.getMappingGaps()) {
+            if (gap != null && !containsMappingGap(gaps, gap)) {
+                gaps.add(gap);
+            }
+        }
+    }
+
+    private boolean containsMappingGap(List<ReportMappingGapVO> gaps, ReportMappingGapVO candidate) {
+        for (ReportMappingGapVO gap : gaps) {
+            if (Objects.equals(gap.getReportType(), candidate.getReportType())
+                    && Objects.equals(gap.getTemplateId(), candidate.getTemplateId())
+                    && Objects.equals(gap.getAccountCode(), candidate.getAccountCode())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String normalizePeriod(String period) {

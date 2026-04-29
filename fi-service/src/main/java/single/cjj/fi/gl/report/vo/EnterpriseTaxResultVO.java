@@ -21,4 +21,5 @@ public class EnterpriseTaxResultVO {
     private List<EnterpriseTaxRowVO> rows;
     private List<ReportCheckResultVO> checks;
     private List<String> warnings;
+    private List<ReportMappingGapVO> mappingGaps;
 }

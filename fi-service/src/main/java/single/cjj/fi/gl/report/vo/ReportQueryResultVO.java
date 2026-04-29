@@ -21,4 +21,5 @@ public class ReportQueryResultVO {
     private List<ReportRowVO> rows;
     private List<ReportCheckResultVO> checks;
     private List<String> warnings;
+    private List<ReportMappingGapVO> mappingGaps;
 }
