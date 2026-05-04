@@ -19,6 +19,11 @@ Quick project notes:
 - `matrix` is a Java 17 Maven multi-module backend using Spring Boot, Spring Cloud Alibaba, and MyBatis-Plus.
 - `matrix-web` is a Vue 3 + Vite frontend and currently uses `vue-router`, `axios`, `pinia`, and `vuetify`.
 
+Database design convention:
+
+- Before designing any Matrix database, table, field, SQL deliverable, or backend entity mapping, read `docs/specs/database-naming-convention.md`.
+- Enforce the Matrix naming rule: database `matrix_{module_code}`, table `matrix_{module_code}_{business_table_name}`, and every column starts with `f` such as `fid`, `fname`, `fstatus`, `fcreate_time`.
+
 Default expectation for future threads:
 
 - Re-establish context from this file before starting substantial work.
