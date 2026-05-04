@@ -107,10 +107,12 @@ public class AiAssistantStreamController {
             StringBuilder answerBuilder = new StringBuilder();
             String mode = isRealAiConfigured() ? "real-model" : "fallback";
             try {
+                List<AiCitationResponse> citations = knowledgeService.retrieve(userMessage, req.getKbIds());
                 sendSseEvent(emitter, "start", Map.of(
                         "conversationId", conversationId,
                         "mode", mode,
-                        "model", aiChatModel
+                        "model", aiChatModel,
+                        "citations", citations
                 ));
 
                 if (!isRealAiConfigured()) {
@@ -118,11 +120,11 @@ public class AiAssistantStreamController {
                     answerBuilder.append(answer);
                     sendSseEvent(emitter, "delta", Map.of("delta", answer));
                 } else if (isGeminiNativeBaseUrl()) {
-                    String answer = callGeminiNativeModel(userId, conversationId, userMessage, req.getKbIds());
+                    String answer = callGeminiNativeModel(userId, conversationId, userMessage, citations);
                     answerBuilder.append(answer);
                     sendSseEvent(emitter, "delta", Map.of("delta", answer));
                 } else {
-                    streamOpenAiCompatible(userId, conversationId, userMessage, req.getKbIds(), emitter, answerBuilder);
+                    streamOpenAiCompatible(userId, conversationId, userMessage, citations, emitter, answerBuilder);
                 }
 
                 String traceId = "trace_" + System.currentTimeMillis();
@@ -142,7 +144,8 @@ public class AiAssistantStreamController {
                         "answer", answerBuilder.toString(),
                         "mode", mode,
                         "model", aiChatModel,
-                        "traceId", traceId
+                        "traceId", traceId,
+                        "citations", citations
                 ));
                 emitter.complete();
             } catch (Exception e) {
@@ -228,14 +231,14 @@ public class AiAssistantStreamController {
     private void streamOpenAiCompatible(Long userId,
                                         String conversationId,
                                         String userMessage,
-                                        List<String> kbIds,
+                                        List<AiCitationResponse> citations,
                                         SseEmitter emitter,
                                         StringBuilder answerBuilder) throws Exception {
         String endpoint = buildEndpoint();
         Map<String, Object> body = new HashMap<>();
         body.put("model", aiChatModel);
         body.put("stream", true);
-        body.put("messages", buildOpenAiMessages(userId, conversationId, userMessage, kbIds));
+        body.put("messages", buildOpenAiMessages(userId, conversationId, userMessage, citations));
 
         String json = objectMapper.writeValueAsString(body);
         HttpRequest request = HttpRequest.newBuilder()
@@ -279,9 +282,9 @@ public class AiAssistantStreamController {
     private String callGeminiNativeModel(Long userId,
                                          String conversationId,
                                          String userMessage,
-                                         List<String> kbIds) throws Exception {
+                                         List<AiCitationResponse> citations) throws Exception {
         String endpoint = buildEndpoint();
-        List<Map<String, Object>> contents = buildGeminiContents(userId, conversationId, userMessage, kbIds);
+        List<Map<String, Object>> contents = buildGeminiContents(userId, conversationId, userMessage, citations);
 
         Map<String, Object> body = new HashMap<>();
         body.put("contents", contents);
@@ -310,7 +313,7 @@ public class AiAssistantStreamController {
     private List<Map<String, String>> buildOpenAiMessages(Long userId,
                                                           String conversationId,
                                                           String userMessage,
-                                                          List<String> kbIds) {
+                                                          List<AiCitationResponse> citations) {
         List<Map<String, String>> messages = new ArrayList<>();
         String systemPrompt = loadSystemPrompt();
         if (StringUtils.hasText(systemPrompt)) {
@@ -322,7 +325,7 @@ public class AiAssistantStreamController {
             }
             messages.add(Map.of("role", item.getRole(), "content", item.getContent()));
         }
-        String knowledgeContext = buildKnowledgeContext(userMessage, kbIds);
+        String knowledgeContext = buildKnowledgeContext(citations);
         if (StringUtils.hasText(knowledgeContext)) {
             messages.add(Map.of("role", "system", "content", knowledgeContext));
         }
@@ -333,7 +336,7 @@ public class AiAssistantStreamController {
     private List<Map<String, Object>> buildGeminiContents(Long userId,
                                                           String conversationId,
                                                           String userMessage,
-                                                          List<String> kbIds) {
+                                                          List<AiCitationResponse> citations) {
         List<Map<String, Object>> contents = new ArrayList<>();
         String systemPrompt = loadSystemPrompt();
         if (StringUtils.hasText(systemPrompt)) {
@@ -345,7 +348,7 @@ public class AiAssistantStreamController {
             }
             contents.add(buildGeminiContent("assistant".equals(item.getRole()) ? "model" : "user", item.getContent()));
         }
-        String knowledgeContext = buildKnowledgeContext(userMessage, kbIds);
+        String knowledgeContext = buildKnowledgeContext(citations);
         if (StringUtils.hasText(knowledgeContext)) {
             contents.add(buildGeminiContent("user", knowledgeContext));
         }
@@ -379,8 +382,10 @@ public class AiAssistantStreamController {
         return history;
     }
 
-    private String buildKnowledgeContext(String question, List<String> kbIds) {
-        List<AiCitationResponse> citations = knowledgeService.retrieve(question, kbIds);
+    private String buildKnowledgeContext(List<AiCitationResponse> citations) {
+        if (citations == null || citations.isEmpty()) {
+            return null;
+        }
         List<String> snippets = citations.stream()
                 .map(AiCitationResponse::getSnippet)
                 .filter(StringUtils::hasText)

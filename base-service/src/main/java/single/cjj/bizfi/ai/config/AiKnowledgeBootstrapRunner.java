@@ -95,7 +95,18 @@ public class AiKnowledgeBootstrapRunner implements ApplicationRunner {
     }
 
     private String buildDocId(Path path) {
-        return path.toString().replace('\\', '/').replace('/', '_').replace('.', '_').toLowerCase(Locale.ROOT);
+        String normalized = path.toString()
+                .replace('\\', '/')
+                .replaceAll("[^A-Za-z0-9/_\\\\.-]", "_")
+                .replace('/', '_')
+                .replace('.', '_')
+                .replaceAll("_+", "_")
+                .toLowerCase(Locale.ROOT);
+        if (normalized.length() <= 80) {
+            return normalized;
+        }
+        String hash = Integer.toHexString(path.toString().hashCode());
+        return normalized.substring(0, 70) + "_" + hash;
     }
 
     private String extractTitle(Path path, String content) {

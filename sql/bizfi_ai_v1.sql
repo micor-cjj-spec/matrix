@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS bizfi_ai_feedback (
 
 CREATE TABLE IF NOT EXISTS bizfi_ai_knowledge_doc (
   fid BIGINT PRIMARY KEY AUTO_INCREMENT,
-  fdocid VARCHAR(64) NOT NULL,
+  fdocid VARCHAR(128) NOT NULL,
   ftitle VARCHAR(255) NOT NULL,
   fcategory VARCHAR(64),
   fsourcepath VARCHAR(500) NOT NULL,
@@ -50,13 +50,14 @@ CREATE TABLE IF NOT EXISTS bizfi_ai_knowledge_doc (
   fstatus VARCHAR(32) DEFAULT 'ACTIVE',
   fcreatetime DATETIME NOT NULL,
   fmodifytime DATETIME NOT NULL,
-  UNIQUE KEY uk_fdocid (fdocid)
+  UNIQUE KEY uk_fdocid (fdocid),
+  KEY idx_status_category (fstatus, fcategory)
 );
 
 CREATE TABLE IF NOT EXISTS bizfi_ai_knowledge_chunk (
   fid BIGINT PRIMARY KEY AUTO_INCREMENT,
-  fdocid VARCHAR(64) NOT NULL,
-  fchunkid VARCHAR(64) NOT NULL,
+  fdocid VARCHAR(128) NOT NULL,
+  fchunkid VARCHAR(160) NOT NULL,
   fseq INT NOT NULL,
   fcontent TEXT NOT NULL,
   fkeywords VARCHAR(1000),
@@ -64,3 +65,7 @@ CREATE TABLE IF NOT EXISTS bizfi_ai_knowledge_chunk (
   UNIQUE KEY uk_fchunkid (fchunkid),
   KEY idx_fdocid (fdocid)
 );
+
+ALTER TABLE bizfi_ai_knowledge_doc MODIFY COLUMN fdocid VARCHAR(128) NOT NULL;
+ALTER TABLE bizfi_ai_knowledge_chunk MODIFY COLUMN fdocid VARCHAR(128) NOT NULL;
+ALTER TABLE bizfi_ai_knowledge_chunk MODIFY COLUMN fchunkid VARCHAR(160) NOT NULL;
