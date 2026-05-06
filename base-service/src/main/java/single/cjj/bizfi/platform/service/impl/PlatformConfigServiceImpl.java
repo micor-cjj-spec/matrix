@@ -18,6 +18,7 @@ import single.cjj.bizfi.platform.mapper.MatrixPlatformMenuMapper;
 import single.cjj.bizfi.platform.mapper.MatrixPlatformModuleItemMapper;
 import single.cjj.bizfi.platform.mapper.MatrixPlatformWorkbenchItemMapper;
 import single.cjj.bizfi.platform.service.PlatformConfigService;
+import single.cjj.bizfi.util.TextEncodingFixer;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -150,9 +151,9 @@ public class PlatformConfigServiceImpl implements PlatformConfigService {
                 .sorted(Comparator.comparing(item -> defaultSort(item.getFsortNo())))
                 .map(group -> {
                     PlatformModuleGroupResponse response = new PlatformModuleGroupResponse();
-                    response.setName(group.getFname());
-                    response.setSummary(group.getFsummary());
-                    response.setEyebrow(group.getFeyebrow());
+                    response.setName(fixText(group.getFname()));
+                    response.setSummary(fixText(group.getFsummary()));
+                    response.setEyebrow(fixText(group.getFeyebrow()));
                     response.setIconKey(group.getFiconKey());
                     response.setModules(childrenByParent.getOrDefault(group.getFid(), List.of()).stream()
                             .sorted(Comparator.comparing(item -> defaultSort(item.getFsortNo())))
@@ -166,12 +167,12 @@ public class PlatformConfigServiceImpl implements PlatformConfigService {
     private PlatformUiItemResponse toAppItem(MatrixPlatformApp app) {
         PlatformUiItemResponse item = new PlatformUiItemResponse();
         item.setKey(app.getFappCode());
-        item.setName(app.getFname());
-        item.setTitle(app.getFname());
-        item.setDesc(app.getFdescription());
-        item.setDescription(app.getFdescription());
-        item.setMeta(app.getFmeta());
-        item.setStatus(app.getFstatusText());
+        item.setName(fixText(app.getFname()));
+        item.setTitle(fixText(app.getFname()));
+        item.setDesc(fixText(app.getFdescription()));
+        item.setDescription(fixText(app.getFdescription()));
+        item.setMeta(fixText(app.getFmeta()));
+        item.setStatus(fixText(app.getFstatusText()));
         item.setPath(app.getFroutePath());
         item.setRoutePath(app.getFroutePath());
         item.setIconKey(app.getFiconKey());
@@ -193,20 +194,20 @@ public class PlatformConfigServiceImpl implements PlatformConfigService {
     private PlatformUiItemResponse toWorkbenchItem(MatrixPlatformWorkbenchItem source) {
         PlatformUiItemResponse item = new PlatformUiItemResponse();
         item.setKey(source.getFsection() + ":" + source.getFid());
-        item.setName(source.getFname());
-        item.setLabel(source.getFname());
-        item.setTitle(source.getFname());
-        item.setDesc(source.getFdescription());
-        item.setDescription(source.getFdescription());
-        item.setDetail(source.getFdescription());
-        item.setValue(source.getFvalue());
-        item.setHint(source.getFhint());
-        item.setTag(source.getFtag());
+        item.setName(fixText(source.getFname()));
+        item.setLabel(fixText(source.getFname()));
+        item.setTitle(fixText(source.getFname()));
+        item.setDesc(fixText(source.getFdescription()));
+        item.setDescription(fixText(source.getFdescription()));
+        item.setDetail(fixText(source.getFdescription()));
+        item.setValue(fixText(source.getFvalue()));
+        item.setHint(fixText(source.getFhint()));
+        item.setTag(fixText(source.getFtag()));
         item.setType(source.getFitemType());
         item.setPriority(source.getFpriority());
-        item.setStatus(source.getFstatusText());
-        item.setMeta(source.getFhint());
-        item.setTime(source.getFvalue());
+        item.setStatus(fixText(source.getFstatusText()));
+        item.setMeta(fixText(source.getFhint()));
+        item.setTime(fixText(source.getFvalue()));
         item.setPath(source.getFroutePath());
         item.setRoutePath(source.getFroutePath());
         item.setIconKey(source.getFiconKey());
@@ -228,15 +229,15 @@ public class PlatformConfigServiceImpl implements PlatformConfigService {
     private PlatformUiItemResponse toModuleItem(MatrixPlatformModuleItem source) {
         PlatformUiItemResponse item = new PlatformUiItemResponse();
         item.setKey(source.getFsection() + ":" + source.getFid());
-        item.setName(source.getFname());
-        item.setLabel(source.getFname());
-        item.setTitle(source.getFname());
-        item.setDesc(source.getFdescription());
-        item.setDescription(source.getFdescription());
-        item.setDetail(source.getFdescription());
-        item.setValue(source.getFvalue());
-        item.setHint(source.getFhint());
-        item.setStatus(StringUtils.hasText(source.getFstatusText()) ? source.getFstatusText() : source.getFstatus());
+        item.setName(fixText(source.getFname()));
+        item.setLabel(fixText(source.getFname()));
+        item.setTitle(fixText(source.getFname()));
+        item.setDesc(fixText(source.getFdescription()));
+        item.setDescription(fixText(source.getFdescription()));
+        item.setDetail(fixText(source.getFdescription()));
+        item.setValue(fixText(source.getFvalue()));
+        item.setHint(fixText(source.getFhint()));
+        item.setStatus(StringUtils.hasText(source.getFstatusText()) ? fixText(source.getFstatusText()) : source.getFstatus());
         item.setPath(source.getFroutePath());
         item.setRoutePath(source.getFroutePath());
         item.setIconKey(source.getFiconKey());
@@ -249,13 +250,13 @@ public class PlatformConfigServiceImpl implements PlatformConfigService {
     private PlatformUiItemResponse toMenuItem(MatrixPlatformMenu menu) {
         PlatformUiItemResponse item = new PlatformUiItemResponse();
         item.setKey(menu.getFmenuCode());
-        item.setName(menu.getFname());
-        item.setLabel(menu.getFname());
-        item.setTitle(menu.getFname());
-        item.setDesc(menu.getFdescription());
-        item.setDescription(menu.getFdescription());
-        item.setDetail(menu.getFdescription());
-        item.setStatus(menu.getFstatusText());
+        item.setName(fixText(menu.getFname()));
+        item.setLabel(fixText(menu.getFname()));
+        item.setTitle(fixText(menu.getFname()));
+        item.setDesc(fixText(menu.getFdescription()));
+        item.setDescription(fixText(menu.getFdescription()));
+        item.setDetail(fixText(menu.getFdescription()));
+        item.setStatus(fixText(menu.getFstatusText()));
         item.setPath(menu.getFroutePath());
         item.setRoutePath(menu.getFroutePath());
         item.setIconKey(menu.getFiconKey());
@@ -271,12 +272,12 @@ public class PlatformConfigServiceImpl implements PlatformConfigService {
         response.setAppCode(menu.getFappCode());
         response.setModuleCode(menu.getFmoduleCode());
         response.setMenuCode(menu.getFmenuCode());
-        response.setName(menu.getFname());
-        response.setTitle(menu.getFname());
-        response.setDesc(menu.getFdescription());
-        response.setDescription(menu.getFdescription());
-        response.setSummary(menu.getFsummary());
-        response.setEyebrow(menu.getFeyebrow());
+        response.setName(fixText(menu.getFname()));
+        response.setTitle(fixText(menu.getFname()));
+        response.setDesc(fixText(menu.getFdescription()));
+        response.setDescription(fixText(menu.getFdescription()));
+        response.setSummary(fixText(menu.getFsummary()));
+        response.setEyebrow(fixText(menu.getFeyebrow()));
         response.setMenuType(menu.getFmenuType());
         response.setPath(menu.getFroutePath());
         response.setRoutePath(menu.getFroutePath());
@@ -300,5 +301,9 @@ public class PlatformConfigServiceImpl implements PlatformConfigService {
 
     private String nullToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    private String fixText(String value) {
+        return TextEncodingFixer.fix(value);
     }
 }
