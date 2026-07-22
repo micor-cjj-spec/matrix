@@ -1,5 +1,6 @@
 package single.cjj.fi.gl.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
@@ -24,6 +25,18 @@ public class BizfiFiVoucher implements Serializable {
     /** 主键ID */
     @TableId("fid")
     private Long fid;
+
+    /** 租户 */
+    @TableField("tenant_id")
+    private String tenantId;
+
+    /** 业务组织 */
+    @TableField("org_id")
+    private String organizationId;
+
+    /** 账簿 */
+    @TableField("book_id")
+    private String bookId;
 
     /** 凭证编号 */
     private String fnumber;
