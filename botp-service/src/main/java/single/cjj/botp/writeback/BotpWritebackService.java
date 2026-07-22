@@ -54,10 +54,7 @@ public class BotpWritebackService {
         );
     }
 
-    public WritebackTask enqueueReverse(
-            DocumentRelation relation,
-            BigDecimal activeAllocatedAmount
-    ) {
+    public WritebackTask enqueueReverse(DocumentRelation relation, BigDecimal activeAllocatedAmount) {
         return taskRepository.create(
                 relation.tenantId(), relation.executionId(), relation.relationId(), relation.sourceDocument(), relation.targetDocument(),
                 WritebackTaskType.REVERSE_WRITEBACK, activeAllocatedAmount, BigDecimal.ZERO
@@ -78,6 +75,22 @@ public class BotpWritebackService {
 
     public List<WritebackTask> list(int limit) {
         return taskRepository.list(limit);
+    }
+
+    public List<WritebackTask> findByExecution(String executionId) {
+        return taskRepository.list(500).stream()
+                .filter(item -> executionId.equals(item.executionId()))
+                .toList();
+    }
+
+    public List<WritebackTask> retryByExecution(String executionId) {
+        List<WritebackTask> tasks = findByExecution(executionId);
+        for (WritebackTask task : tasks) {
+            if (task.status() != TaskStatus.SUCCEEDED) {
+                retryNow(task.taskId());
+            }
+        }
+        return findByExecution(executionId);
     }
 
     public WritebackTask retryNow(Long taskId) {
