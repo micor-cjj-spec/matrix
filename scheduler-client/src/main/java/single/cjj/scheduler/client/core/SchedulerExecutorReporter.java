@@ -2,8 +2,8 @@ package single.cjj.scheduler.client.core;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.event.EventListener;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.client.RestClient;
 import single.cjj.scheduler.client.config.SchedulerClientProperties;
@@ -40,10 +40,11 @@ public class SchedulerExecutorReporter {
         try {
             restClient.post()
                     .uri("/scheduler/executors/heartbeat")
+                    .header("X-Scheduler-Internal-Token", properties.requiredInternalToken())
                     .body(new HeartbeatRequest(
                             properties.requiredExecutorCode(),
                             identity.getInstanceId(),
-                            properties.getMaxConcurrency()))
+                            0))
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception e) {
@@ -58,6 +59,7 @@ public class SchedulerExecutorReporter {
                     .toList();
             restClient.post()
                     .uri("/scheduler/executors/register")
+                    .header("X-Scheduler-Internal-Token", properties.requiredInternalToken())
                     .body(new RegisterRequest(
                             properties.requiredExecutorCode(),
                             properties.resolvedExecutorName(),
