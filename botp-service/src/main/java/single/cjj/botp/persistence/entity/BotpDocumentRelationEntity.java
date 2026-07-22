@@ -29,6 +29,11 @@ public class BotpDocumentRelationEntity {
     private String ftargetDocumentNo;
     private BigDecimal fallocatedAmount;
     private String frelationStatus;
+    private String ftargetStatus;
+    private String flastEventId;
+    private String finvalidReason;
+    private LocalDateTime finvalidTime;
+    private LocalDateTime freversedTime;
     private Long fcreateBy;
     private LocalDateTime fcreateTime;
     private Long fmodifyBy;
