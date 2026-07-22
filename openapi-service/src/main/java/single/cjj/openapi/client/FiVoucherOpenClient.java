@@ -12,7 +12,12 @@ import single.cjj.openapi.contract.OpenVoucherResponse;
 
 import java.util.List;
 
-@FeignClient(name = "fi-service", contextId = "fiVoucherOpenClient", path = "/api/internal/openapi/v1/vouchers")
+@FeignClient(
+        name = "fi-service",
+        contextId = "fiVoucherOpenClient",
+        path = "/api/internal/openapi/v1/vouchers",
+        configuration = FiOpenApiClientConfig.class
+)
 public interface FiVoucherOpenClient {
 
     @GetMapping
