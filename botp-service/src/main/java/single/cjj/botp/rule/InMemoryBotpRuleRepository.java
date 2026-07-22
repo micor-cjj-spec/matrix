@@ -1,21 +1,26 @@
 package single.cjj.botp.rule;
 
 import org.springframework.stereotype.Repository;
+import single.cjj.bizfi.exception.BizException;
 import single.cjj.botp.domain.BotpContracts.FieldMapping;
 import single.cjj.botp.domain.BotpContracts.MappingSourceType;
 import single.cjj.botp.domain.BotpContracts.RuleDefinition;
 import single.cjj.botp.domain.BotpContracts.RuleStatus;
 import single.cjj.botp.domain.BotpContracts.WritebackMapping;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public class InMemoryBotpRuleRepository implements BotpRuleRepository {
 
-    private final Map<String, RuleDefinition> rules = new LinkedHashMap<>();
+    private final Map<String, RuleDefinition> drafts = new LinkedHashMap<>();
+    private final Map<String, List<RuleDefinition>> publishedVersions = new LinkedHashMap<>();
 
     public InMemoryBotpRuleRepository() {
         RuleDefinition demoRule = new RuleDefinition(
@@ -42,22 +47,86 @@ public class InMemoryBotpRuleRepository implements BotpRuleRepository {
                         new WritebackMapping("documentNo", "lastTargetNo", "OVERWRITE")
                 )
         );
-        rules.put(demoRule.ruleCode(), demoRule);
+        publishedVersions.put(demoRule.ruleCode(), new ArrayList<>(List.of(demoRule)));
     }
 
     @Override
-    public List<RuleDefinition> findAll() {
-        return List.copyOf(rules.values());
+    public synchronized List<RuleDefinition> findAll() {
+        Set<String> ruleCodes = new LinkedHashSet<>();
+        ruleCodes.addAll(publishedVersions.keySet());
+        ruleCodes.addAll(drafts.keySet());
+        return ruleCodes.stream()
+                .map(this::findByCode)
+                .flatMap(Optional::stream)
+                .toList();
     }
 
     @Override
-    public Optional<RuleDefinition> findByCode(String ruleCode) {
-        return Optional.ofNullable(rules.get(ruleCode));
+    public synchronized Optional<RuleDefinition> findByCode(String ruleCode) {
+        RuleDefinition draft = drafts.get(ruleCode);
+        return draft != null ? Optional.of(draft) : findPublishedByCode(ruleCode);
     }
 
     @Override
-    public Optional<RuleDefinition> findPublishedByCode(String ruleCode) {
-        return findByCode(ruleCode)
-                .filter(rule -> rule.status() == RuleStatus.PUBLISHED);
+    public synchronized Optional<RuleDefinition> findPublishedByCode(String ruleCode) {
+        List<RuleDefinition> versions = publishedVersions.get(ruleCode);
+        if (versions == null || versions.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(versions.get(versions.size() - 1));
+    }
+
+    @Override
+    public synchronized RuleDefinition saveDraft(RuleSaveRequest request) {
+        int version = Optional.ofNullable(drafts.get(request.ruleCode()))
+                .map(RuleDefinition::version)
+                .orElseGet(() -> findPublishedByCode(request.ruleCode())
+                        .map(published -> published.version() + 1)
+                        .orElse(1));
+
+        RuleDefinition draft = new RuleDefinition(
+                request.ruleCode(),
+                request.ruleName(),
+                version,
+                RuleStatus.DRAFT,
+                request.sourceSystemCode(),
+                request.sourceDocumentType(),
+                request.targetSystemCode(),
+                request.targetDocumentType(),
+                request.headerMappings(),
+                request.entryMappings(),
+                request.writebackMappings()
+        );
+        drafts.put(draft.ruleCode(), draft);
+        return draft;
+    }
+
+    @Override
+    public synchronized RuleDefinition publish(String ruleCode) {
+        RuleDefinition draft = drafts.remove(ruleCode);
+        if (draft == null) {
+            throw new BizException("BOTP 待发布草稿不存在: " + ruleCode);
+        }
+        RuleDefinition published = new RuleDefinition(
+                draft.ruleCode(),
+                draft.ruleName(),
+                draft.version(),
+                RuleStatus.PUBLISHED,
+                draft.sourceSystemCode(),
+                draft.sourceDocumentType(),
+                draft.targetSystemCode(),
+                draft.targetDocumentType(),
+                draft.headerMappings(),
+                draft.entryMappings(),
+                draft.writebackMappings()
+        );
+        publishedVersions.computeIfAbsent(ruleCode, key -> new ArrayList<>()).add(published);
+        return published;
+    }
+
+    @Override
+    public synchronized List<RuleDefinition> findVersions(String ruleCode) {
+        List<RuleDefinition> versions = publishedVersions.get(ruleCode);
+        return versions == null ? List.of() : List.copyOf(versions);
     }
 }
