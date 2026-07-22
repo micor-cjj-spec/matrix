@@ -1,0 +1,65 @@
+name: BOTP V3 Deterministic Rebase
+
+on:
+  push:
+    branches:
+      - feature/botp-v3-rebased
+
+permissions:
+  contents: write
+
+jobs:
+  rebase:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout rebased branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/botp-v3-rebased
+          fetch-depth: 0
+
+      - name: Apply BOTP V3 diff on current dev
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://github.com/micor-cjj-spec/matrix/pull/39.diff -o /tmp/botp-v3.diff
+          git apply --3way \
+            --exclude=fi-service/src/main/java/single/cjj/fi/FinanceApplication.java \
+            /tmp/botp-v3.diff
+
+      - name: Resolve Finance application configuration
+        shell: bash
+        run: |
+          cat > fi-service/src/main/java/single/cjj/fi/FinanceApplication.java <<'EOF'
+          package single.cjj.fi;
+
+          import org.mybatis.spring.annotation.MapperScan;
+          import org.springframework.boot.SpringApplication;
+          import org.springframework.boot.autoconfigure.SpringBootApplication;
+          import org.springframework.cloud.openfeign.EnableFeignClients;
+          import org.springframework.scheduling.annotation.EnableScheduling;
+
+          @EnableScheduling
+          @EnableFeignClients(basePackages = "single.cjj.fi.integration.botp")
+          @SpringBootApplication(scanBasePackages = "single.cjj.fi")
+          @MapperScan(basePackages = "single.cjj.fi.**.mapper")
+          public class FinanceApplication {
+
+              public static void main(String[] args) {
+                  SpringApplication.run(FinanceApplication.class, args);
+                  System.out.println("✅ Finance Service started!");
+              }
+          }
+          EOF
+
+      - name: Commit rebased V3 changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/botp-v3-rebase.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(botp): rebase V3 recovery onto current dev"
+          git push origin HEAD:feature/botp-v3-rebased
