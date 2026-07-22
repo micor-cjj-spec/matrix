@@ -30,7 +30,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -188,16 +187,6 @@ public class OpenApiGovernanceController {
         long p95DurationMs = percentile95(logs);
         double successRate = total == 0 ? 0D : round2(successCount * 100D / total);
 
-        Map<String, Long> apiCounts = countAndSort(
-                logs, OpenApiRequestLog::getApiCode, 8, true
-        );
-        Map<String, Long> errorCounts = countAndSort(
-                logs.stream().filter(item -> !Boolean.TRUE.equals(item.getSuccess())).toList(),
-                item -> StringUtils.hasText(item.getResponseCode()) ? item.getResponseCode() : "UNKNOWN",
-                8,
-                false
-        );
-
         return ApiResponse.success(new DashboardView(
                 safeHours,
                 total,
@@ -206,8 +195,8 @@ public class OpenApiGovernanceController {
                 successRate,
                 averageDurationMs,
                 p95DurationMs,
-                apiCounts,
-                errorCounts,
+                countTopApis(logs),
+                countErrorCodes(logs),
                 total >= MAX_DASHBOARD_SAMPLE
         ));
     }
@@ -262,17 +251,25 @@ public class OpenApiGovernanceController {
         return durations.get(Math.max(0, Math.min(index, durations.size() - 1)));
     }
 
-    private Map<String, Long> countAndSort(List<OpenApiRequestLog> logs,
-                                           Function<OpenApiRequestLog, String> classifier,
-                                           int limit,
-                                           boolean ignoreBlank) {
+    private Map<String, Long> countTopApis(List<OpenApiRequestLog> logs) {
         Map<String, Long> grouped = logs.stream()
-                .map(item -> Map.entry(item, classifier.apply(item)))
-                .filter(entry -> !ignoreBlank || StringUtils.hasText(entry.getValue()))
-                .collect(Collectors.groupingBy(
-                        entry -> StringUtils.hasText(entry.getValue()) ? entry.getValue() : "UNKNOWN",
-                        Collectors.counting()
-                ));
+                .map(OpenApiRequestLog::getApiCode)
+                .filter(StringUtils::hasText)
+                .collect(Collectors.groupingBy(value -> value, Collectors.counting()));
+        return sortCounts(grouped, 8);
+    }
+
+    private Map<String, Long> countErrorCodes(List<OpenApiRequestLog> logs) {
+        Map<String, Long> grouped = logs.stream()
+                .filter(item -> !Boolean.TRUE.equals(item.getSuccess()))
+                .map(item -> StringUtils.hasText(item.getResponseCode())
+                        ? item.getResponseCode()
+                        : "UNKNOWN")
+                .collect(Collectors.groupingBy(value -> value, Collectors.counting()));
+        return sortCounts(grouped, 8);
+    }
+
+    private Map<String, Long> sortCounts(Map<String, Long> grouped, int limit) {
         return grouped.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
                 .limit(limit)
