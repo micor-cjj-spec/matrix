@@ -88,6 +88,10 @@ class OutboxDispatcher {
                         ImRabbitConfiguration.EXCHANGE,
                         ImRabbitConfiguration.CHANNEL_TASK_ROUTING_KEY,
                         event.payloadJson(),
+                        message -> {
+                            message.getMessageProperties().setMessageId(event.eventId());
+                            return message;
+                        },
                         correlationData
                 );
                 CorrelationData.Confirm confirm = correlationData.getFuture().get(5, TimeUnit.SECONDS);
@@ -141,7 +145,8 @@ class ChannelTaskConsumer {
         } catch (ImBusinessException e) {
             channel.basicReject(deliveryTag, false);
         } catch (Exception e) {
-            channel.basicNack(deliveryTag, false, true);
+            // 渠道层已经通过数据库状态机和 Outbox 负责重试，Broker 层不无限 requeue。
+            channel.basicNack(deliveryTag, false, false);
         }
     }
 }

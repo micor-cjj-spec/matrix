@@ -2,18 +2,21 @@ package single.cjj.im.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ReadListener;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.ServletException;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+import single.cjj.im.application.ImApplicationService;
+import single.cjj.im.application.ImApplicationService.ApplicationAuthenticationException;
+import single.cjj.im.application.ImApplicationService.AuthenticatedApplication;
+import single.cjj.im.application.ImOpenApiProperties;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -24,20 +27,23 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.HexFormat;
-import java.util.Map;
 
 @Component
 public class OpenApiSignatureFilter extends OncePerRequestFilter {
 
     public static final String APP_CODE_ATTRIBUTE = "im.openApi.appCode";
+    public static final String APPLICATION_ATTRIBUTE = "im.openApi.application";
 
-    private final OpenApiProperties properties;
+    private final ImOpenApiProperties properties;
+    private final ImApplicationService applicationService;
     private final StringRedisTemplate redisTemplate;
 
-    public OpenApiSignatureFilter(OpenApiProperties properties, StringRedisTemplate redisTemplate) {
+    public OpenApiSignatureFilter(ImOpenApiProperties properties,
+                                  ImApplicationService applicationService,
+                                  StringRedisTemplate redisTemplate) {
         this.properties = properties;
+        this.applicationService = applicationService;
         this.redisTemplate = redisTemplate;
     }
 
@@ -52,17 +58,14 @@ public class OpenApiSignatureFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         CachedBodyRequest wrappedRequest = new CachedBodyRequest(request);
         String appCode;
+        AuthenticatedApplication application;
         try {
             appCode = requiredHeader(request, "X-App-Code");
             String timestampText = requiredHeader(request, "X-Timestamp");
             String nonce = requiredHeader(request, "X-Nonce");
             String signature = requiredHeader(request, "X-Signature");
 
-            String secret = properties.getCredentials().get(appCode);
-            if (!StringUtils.hasText(secret)) {
-                throw new SignatureException("未知或未启用的调用应用");
-            }
-
+            application = applicationService.authenticate(appCode, resolveSourceIp(request));
             long timestamp = Long.parseLong(timestampText);
             long now = System.currentTimeMillis();
             long allowedMillis = properties.getSignatureWindowSeconds() * 1000L;
@@ -86,17 +89,18 @@ public class OpenApiSignatureFilter extends OncePerRequestFilter {
                     + timestampText + "\n"
                     + nonce + "\n"
                     + bodyHash;
-            String expected = hmacSha256Hex(secret, canonical);
+            String expected = hmacSha256Hex(application.appSecret(), canonical);
             if (!MessageDigest.isEqual(
                     expected.getBytes(StandardCharsets.UTF_8),
                     signature.toLowerCase().getBytes(StandardCharsets.UTF_8))) {
                 redisTemplate.delete(nonceKey);
                 throw new SignatureException("签名校验失败");
             }
+            applicationService.enforceRateLimit(application);
         } catch (NumberFormatException e) {
             writeUnauthorized(response, "时间戳格式错误");
             return;
-        } catch (SignatureException e) {
+        } catch (ApplicationAuthenticationException | SignatureException e) {
             writeUnauthorized(response, e.getMessage());
             return;
         } catch (Exception e) {
@@ -105,7 +109,16 @@ public class OpenApiSignatureFilter extends OncePerRequestFilter {
         }
 
         wrappedRequest.setAttribute(APP_CODE_ATTRIBUTE, appCode);
+        wrappedRequest.setAttribute(APPLICATION_ATTRIBUTE, application);
         filterChain.doFilter(wrappedRequest, response);
+    }
+
+    private String resolveSourceIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (StringUtils.hasText(forwarded)) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     private String requiredHeader(HttpServletRequest request, String name) {
@@ -141,29 +154,6 @@ public class OpenApiSignatureFilter extends OncePerRequestFilter {
         SignatureException(String message) {
             super(message);
         }
-    }
-}
-
-@ConfigurationProperties(prefix = "im.open-api")
-class OpenApiProperties {
-
-    private int signatureWindowSeconds = 300;
-    private Map<String, String> credentials = new HashMap<>();
-
-    public int getSignatureWindowSeconds() {
-        return signatureWindowSeconds;
-    }
-
-    public void setSignatureWindowSeconds(int signatureWindowSeconds) {
-        this.signatureWindowSeconds = signatureWindowSeconds;
-    }
-
-    public Map<String, String> getCredentials() {
-        return credentials;
-    }
-
-    public void setCredentials(Map<String, String> credentials) {
-        this.credentials = credentials == null ? new HashMap<>() : credentials;
     }
 }
 
