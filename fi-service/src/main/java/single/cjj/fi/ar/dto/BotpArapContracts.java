@@ -29,6 +29,7 @@ public final class BotpArapContracts {
 
     public record ArapWritebackRequest(
             @NotNull @DecimalMin(value = "0.00") BigDecimal activeAllocatedAmount,
+            @NotNull @DecimalMin(value = "0.00") BigDecimal releaseReservedAmount,
             @NotBlank String executionId
     ) {
     }
