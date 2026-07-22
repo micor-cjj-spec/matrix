@@ -3,6 +3,7 @@ package single.cjj.openapi.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -13,6 +14,7 @@ import single.cjj.openapi.mapper.OpenApiOutboxEventMapper;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -25,17 +27,20 @@ public class OpenApiOutboxDispatcher {
     private final OpenApiWriteStateService stateService;
     private final String exchangeName;
     private final String routingKey;
+    private final long confirmTimeoutMs;
 
     public OpenApiOutboxDispatcher(OpenApiOutboxEventMapper outboxMapper,
                                    RabbitTemplate rabbitTemplate,
                                    OpenApiWriteStateService stateService,
                                    @Value("${matrix.openapi.write.exchange:matrix.openapi.write.exchange}") String exchangeName,
-                                   @Value("${matrix.openapi.write.routing-key:matrix.openapi.voucher.write}") String routingKey) {
+                                   @Value("${matrix.openapi.write.routing-key:matrix.openapi.voucher.write}") String routingKey,
+                                   @Value("${matrix.openapi.write.publisher-confirm-timeout-ms:5000}") long confirmTimeoutMs) {
         this.outboxMapper = outboxMapper;
         this.rabbitTemplate = rabbitTemplate;
         this.stateService = stateService;
         this.exchangeName = exchangeName;
         this.routingKey = routingKey;
+        this.confirmTimeoutMs = Math.max(1000L, confirmTimeoutMs);
     }
 
     @Scheduled(fixedDelayString = "${matrix.openapi.write.outbox-poll-ms:2000}")
@@ -73,9 +78,23 @@ public class OpenApiOutboxDispatcher {
         }
 
         try {
-            rabbitTemplate.convertAndSend(exchangeName, routingKey, String.valueOf(event.getAggregateId()));
+            CorrelationData correlationData = new CorrelationData(event.getEventId());
+            rabbitTemplate.convertAndSend(
+                    exchangeName,
+                    routingKey,
+                    String.valueOf(event.getAggregateId()),
+                    correlationData
+            );
+            CorrelationData.Confirm confirm = correlationData.getFuture()
+                    .get(confirmTimeoutMs, TimeUnit.MILLISECONDS);
+            if (!confirm.isAck()) {
+                throw new IllegalStateException(
+                        "RabbitMQ broker rejected message: " + confirm.getReason()
+                );
+            }
             outboxMapper.update(null, new LambdaUpdateWrapper<OpenApiOutboxEvent>()
                     .eq(OpenApiOutboxEvent::getId, event.getId())
+                    .eq(OpenApiOutboxEvent::getStatus, "SENDING")
                     .set(OpenApiOutboxEvent::getStatus, "SENT")
                     .set(OpenApiOutboxEvent::getSentAt, LocalDateTime.now())
                     .set(OpenApiOutboxEvent::getErrorMessage, null)
@@ -86,6 +105,7 @@ public class OpenApiOutboxDispatcher {
             boolean exhausted = retryCount >= maxRetry;
             outboxMapper.update(null, new LambdaUpdateWrapper<OpenApiOutboxEvent>()
                     .eq(OpenApiOutboxEvent::getId, event.getId())
+                    .eq(OpenApiOutboxEvent::getStatus, "SENDING")
                     .set(OpenApiOutboxEvent::getStatus, exhausted ? "DEAD" : "FAILED")
                     .set(OpenApiOutboxEvent::getRetryCount, retryCount)
                     .set(OpenApiOutboxEvent::getNextAttemptAt,
