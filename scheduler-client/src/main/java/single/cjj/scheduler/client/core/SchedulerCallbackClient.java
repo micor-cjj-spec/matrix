@@ -35,6 +35,7 @@ public class SchedulerCallbackClient {
             restClient.post()
                     .uri("/scheduler/callback/executions/{executionNo}", executionNo)
                     .header("X-Executor-Code", properties.requiredExecutorCode())
+                    .header("X-Scheduler-Internal-Token", properties.requiredInternalToken())
                     .body(request)
                     .retrieve()
                     .toBodilessEntity();
