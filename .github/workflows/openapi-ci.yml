@@ -38,4 +38,18 @@ jobs:
           cache: maven
 
       - name: Test OpenAPI modules
-        run: mvn -q -pl openapi-service,fi-service,gateway -am test
+        id: maven
+        continue-on-error: true
+        run: mvn -q -pl openapi-service,fi-service,gateway -am test > openapi-ci.log 2>&1
+
+      - name: Upload OpenAPI CI log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-ci-log
+          path: openapi-ci.log
+          if-no-files-found: error
+
+      - name: Fail when Maven failed
+        if: steps.maven.outcome == 'failure'
+        run: exit 1
