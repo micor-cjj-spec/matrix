@@ -8,7 +8,7 @@ public record JobResult(boolean success,
                         String message,
                         Map<String, Object> data) {
 
-    public static JobResult success() {
+    public static JobResult succeeded() {
         return new JobResult(true, "SUCCESS", "执行成功", Map.of());
     }
 

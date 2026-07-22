@@ -66,7 +66,7 @@ public class SchedulerMessageListener {
                             message.getExecutionNo(), instanceId, progress, stage, progressMessage));
             JobResult result = handler.execute(context);
             if (result == null) {
-                result = JobResult.success();
+                result = JobResult.succeeded();
             }
             String resultJson = objectMapper.writeValueAsString(result);
             if (result.success()) {

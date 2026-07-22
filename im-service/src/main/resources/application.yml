@@ -59,6 +59,10 @@ im:
     processing-timeout-minutes: ${IM_PROCESSING_TIMEOUT_MINUTES:10}
   email:
     from: ${IM_EMAIL_FROM:${MAIL_USERNAME:}}
+  websocket:
+    instance-id: ${IM_WS_INSTANCE_ID:${spring.application.name}-${server.port}}
+    route-ttl-seconds: ${IM_WS_ROUTE_TTL_SECONDS:90}
+    allowed-origin-patterns: ${IM_WS_ALLOWED_ORIGINS:*}
 
 management:
   endpoints:
