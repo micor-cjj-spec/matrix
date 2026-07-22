@@ -30,6 +30,25 @@ public class SchedulerCallbackClient {
         callback(executionNo, new CallbackRequest("FAILED", instanceId, null, errorCode, errorMessage));
     }
 
+    public void progress(String executionNo,
+                         String instanceId,
+                         int progress,
+                         String stage,
+                         String message) {
+        try {
+            restClient.post()
+                    .uri("/scheduler/callback/executions/{executionNo}/progress", executionNo)
+                    .header("X-Executor-Code", properties.requiredExecutorCode())
+                    .header("X-Scheduler-Internal-Token", properties.requiredInternalToken())
+                    .body(new ProgressRequest(instanceId, progress, stage, message))
+                    .retrieve()
+                    .toBodilessEntity();
+        } catch (Exception e) {
+            log.warn("scheduler progress callback failed, executionNo={}, progress={}, stage={}, error={}",
+                    executionNo, progress, stage, e.getMessage());
+        }
+    }
+
     private void callback(String executionNo, CallbackRequest request) {
         try {
             restClient.post()
@@ -57,4 +76,9 @@ public class SchedulerCallbackClient {
                                    String responsePayload,
                                    String errorCode,
                                    String errorMessage) { }
+
+    private record ProgressRequest(String executorInstance,
+                                   int progress,
+                                   String stage,
+                                   String message) { }
 }
