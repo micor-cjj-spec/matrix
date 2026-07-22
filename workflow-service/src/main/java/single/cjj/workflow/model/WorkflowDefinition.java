@@ -55,6 +55,8 @@ public class WorkflowDefinition {
         private String field;
         private ConditionOperator operator;
         private Object value;
+        private ConditionLogic logic = ConditionLogic.ALL;
+        private List<Condition> children = new ArrayList<>();
     }
 
     @Data
@@ -62,6 +64,7 @@ public class WorkflowDefinition {
     public static class AssigneeRule {
         private AssigneeType type;
         private String value;
+        private List<String> values = new ArrayList<>();
     }
 
     public enum NodeType {
@@ -70,6 +73,11 @@ public class WorkflowDefinition {
         SERVICE_TASK,
         EXCLUSIVE_GATEWAY,
         END
+    }
+
+    public enum ConditionLogic {
+        ALL,
+        ANY
     }
 
     public enum ConditionOperator {
@@ -88,6 +96,11 @@ public class WorkflowDefinition {
     public enum AssigneeType {
         USER,
         ROLE,
-        VARIABLE
+        VARIABLE,
+        INITIATOR,
+        USERS,
+        ROLES,
+        USERS_VARIABLE,
+        ROLES_VARIABLE
     }
 }
