@@ -27,15 +27,19 @@ public class OpenApiSecretService {
     }
 
     public GeneratedCredential generateCredential() {
-        byte[] secretBytes = new byte[32];
         byte[] keyBytes = new byte[18];
-        secureRandom.nextBytes(secretBytes);
         secureRandom.nextBytes(keyBytes);
-
-        String appSecret = Base64.getUrlEncoder().withoutPadding().encodeToString(secretBytes);
+        GeneratedSecret secret = generateSecret();
         String appKey = "mk_" + Base64.getUrlEncoder().withoutPadding().encodeToString(keyBytes);
         String appId = "app_" + UUID.randomUUID().toString().replace("-", "");
-        return new GeneratedCredential(appId, appKey, appSecret, encrypt(appSecret));
+        return new GeneratedCredential(appId, appKey, secret.appSecret(), secret.appSecretCipher());
+    }
+
+    public GeneratedSecret generateSecret() {
+        byte[] secretBytes = new byte[32];
+        secureRandom.nextBytes(secretBytes);
+        String appSecret = Base64.getUrlEncoder().withoutPadding().encodeToString(secretBytes);
+        return new GeneratedSecret(appSecret, encrypt(appSecret));
     }
 
     public String encrypt(String plainText) {
@@ -84,5 +88,8 @@ public class OpenApiSecretService {
     }
 
     public record GeneratedCredential(String appId, String appKey, String appSecret, String appSecretCipher) {
+    }
+
+    public record GeneratedSecret(String appSecret, String appSecretCipher) {
     }
 }
