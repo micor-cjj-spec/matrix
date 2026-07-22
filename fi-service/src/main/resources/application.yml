@@ -20,3 +20,6 @@ spring:
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
 
+matrix:
+  openapi:
+    internal-token: ${MATRIX_INTERNAL_OPENAPI_TOKEN:}
