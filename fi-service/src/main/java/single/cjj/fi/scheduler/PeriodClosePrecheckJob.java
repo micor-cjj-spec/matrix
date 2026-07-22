@@ -13,7 +13,6 @@ import single.cjj.scheduler.client.core.MatrixJob;
 
 import java.time.YearMonth;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 @Component
@@ -32,7 +31,7 @@ public class PeriodClosePrecheckJob implements MatrixJob {
     @Override
     public JobResult execute(JobContext context) {
         YearMonth period = YearMonth.parse(context.getRequiredString("period"));
-        String bookId = context.getString("bookId");
+        rejectUnsupportedBookScope(context.getString("bookId"));
         String startDate = period.atDay(1).toString();
         String endDate = period.atEndOfMonth().toString();
 
@@ -41,7 +40,6 @@ public class PeriodClosePrecheckJob implements MatrixJob {
                 new LambdaQueryWrapper<BizfiFiVoucher>()
                         .ge(BizfiFiVoucher::getFdate, period.atDay(1))
                         .le(BizfiFiVoucher::getFdate, period.atEndOfMonth())
-                        .eq(StringUtils.hasText(bookId), BizfiFiVoucher::getBookId, bookId)
                         .in(BizfiFiVoucher::getFstatus, "DRAFT", "SUBMITTED", "AUDITED", "REJECTED"));
 
         context.reportProgress(35, "CHECKING_VOUCHERS", "正在检查凭证完整性与借贷平衡");
@@ -57,7 +55,7 @@ public class PeriodClosePrecheckJob implements MatrixJob {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("period", period.toString());
-        result.put("bookId", bookId);
+        result.put("scope", "ALL_BOOKS");
         result.put("unpostedVoucherCount", unpostedCount);
         result.put("voucherIssueCount", issueCount);
         result.put("highRiskIssueCount", highCount);
@@ -77,6 +75,12 @@ public class PeriodClosePrecheckJob implements MatrixJob {
                     result);
         }
         return JobResult.success(result);
+    }
+
+    private void rejectUnsupportedBookScope(String bookId) {
+        if (StringUtils.hasText(bookId)) {
+            throw new IllegalArgumentException("期末结账预检查当前仅支持全账簿范围，请移除bookId参数");
+        }
     }
 
     private long number(Object value) {
