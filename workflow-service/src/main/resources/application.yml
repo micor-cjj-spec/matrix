@@ -27,6 +27,15 @@ spring:
     password: ${WORKFLOW_DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+workflow:
+  attachment:
+    base-url: ${WORKFLOW_ATTACHMENT_BASE_URL:http://localhost:10006}
+    local-root: ${WORKFLOW_ATTACHMENT_LOCAL_ROOT:./data/workflow-attachments}
+    signing-secret: ${WORKFLOW_ATTACHMENT_SIGNING_SECRET:matrix-workflow-change-me}
+    upload-ttl-seconds: ${WORKFLOW_ATTACHMENT_UPLOAD_TTL_SECONDS:900}
+    download-ttl-seconds: ${WORKFLOW_ATTACHMENT_DOWNLOAD_TTL_SECONDS:300}
+    max-file-size-bytes: ${WORKFLOW_ATTACHMENT_MAX_FILE_SIZE_BYTES:52428800}
+
 management:
   endpoints:
     web:
