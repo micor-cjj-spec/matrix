@@ -16,9 +16,9 @@ import single.cjj.workflow.repository.WorkflowRepository;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -27,8 +27,16 @@ import java.util.UUID;
 public class WorkflowService {
 
     private static final String INSTANCE_RUNNING = "RUNNING";
+    private static final String INSTANCE_WAITING_RESUBMIT = "WAITING_RESUBMIT";
     private static final String INSTANCE_COMPLETED = "COMPLETED";
     private static final String INSTANCE_REJECTED = "REJECTED";
+    private static final String INSTANCE_CANCELLED = "CANCELLED";
+
+    private static final String RESUBMIT_NODE_KEY = "__RESUBMIT__";
+    private static final String VAR_RESUME_NODE_KEY = "_workflowResumeNodeKey";
+    private static final String VAR_RETURNED_BY = "_workflowReturnedBy";
+    private static final String VAR_RETURN_COMMENT = "_workflowReturnComment";
+    private static final String VAR_RETURNED_AT = "_workflowReturnedAt";
 
     private final WorkflowRepository repository;
     private final WorkflowConditionEvaluator conditionEvaluator;
@@ -182,30 +190,125 @@ public class WorkflowService {
 
         Map<String, Object> variables = readMap(instance.variablesJson());
         variables.putAll(request.safeVariables());
-        String taskTerminalStatus = request.action() == WorkflowContracts.TaskAction.APPROVE
-                ? "APPROVED" : "REJECTED";
+        String taskTerminalStatus = switch (request.action()) {
+            case APPROVE -> "APPROVED";
+            case REJECT -> "REJECTED";
+            case RETURN_TO_INITIATOR -> "RETURNED";
+        };
         int affected = repository.completeTask(taskId, task.version(), taskTerminalStatus);
         if (affected != 1) {
             throw new BizException("任务已被其他请求处理，请刷新后重试");
         }
-        repository.completeNode(task.nodeInstanceId(), writeJson(Map.of(
-                "action", request.action().name(),
-                "operatorId", request.operatorId()
-        )));
+
+        Map<String, Object> nodeOutput = new LinkedHashMap<>();
+        nodeOutput.put("action", request.action().name());
+        nodeOutput.put("operatorId", request.operatorId());
+        nodeOutput.put("comment", request.comment());
+        repository.completeNode(task.nodeInstanceId(), writeJson(nodeOutput));
         repository.insertActionLog(
                 newId(), instance.id(), task.id(), request.action().name(),
                 request.operatorId(), request.comment(), task.status(), taskTerminalStatus, requestId
         );
 
-        if (request.action() == WorkflowContracts.TaskAction.REJECT) {
-            int finished = repository.finishInstance(instance.id(), INSTANCE_REJECTED, writeJson(variables));
-            if (finished != 1) {
-                throw new BizException("流程实例状态已变化，请刷新后重试");
-            }
-            emitTerminalEvent(instance, INSTANCE_REJECTED, variables);
-        } else {
-            advanceFrom(instance, definition, task.nodeKey(), variables);
+        switch (request.action()) {
+            case REJECT -> rejectInstance(instance, variables);
+            case RETURN_TO_INITIATOR -> returnToInitiator(instance, task, request, variables);
+            case APPROVE -> advanceFrom(instance, definition, task.nodeKey(), variables);
         }
+        return getInstance(instance.id());
+    }
+
+    @Transactional
+    public WorkflowContracts.InstanceResponse resubmitInstance(
+            String instanceId,
+            WorkflowContracts.ResubmitInstanceRequest request,
+            String requestId) {
+        WorkflowRepository.InstanceRow instance = repository.findInstance(instanceId)
+                .orElseThrow(() -> new BizException("流程实例不存在"));
+        if (!INSTANCE_WAITING_RESUBMIT.equals(instance.status())) {
+            throw new BizException("只有待重新提交的流程可以执行重提");
+        }
+        validateInitiator(instance, request.operatorId());
+
+        WorkflowRepository.TaskRow resubmitTask = repository
+                .findOpenTaskByInstanceAndNode(instanceId, RESUBMIT_NODE_KEY)
+                .orElseThrow(() -> new BizException("重新提交任务不存在或已经处理"));
+        int completed = repository.completeTask(resubmitTask.id(), resubmitTask.version(), "RESUBMITTED");
+        if (completed != 1) {
+            throw new BizException("重新提交任务已被其他请求处理，请刷新后重试");
+        }
+
+        Map<String, Object> variables = readMap(instance.variablesJson());
+        Object resumeNodeValue = variables.remove(VAR_RESUME_NODE_KEY);
+        if (resumeNodeValue == null || !StringUtils.hasText(String.valueOf(resumeNodeValue))) {
+            throw new BizException("流程缺少重新进入的目标节点");
+        }
+        String resumeNodeKey = String.valueOf(resumeNodeValue);
+        variables.remove(VAR_RETURNED_BY);
+        variables.remove(VAR_RETURN_COMMENT);
+        variables.remove(VAR_RETURNED_AT);
+        variables.putAll(request.safeVariables());
+        variables.put("lastResubmittedAt", LocalDateTime.now().toString());
+
+        WorkflowRepository.DefinitionVersionRow definitionRow = repository
+                .findDefinition(instance.tenantId(), instance.definitionKey(), instance.definitionVersion())
+                .orElseThrow(() -> new BizException("流程实例对应的定义版本不存在"));
+        WorkflowDefinition definition = readDefinition(definitionRow.definitionJson());
+        WorkflowDefinition.Node resumeNode = definition.requireNode(resumeNodeKey);
+        if (resumeNode.getType() != WorkflowDefinition.NodeType.USER_TASK) {
+            throw new BizException("重新提交目标必须是人工审批节点");
+        }
+
+        Map<String, Object> nodeOutput = new LinkedHashMap<>();
+        nodeOutput.put("action", "RESUBMIT");
+        nodeOutput.put("operatorId", request.operatorId());
+        nodeOutput.put("comment", request.comment());
+        repository.completeNode(resubmitTask.nodeInstanceId(), writeJson(nodeOutput));
+
+        int resumed = repository.resumeInstance(
+                instance.id(), instance.version(), resumeNodeKey, writeJson(variables)
+        );
+        if (resumed != 1) {
+            throw new BizException("流程状态已变化，请刷新后重试");
+        }
+        repository.insertActionLog(
+                newId(), instance.id(), resubmitTask.id(), "RESUBMIT", request.operatorId(),
+                request.comment(), INSTANCE_WAITING_RESUBMIT, INSTANCE_RUNNING, requestId
+        );
+        activateUserTask(instance, resumeNode, variables);
+        emitInstanceEvent(instance, "RESUBMITTED", INSTANCE_RUNNING, variables);
+        return getInstance(instance.id());
+    }
+
+    @Transactional
+    public WorkflowContracts.InstanceResponse cancelInstance(
+            String instanceId,
+            WorkflowContracts.CancelInstanceRequest request,
+            String requestId) {
+        WorkflowRepository.InstanceRow instance = repository.findInstance(instanceId)
+                .orElseThrow(() -> new BizException("流程实例不存在"));
+        if (!(INSTANCE_RUNNING.equals(instance.status())
+                || INSTANCE_WAITING_RESUBMIT.equals(instance.status()))) {
+            throw new BizException("当前流程状态不允许撤销");
+        }
+        validateInitiator(instance, request.operatorId());
+
+        Map<String, Object> variables = readMap(instance.variablesJson());
+        variables.put("cancelledBy", request.operatorId());
+        variables.put("cancelReason", request.reason());
+        variables.put("cancelledAt", LocalDateTime.now().toString());
+
+        int cancelled = repository.cancelInstance(instance.id(), instance.version(), writeJson(variables));
+        if (cancelled != 1) {
+            throw new BizException("流程状态已变化，请刷新后重试");
+        }
+        repository.cancelOpenTasks(instance.id());
+        repository.cancelActiveNodes(instance.id());
+        repository.insertActionLog(
+                newId(), instance.id(), null, "CANCEL", request.operatorId(), request.reason(),
+                instance.status(), INSTANCE_CANCELLED, requestId
+        );
+        emitInstanceEvent(instance, "CANCELLED", INSTANCE_CANCELLED, variables);
         return getInstance(instance.id());
     }
 
@@ -230,6 +333,64 @@ public class WorkflowService {
                 .orElseThrow(() -> new BizException("待办任务不存在"));
     }
 
+    private void rejectInstance(WorkflowRepository.InstanceRow instance,
+                                Map<String, Object> variables) {
+        int finished = repository.finishInstance(instance.id(), INSTANCE_REJECTED, writeJson(variables));
+        if (finished != 1) {
+            throw new BizException("流程实例状态已变化，请刷新后重试");
+        }
+        emitInstanceEvent(instance, "REJECTED", INSTANCE_REJECTED, variables);
+    }
+
+    private void returnToInitiator(WorkflowRepository.InstanceRow instance,
+                                   WorkflowRepository.TaskRow task,
+                                   WorkflowContracts.TaskActionRequest request,
+                                   Map<String, Object> variables) {
+        variables.put(VAR_RESUME_NODE_KEY, task.nodeKey());
+        variables.put(VAR_RETURNED_BY, request.operatorId());
+        variables.put(VAR_RETURN_COMMENT, request.comment());
+        variables.put(VAR_RETURNED_AT, LocalDateTime.now().toString());
+
+        int returned = repository.returnInstanceToInitiator(
+                instance.id(), instance.version(), writeJson(variables)
+        );
+        if (returned != 1) {
+            throw new BizException("流程实例状态已变化，请刷新后重试");
+        }
+        activateResubmitTask(instance, variables);
+        emitInstanceEvent(instance, "RETURNED", INSTANCE_WAITING_RESUBMIT, variables);
+    }
+
+    private void activateResubmitTask(WorkflowRepository.InstanceRow instance,
+                                      Map<String, Object> variables) {
+        String nodeInstanceId = newId();
+        repository.insertNodeInstance(new WorkflowRepository.NodeInstanceRow(
+                nodeInstanceId,
+                instance.id(),
+                RESUBMIT_NODE_KEY,
+                "修改并重新提交",
+                WorkflowDefinition.NodeType.USER_TASK.name(),
+                "ACTIVE",
+                null,
+                writeJson(variables),
+                LocalDateTime.now()
+        ));
+        repository.insertTask(new WorkflowRepository.TaskRow(
+                newId(),
+                instance.tenantId(),
+                instance.id(),
+                nodeInstanceId,
+                RESUBMIT_NODE_KEY,
+                "修改并重新提交",
+                "USER",
+                instance.initiatorId(),
+                "PENDING",
+                0,
+                LocalDateTime.now(),
+                null
+        ));
+    }
+
     private void advanceFrom(WorkflowRepository.InstanceRow instance,
                              WorkflowDefinition definition,
                              String completedNodeKey,
@@ -251,7 +412,8 @@ public class WorkflowService {
                     WorkflowNodeHandler.ExecutionResult result = handlerRegistry
                             .require(node.getHandlerKey())
                             .execute(new WorkflowNodeHandler.ExecutionContext(
-                                    instance.id(), node, Map.copyOf(variables)
+                                    instance.id(), node,
+                                    Collections.unmodifiableMap(new LinkedHashMap<>(variables))
                             ));
                     if (!result.success()) {
                         throw new BizException(result.message());
@@ -276,7 +438,7 @@ public class WorkflowService {
                     if (finished != 1) {
                         throw new BizException("流程实例状态已变化，请刷新后重试");
                     }
-                    emitTerminalEvent(instance, INSTANCE_COMPLETED, variables);
+                    emitInstanceEvent(instance, "COMPLETED", INSTANCE_COMPLETED, variables);
                     return;
                 }
             }
@@ -351,22 +513,31 @@ public class WorkflowService {
         // ROLE 类型由网关或权限服务校验角色成员关系；工作流服务保留最终任务并发校验。
     }
 
-    private void emitTerminalEvent(WorkflowRepository.InstanceRow instance,
-                                   String status,
+    private void validateInitiator(WorkflowRepository.InstanceRow instance, String operatorId) {
+        if (!instance.initiatorId().equals(operatorId)) {
+            throw new BizException("只有流程发起人可以执行该操作");
+        }
+    }
+
+    private void emitInstanceEvent(WorkflowRepository.InstanceRow instance,
+                                   String eventSuffix,
+                                   String instanceStatus,
                                    Map<String, Object> variables) {
         String eventId = newId();
+        String eventType = "INSTANCE_" + eventSuffix;
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("eventId", eventId);
-        payload.put("eventType", "INSTANCE_" + status);
+        payload.put("eventType", eventType);
         payload.put("instanceId", instance.id());
         payload.put("tenantId", instance.tenantId());
         payload.put("sourceSystem", instance.sourceSystem());
         payload.put("businessType", instance.businessType());
         payload.put("businessId", instance.businessId());
+        payload.put("status", instanceStatus);
         payload.put("callbackUrl", instance.callbackUrl());
         payload.put("variables", variables);
         payload.put("occurredAt", LocalDateTime.now().toString());
-        repository.insertOutbox(newId(), eventId, instance.id(), "INSTANCE_" + status, writeJson(payload));
+        repository.insertOutbox(newId(), eventId, instance.id(), eventType, writeJson(payload));
     }
 
     private void validateDefinition(WorkflowDefinition definition) {
@@ -430,7 +601,7 @@ public class WorkflowService {
         return new WorkflowContracts.InstanceResponse(
                 row.id(), row.tenantId(), row.definitionKey(), row.definitionVersion(),
                 row.sourceSystem(), row.businessType(), row.businessId(), row.initiatorId(),
-                row.currentNodeKey(), row.status(), readMap(row.variablesJson()),
+                row.currentNodeKey(), row.status(), row.version(), readMap(row.variablesJson()),
                 row.startedAt(), row.endedAt()
         );
     }
