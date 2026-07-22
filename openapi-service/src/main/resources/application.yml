@@ -55,6 +55,7 @@ matrix:
       outbox-poll-ms: ${OPENAPI_OUTBOX_POLL_MS:2000}
       recovery-poll-ms: ${OPENAPI_WRITE_RECOVERY_POLL_MS:60000}
       stale-processing-minutes: ${OPENAPI_STALE_PROCESSING_MINUTES:5}
+      publisher-confirm-timeout-ms: ${OPENAPI_PUBLISHER_CONFIRM_TIMEOUT_MS:5000}
 
 management:
   endpoints:
