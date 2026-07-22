@@ -6,7 +6,7 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
   config:
-    import: "nacos:${spring.application.name}"
+    import: "optional:nacos:${spring.application.name}"
 
   cloud:
     nacos:
@@ -34,3 +34,13 @@ matrix:
       max-concurrency: ${FI_SCHEDULER_MAX_CONCURRENCY:8}
       heartbeat-interval-ms: 30000
       initialize-schema: true
+
+fi:
+  workflow:
+    base-url: ${FI_WORKFLOW_BASE_URL:http://localhost:10006/api}
+    callback-url: ${FI_WORKFLOW_CALLBACK_URL:http://localhost:10003/api/fi/expense/workflow/events}
+    callback-secret: ${WORKFLOW_CALLBACK_SECRET:change-me-in-production}
+    callback-max-skew-seconds: ${WORKFLOW_CALLBACK_MAX_SKEW_SECONDS:300}
+    outbox:
+      batch-size: ${FI_WORKFLOW_OUTBOX_BATCH_SIZE:20}
+      dispatch-delay-ms: ${FI_WORKFLOW_OUTBOX_DISPATCH_DELAY_MS:5000}
