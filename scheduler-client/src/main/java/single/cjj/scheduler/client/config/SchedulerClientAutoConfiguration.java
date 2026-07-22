@@ -36,7 +36,7 @@ public class SchedulerClientAutoConfiguration {
         return RestClient.builder();
     }
 
-    @Bean
+    @Bean(name = "schedulerClientExchange")
     public TopicExchange schedulerClientExchange(SchedulerClientProperties properties) {
         return new TopicExchange(properties.getExchange(), true, false);
     }
@@ -49,7 +49,7 @@ public class SchedulerClientAutoConfiguration {
     @Bean
     public Binding schedulerClientBinding(
             @Qualifier("schedulerClientQueue") Queue schedulerClientQueue,
-            TopicExchange schedulerClientExchange,
+            @Qualifier("schedulerClientExchange") TopicExchange schedulerClientExchange,
             SchedulerClientProperties properties) {
         return BindingBuilder.bind(schedulerClientQueue)
                 .to(schedulerClientExchange)
