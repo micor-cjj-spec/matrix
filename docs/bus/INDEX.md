@@ -7,6 +7,7 @@
 - `auth/`：登录认证
 - `ai/`：AI 功能
 - `base-data/`：基础资料
+- `platform/`：平台基础能力
 
 ## 当前推荐入口
 ### 1. 财务云
@@ -26,6 +27,10 @@
 - `base-data/INDEX.md`
 - `base-data/AUDIT_STATUS.md`
 - `base-data/HANDOFF.md`
+
+### 5. 平台基础能力
+- `platform/INDEX.md`
+- `platform/scheduler/001-job-scheduling/manifest.json`
 
 ## 当前进度概览
 ### 财务云（fi）
@@ -60,6 +65,10 @@
 - `007-country`
 - `008-region`
 - `009-unit`
+
+### 平台基础能力（platform）
+当前已建立模块包括：
+- `scheduler/001-job-scheduling`
 
 ## 当前收口原则
 1. 目录结构以真实菜单、路由和代码归属为准。

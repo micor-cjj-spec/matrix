@@ -1,0 +1,30 @@
+name: Scheduler Service CI
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'pom.xml'
+      - 'common/**'
+      - 'scheduler-service/**'
+      - '.github/workflows/scheduler-service-ci.yml'
+  pull_request:
+    paths:
+      - 'pom.xml'
+      - 'common/**'
+      - 'scheduler-service/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Test scheduler module
+        run: mvn -B -pl scheduler-service -am test
