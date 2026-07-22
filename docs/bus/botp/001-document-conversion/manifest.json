@@ -1,0 +1,24 @@
+{
+  "domain": "botp",
+  "subDomain": "conversion",
+  "bizCode": "document-conversion",
+  "bizName": "单据下推反写",
+  "status": "draft",
+  "version": "0.1.0",
+  "busDocs": [
+    "business.md",
+    "fields.md",
+    "flow.md",
+    "rules.md",
+    "page.md",
+    "api.md"
+  ],
+  "promptDocs": [
+    "docs/prompt/botp/document-conversion/backend.md",
+    "docs/prompt/botp/document-conversion/frontend.md",
+    "docs/prompt/botp/document-conversion/sql.md",
+    "docs/prompt/botp/document-conversion/test.md"
+  ],
+  "owner": "",
+  "updatedAt": "2026-07-22"
+}
