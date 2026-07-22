@@ -21,6 +21,8 @@ TIMESTAMP
 NONCE
 ```
 
+`REQUEST_PATH` 使用稳定的 OpenAPI 路由路径，即去掉部署层统一前缀 `/api` 后的路径。例如外部访问 `/api/open-api/v1/fi/vouchers`，签名路径固定为 `/open-api/v1/fi/vouchers`。这样更换网关域名或部署前缀时不会改变 API 契约。
+
 查询参数按名称和值排序并进行 URL 编码。第一期只支持 GET，请求体哈希固定为空正文的 SHA-256。
 
 ## 3. 安全规则
@@ -32,6 +34,7 @@ NONCE
 5. 第一阶段按应用和 API 进行秒级限流。
 6. AppSecret 使用 AES-GCM 加密存储，主密钥由环境变量注入。
 7. 外部传入的内部身份头必须由 Gateway/OpenAPI 服务清理或覆盖。
+8. `openapi-service` 调用 `fi-service` 内部适配器时必须携带独立内部令牌；外部请求不能直接访问内部路径。
 
 ## 4. 凭证权限
 
