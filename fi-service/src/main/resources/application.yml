@@ -23,3 +23,14 @@ spring:
 matrix:
   openapi:
     internal-token: ${MATRIX_INTERNAL_OPENAPI_TOKEN:}
+  scheduler:
+    client:
+      enabled: true
+      executor-code: fi-service
+      executor-name: 财务服务执行器
+      scheduler-base-url: ${SCHEDULER_BASE_URL:http://127.0.0.1:8080/api}
+      internal-token: ${SCHEDULER_INTERNAL_TOKEN:change-me-before-production}
+      concurrency: ${FI_SCHEDULER_CONCURRENCY:2}
+      max-concurrency: ${FI_SCHEDULER_MAX_CONCURRENCY:8}
+      heartbeat-interval-ms: 30000
+      initialize-schema: true
