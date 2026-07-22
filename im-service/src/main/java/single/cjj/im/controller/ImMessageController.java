@@ -17,6 +17,7 @@ import single.cjj.im.domain.ImModels.PagedResult;
 import single.cjj.im.domain.ImModels.SendMessageRequest;
 import single.cjj.im.domain.ImModels.TemplateRecord;
 import single.cjj.im.domain.ImModels.TemplateUpsertRequest;
+import single.cjj.im.realtime.RealtimeNotificationService;
 import single.cjj.im.security.OpenApiSignatureFilter;
 import single.cjj.im.service.MessageCommandService;
 
@@ -27,9 +28,12 @@ import java.util.Map;
 public class ImMessageController {
 
     private final MessageCommandService messageService;
+    private final RealtimeNotificationService realtimeService;
 
-    public ImMessageController(MessageCommandService messageService) {
+    public ImMessageController(MessageCommandService messageService,
+                               RealtimeNotificationService realtimeService) {
         this.messageService = messageService;
+        this.realtimeService = realtimeService;
     }
 
     @PostMapping("/open-api/v1/messages/send")
@@ -81,11 +85,11 @@ public class ImMessageController {
     public ApiResponse<Boolean> markRead(
             @RequestHeader("X-User-Id") String userId,
             @PathVariable("notificationId") String notificationId) {
-        return ApiResponse.success(messageService.markRead(notificationId, userId));
+        return ApiResponse.success(realtimeService.markRead(notificationId, userId, null, null));
     }
 
     @PostMapping("/im/notifications/read-all")
     public ApiResponse<Map<String, Integer>> markAllRead(@RequestHeader("X-User-Id") String userId) {
-        return ApiResponse.success(Map.of("updated", messageService.markAllRead(userId)));
+        return ApiResponse.success(Map.of("updated", realtimeService.markAllRead(userId)));
     }
 }

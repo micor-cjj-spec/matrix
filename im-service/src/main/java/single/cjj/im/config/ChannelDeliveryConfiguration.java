@@ -13,22 +13,18 @@ import org.springframework.util.StringUtils;
 import single.cjj.im.domain.ImModels.ChannelSendResult;
 import single.cjj.im.domain.ImModels.ChannelTaskRecord;
 import single.cjj.im.domain.ImModels.ChannelType;
-import single.cjj.im.domain.ImModels.LocalNotificationRecord;
 import single.cjj.im.domain.ImModels.MessageRecord;
-import single.cjj.im.domain.ImModels.ReadStatus;
 import single.cjj.im.domain.ImModels.RecipientRecord;
-import single.cjj.im.repository.ImMessageRepository;
+import single.cjj.im.realtime.RealtimeNotificationService;
 
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Configuration
 public class ChannelDeliveryConfiguration {
 
     @Bean
-    ChannelHandler localChannelHandler(ImMessageRepository repository) {
-        return new LocalChannelHandler(repository);
+    ChannelHandler localChannelHandler(RealtimeNotificationService realtimeService) {
+        return new LocalChannelHandler(realtimeService);
     }
 
     @Bean
@@ -48,10 +44,10 @@ public class ChannelDeliveryConfiguration {
 
 class LocalChannelHandler implements ChannelDeliveryConfiguration.ChannelHandler {
 
-    private final ImMessageRepository repository;
+    private final RealtimeNotificationService realtimeService;
 
-    LocalChannelHandler(ImMessageRepository repository) {
-        this.repository = repository;
+    LocalChannelHandler(RealtimeNotificationService realtimeService) {
+        this.realtimeService = realtimeService;
     }
 
     @Override
@@ -66,24 +62,8 @@ class LocalChannelHandler implements ChannelDeliveryConfiguration.ChannelHandler
         if (!StringUtils.hasText(recipient.receiverId()) || !"USER".equals(recipient.receiverType())) {
             return ChannelSendResult.permanentFailure("LOCAL_USER_MISSING", "本地提醒缺少 Matrix 用户ID");
         }
-        LocalDateTime now = LocalDateTime.now();
-        repository.insertLocalNotificationIfAbsent(new LocalNotificationRecord(
-                UUID.randomUUID().toString().replace("-", ""),
-                message.id(),
-                recipient.id(),
-                recipient.receiverId(),
-                channelTask.subject(),
-                channelTask.content(),
-                message.messageType(),
-                message.businessType(),
-                message.businessId(),
-                message.actionUrl(),
-                "CREATED",
-                ReadStatus.UNREAD,
-                null,
-                now
-        ));
-        return ChannelSendResult.success("local:" + channelTask.id());
+        String notificationId = realtimeService.createLocalNotification(message, recipient, channelTask);
+        return ChannelSendResult.success("local:" + notificationId);
     }
 }
 
