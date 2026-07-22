@@ -61,9 +61,26 @@ public final class WorkflowContracts {
         }
     }
 
+    public record ResubmitInstanceRequest(
+            @NotBlank String operatorId,
+            String comment,
+            Map<String, Object> variables
+    ) {
+        public Map<String, Object> safeVariables() {
+            return variables == null ? Map.of() : variables;
+        }
+    }
+
+    public record CancelInstanceRequest(
+            @NotBlank String operatorId,
+            String reason
+    ) {
+    }
+
     public enum TaskAction {
         APPROVE,
-        REJECT
+        REJECT,
+        RETURN_TO_INITIATOR
     }
 
     public record InstanceResponse(
@@ -77,6 +94,7 @@ public final class WorkflowContracts {
             String initiatorId,
             String currentNodeKey,
             String status,
+            int version,
             Map<String, Object> variables,
             LocalDateTime startedAt,
             LocalDateTime endedAt

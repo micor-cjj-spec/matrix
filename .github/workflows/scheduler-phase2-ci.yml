@@ -1,0 +1,32 @@
+name: Scheduler Phase 2 CI
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'scheduler-client/**'
+      - 'scheduler-service/**'
+      - 'base-service/**'
+      - 'gateway/**'
+      - 'pom.xml'
+      - '.github/workflows/scheduler-phase2-ci.yml'
+  pull_request:
+    paths:
+      - 'scheduler-client/**'
+      - 'scheduler-service/**'
+      - 'base-service/**'
+      - 'gateway/**'
+      - 'pom.xml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Compile and test scheduler modules
+        run: mvn -B -pl scheduler-service,base-service -am test

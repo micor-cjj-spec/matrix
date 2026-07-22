@@ -21,6 +21,10 @@ public class MatrixSchedulerExecution {
     private String ftriggerType;
     private String fstatus;
     private Integer fattemptNo;
+    private Long frootExecutionId;
+    private Long fparentExecutionId;
+    private LocalDateTime fnextRetryTime;
+    private LocalDateTime fdeadlineTime;
     private String fexecutorCode;
     private String fhandlerCode;
     private String fexecutorInstance;

@@ -30,6 +30,22 @@ public class WorkflowInstanceController {
         return ApiResponse.success(workflowService.startWorkflow(request, idempotencyKey));
     }
 
+    @PostMapping("/instances/{instanceId}/resubmit")
+    public ApiResponse<WorkflowContracts.InstanceResponse> resubmit(
+            @PathVariable("instanceId") String instanceId,
+            @RequestHeader(value = "X-Request-Id", required = false) String requestId,
+            @Valid @RequestBody WorkflowContracts.ResubmitInstanceRequest request) {
+        return ApiResponse.success(workflowService.resubmitInstance(instanceId, request, requestId));
+    }
+
+    @PostMapping("/instances/{instanceId}/cancel")
+    public ApiResponse<WorkflowContracts.InstanceResponse> cancel(
+            @PathVariable("instanceId") String instanceId,
+            @RequestHeader(value = "X-Request-Id", required = false) String requestId,
+            @Valid @RequestBody WorkflowContracts.CancelInstanceRequest request) {
+        return ApiResponse.success(workflowService.cancelInstance(instanceId, request, requestId));
+    }
+
     @GetMapping("/instances/{instanceId}")
     public ApiResponse<WorkflowContracts.InstanceResponse> get(
             @PathVariable("instanceId") String instanceId) {

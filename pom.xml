@@ -18,6 +18,7 @@
         <module>fi-service</module>
         <module>openapi-service</module>
         <module>share-service</module>
+        <module>scheduler-client</module>
         <module>scheduler-service</module>
         <module>workflow-service</module>
         <module>botp-service</module>

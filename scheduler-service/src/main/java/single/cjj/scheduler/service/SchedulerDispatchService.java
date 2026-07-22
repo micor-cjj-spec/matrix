@@ -43,12 +43,9 @@ public class SchedulerDispatchService {
 
     @Transactional(rollbackFor = Exception.class)
     public MatrixSchedulerExecution createExecution(Long jobId,
-                                                    LocalDateTime scheduledTime,
-                                                    String triggerType) {
-        MatrixSchedulerJob job = jobMapper.selectById(jobId);
-        if (job == null || "DELETED".equals(job.getFstatus())) {
-            throw new IllegalArgumentException("调度任务不存在: " + jobId);
-        }
+                                                     LocalDateTime scheduledTime,
+                                                     String triggerType) {
+        MatrixSchedulerJob job = requiredJob(jobId);
         if ("CRON".equals(triggerType) && !"ENABLED".equals(job.getFstatus())) {
             return createSkipped(job, scheduledTime, triggerType, "JOB_NOT_ENABLED");
         }
@@ -56,50 +53,23 @@ public class SchedulerDispatchService {
         String idempotencyKey = "CRON".equals(triggerType)
                 ? jobId + ":" + scheduledTime + ":CRON"
                 : jobId + ":MANUAL:" + UUID.randomUUID();
-        MatrixSchedulerExecution existing = executionMapper.selectOne(
-                new LambdaQueryWrapper<MatrixSchedulerExecution>()
-                        .eq(MatrixSchedulerExecution::getFidempotencyKey, idempotencyKey)
-                        .last("LIMIT 1"));
+        MatrixSchedulerExecution existing = findByIdempotencyKey(idempotencyKey);
         if (existing != null) {
             return existing;
         }
 
-        if (!"PARALLEL".equals(job.getFconcurrencyPolicy()) && hasRunningExecution(jobId)) {
+        boolean active = hasActiveExecution(jobId);
+        if (active && "SKIP".equals(job.getFconcurrencyPolicy())) {
             return createSkipped(job, scheduledTime, triggerType, "PREVIOUS_EXECUTION_RUNNING");
         }
+        if (active && "SERIAL".equals(job.getFconcurrencyPolicy())) {
+            return createExecutionRecord(job, scheduledTime, triggerType,
+                    "WAITING", 1, null, null, idempotencyKey, false);
+        }
 
+        MatrixSchedulerExecution execution = createExecutionRecord(job, scheduledTime, triggerType,
+                "CREATED", 1, null, null, idempotencyKey, true);
         LocalDateTime now = LocalDateTime.now();
-        MatrixSchedulerExecution execution = new MatrixSchedulerExecution();
-        execution.setFid(IdWorker.getId());
-        execution.setFexecutionNo("EXEC-" + UUID.randomUUID().toString().replace("-", ""));
-        execution.setFjobId(jobId);
-        execution.setFjobCode(job.getFjobCode());
-        execution.setFscheduledTime(scheduledTime);
-        execution.setFtriggerType(triggerType);
-        execution.setFstatus("CREATED");
-        execution.setFattemptNo(1);
-        execution.setFexecutorCode(job.getFexecutorCode());
-        execution.setFhandlerCode(job.getFhandlerCode());
-        execution.setFrequestPayload(job.getFexecuteParameters());
-        execution.setFtraceId(UUID.randomUUID().toString().replace("-", ""));
-        execution.setFidempotencyKey(idempotencyKey);
-        execution.setFcreateTime(now);
-        execution.setFupdateTime(now);
-        executionMapper.insert(execution);
-
-        MatrixSchedulerOutbox outbox = new MatrixSchedulerOutbox();
-        outbox.setFid(IdWorker.getId());
-        outbox.setFeventId(UUID.randomUUID().toString());
-        outbox.setFeventType("SCHEDULER_EXECUTE");
-        outbox.setFaggregateId(execution.getFexecutionNo());
-        outbox.setFroutingKey("scheduler.execute." + job.getFexecutorCode());
-        outbox.setFpayload(buildPayload(job, execution));
-        outbox.setFstatus("PENDING");
-        outbox.setFretryCount(0);
-        outbox.setFcreateTime(now);
-        outbox.setFupdateTime(now);
-        outboxMapper.insert(outbox);
-
         job.setFlastFireTime(now);
         job.setFupdateTime(now);
         jobMapper.updateById(job);
@@ -129,7 +99,7 @@ public class SchedulerDispatchService {
 
     @Transactional(rollbackFor = Exception.class)
     public MatrixSchedulerExecution callback(String executionNo,
-                                             ExecutionCallbackRequest request) {
+                                              ExecutionCallbackRequest request) {
         MatrixSchedulerExecution execution = getExecution(executionNo);
         String targetStatus = request.getStatus().toUpperCase();
         if (!List.of("RUNNING", "SUCCESS", "FAILED", "TIMEOUT", "CANCELLED").contains(targetStatus)) {
@@ -139,56 +109,233 @@ public class SchedulerDispatchService {
             return execution;
         }
 
+        MatrixSchedulerJob job = requiredJob(execution.getFjobId());
         LocalDateTime now = LocalDateTime.now();
-        execution.setFstatus(targetStatus);
         execution.setFexecutorInstance(request.getExecutorInstance());
         execution.setFresponsePayload(request.getResponsePayload());
         execution.setFerrorCode(request.getErrorCode());
         execution.setFerrorMessage(trimError(request.getErrorMessage()));
-        if ("RUNNING".equals(targetStatus) && execution.getFactualStartTime() == null) {
-            execution.setFactualStartTime(now);
-        }
-        if (isTerminal(targetStatus)) {
+
+        if ("RUNNING".equals(targetStatus)) {
+            execution.setFstatus("RUNNING");
             if (execution.getFactualStartTime() == null) {
                 execution.setFactualStartTime(now);
             }
-            execution.setFactualEndTime(now);
+            execution.setFdeadlineTime(now.plusSeconds(Math.max(1, job.getFtimeoutSeconds())));
+        } else if ("SUCCESS".equals(targetStatus)) {
+            finish(execution, "SUCCESS", now);
+            wakeNextSerial(job);
+        } else if ("FAILED".equals(targetStatus) || "TIMEOUT".equals(targetStatus)) {
+            if (canRetry(execution, job)) {
+                execution.setFstatus("RETRY_WAIT");
+                execution.setFactualEndTime(now);
+                execution.setFnextRetryTime(now.plusSeconds(retryDelaySeconds(execution, job)));
+                if ("TIMEOUT".equals(targetStatus) && !StringUtils.hasText(execution.getFerrorCode())) {
+                    execution.setFerrorCode("EXECUTION_TIMEOUT");
+                }
+            } else {
+                finish(execution, targetStatus, now);
+                wakeNextSerial(job);
+            }
+        } else {
+            finish(execution, "CANCELLED", now);
+            wakeNextSerial(job);
         }
+
         execution.setFupdateTime(now);
         executionMapper.updateById(execution);
         return execution;
     }
 
-    private MatrixSchedulerExecution createSkipped(MatrixSchedulerJob job,
-                                                    LocalDateTime scheduledTime,
-                                                    String triggerType,
-                                                    String reason) {
+    @Transactional(rollbackFor = Exception.class)
+    public MatrixSchedulerExecution retry(String executionNo) {
+        MatrixSchedulerExecution parent = getExecution(executionNo);
+        if (!"RETRY_WAIT".equals(parent.getFstatus())) {
+            return parent;
+        }
+        if (parent.getFnextRetryTime() != null && parent.getFnextRetryTime().isAfter(LocalDateTime.now())) {
+            return parent;
+        }
+
+        MatrixSchedulerJob job = requiredJob(parent.getFjobId());
+        if (!canRetry(parent, job)) {
+            finish(parent, terminalFailureStatus(parent), LocalDateTime.now());
+            executionMapper.updateById(parent);
+            wakeNextSerial(job);
+            return parent;
+        }
+
+        int nextAttempt = parent.getFattemptNo() + 1;
+        Long rootId = parent.getFrootExecutionId() == null ? parent.getFid() : parent.getFrootExecutionId();
+        String idempotencyKey = rootId + ":RETRY:" + nextAttempt;
+        MatrixSchedulerExecution existing = findByIdempotencyKey(idempotencyKey);
+        if (existing != null) {
+            return existing;
+        }
+
+        parent.setFstatus(terminalFailureStatus(parent));
+        parent.setFnextRetryTime(null);
+        parent.setFupdateTime(LocalDateTime.now());
+        executionMapper.updateById(parent);
+
+        return createExecutionRecord(job, LocalDateTime.now(), "RETRY",
+                "CREATED", nextAttempt, rootId, parent.getFid(), idempotencyKey, true);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void timeout(MatrixSchedulerExecution execution, String errorCode, String errorMessage) {
+        MatrixSchedulerExecution current = executionMapper.selectById(execution.getFid());
+        if (current == null || !List.of("CREATED", "QUEUED", "RUNNING").contains(current.getFstatus())) {
+            return;
+        }
+        MatrixSchedulerJob job = requiredJob(current.getFjobId());
         LocalDateTime now = LocalDateTime.now();
-        MatrixSchedulerExecution skipped = new MatrixSchedulerExecution();
-        skipped.setFid(IdWorker.getId());
-        skipped.setFexecutionNo("EXEC-" + UUID.randomUUID().toString().replace("-", ""));
-        skipped.setFjobId(job.getFid());
-        skipped.setFjobCode(job.getFjobCode());
-        skipped.setFscheduledTime(scheduledTime);
-        skipped.setFtriggerType(triggerType);
-        skipped.setFstatus("SKIPPED");
-        skipped.setFattemptNo(1);
-        skipped.setFexecutorCode(job.getFexecutorCode());
-        skipped.setFhandlerCode(job.getFhandlerCode());
+        current.setFerrorCode(errorCode);
+        current.setFerrorMessage(trimError(errorMessage));
+        current.setFactualEndTime(now);
+        if (canRetry(current, job)) {
+            current.setFstatus("RETRY_WAIT");
+            current.setFnextRetryTime(now.plusSeconds(retryDelaySeconds(current, job)));
+        } else {
+            current.setFstatus("TIMEOUT");
+            wakeNextSerial(job);
+        }
+        current.setFupdateTime(now);
+        executionMapper.updateById(current);
+    }
+
+    private MatrixSchedulerExecution createExecutionRecord(MatrixSchedulerJob job,
+                                                             LocalDateTime scheduledTime,
+                                                             String triggerType,
+                                                             String status,
+                                                             int attemptNo,
+                                                             Long rootExecutionId,
+                                                             Long parentExecutionId,
+                                                             String idempotencyKey,
+                                                             boolean createOutbox) {
+        LocalDateTime now = LocalDateTime.now();
+        MatrixSchedulerExecution execution = new MatrixSchedulerExecution();
+        execution.setFid(IdWorker.getId());
+        execution.setFexecutionNo("EXEC-" + UUID.randomUUID().toString().replace("-", ""));
+        execution.setFjobId(job.getFid());
+        execution.setFjobCode(job.getFjobCode());
+        execution.setFscheduledTime(scheduledTime);
+        execution.setFtriggerType(triggerType);
+        execution.setFstatus(status);
+        execution.setFattemptNo(attemptNo);
+        execution.setFrootExecutionId(rootExecutionId == null ? execution.getFid() : rootExecutionId);
+        execution.setFparentExecutionId(parentExecutionId);
+        execution.setFexecutorCode(job.getFexecutorCode());
+        execution.setFhandlerCode(job.getFhandlerCode());
+        execution.setFrequestPayload(job.getFexecuteParameters());
+        execution.setFtraceId(UUID.randomUUID().toString().replace("-", ""));
+        execution.setFidempotencyKey(idempotencyKey);
+        execution.setFcreateTime(now);
+        execution.setFupdateTime(now);
+        executionMapper.insert(execution);
+        if (createOutbox) {
+            createOutbox(job, execution, now);
+        }
+        return execution;
+    }
+
+    private void createOutbox(MatrixSchedulerJob job,
+                              MatrixSchedulerExecution execution,
+                              LocalDateTime now) {
+        MatrixSchedulerOutbox outbox = new MatrixSchedulerOutbox();
+        outbox.setFid(IdWorker.getId());
+        outbox.setFeventId(UUID.randomUUID().toString());
+        outbox.setFeventType("SCHEDULER_EXECUTE");
+        outbox.setFaggregateId(execution.getFexecutionNo());
+        outbox.setFroutingKey("scheduler.execute." + job.getFexecutorCode());
+        outbox.setFpayload(buildPayload(job, execution));
+        outbox.setFstatus("PENDING");
+        outbox.setFretryCount(0);
+        outbox.setFcreateTime(now);
+        outbox.setFupdateTime(now);
+        outboxMapper.insert(outbox);
+    }
+
+    private MatrixSchedulerExecution createSkipped(MatrixSchedulerJob job,
+                                                     LocalDateTime scheduledTime,
+                                                     String triggerType,
+                                                     String reason) {
+        MatrixSchedulerExecution skipped = createExecutionRecord(job, scheduledTime, triggerType,
+                "SKIPPED", 1, null, null,
+                job.getFid() + ":SKIPPED:" + scheduledTime + ":" + reason + ":" + UUID.randomUUID(), false);
         skipped.setFerrorCode(reason);
         skipped.setFerrorMessage(reason);
-        skipped.setFidempotencyKey(job.getFid() + ":SKIPPED:" + scheduledTime + ":" + reason);
-        skipped.setFcreateTime(now);
-        skipped.setFupdateTime(now);
-        executionMapper.insert(skipped);
+        skipped.setFactualEndTime(LocalDateTime.now());
+        skipped.setFupdateTime(LocalDateTime.now());
+        executionMapper.updateById(skipped);
         return skipped;
     }
 
-    private boolean hasRunningExecution(Long jobId) {
+    private void wakeNextSerial(MatrixSchedulerJob job) {
+        if (!"SERIAL".equals(job.getFconcurrencyPolicy()) || hasActiveExecution(job.getFid())) {
+            return;
+        }
+        MatrixSchedulerExecution waiting = executionMapper.selectOne(
+                new LambdaQueryWrapper<MatrixSchedulerExecution>()
+                        .eq(MatrixSchedulerExecution::getFjobId, job.getFid())
+                        .eq(MatrixSchedulerExecution::getFstatus, "WAITING")
+                        .orderByAsc(MatrixSchedulerExecution::getFscheduledTime)
+                        .last("LIMIT 1"));
+        if (waiting == null) {
+            return;
+        }
+        waiting.setFstatus("CREATED");
+        waiting.setFupdateTime(LocalDateTime.now());
+        executionMapper.updateById(waiting);
+        createOutbox(job, waiting, LocalDateTime.now());
+    }
+
+    private boolean hasActiveExecution(Long jobId) {
         Long count = executionMapper.selectCount(new LambdaQueryWrapper<MatrixSchedulerExecution>()
                 .eq(MatrixSchedulerExecution::getFjobId, jobId)
                 .in(MatrixSchedulerExecution::getFstatus, "CREATED", "QUEUED", "RUNNING", "RETRY_WAIT"));
         return count != null && count > 0;
+    }
+
+    private MatrixSchedulerExecution findByIdempotencyKey(String idempotencyKey) {
+        return executionMapper.selectOne(new LambdaQueryWrapper<MatrixSchedulerExecution>()
+                .eq(MatrixSchedulerExecution::getFidempotencyKey, idempotencyKey)
+                .last("LIMIT 1"));
+    }
+
+    private MatrixSchedulerJob requiredJob(Long jobId) {
+        MatrixSchedulerJob job = jobMapper.selectById(jobId);
+        if (job == null || "DELETED".equals(job.getFstatus())) {
+            throw new IllegalArgumentException("调度任务不存在: " + jobId);
+        }
+        return job;
+    }
+
+    private boolean canRetry(MatrixSchedulerExecution execution, MatrixSchedulerJob job) {
+        int configuredRetries = job.getFretryCount() == null ? 0 : job.getFretryCount();
+        int attemptNo = execution.getFattemptNo() == null ? 1 : execution.getFattemptNo();
+        return attemptNo <= configuredRetries;
+    }
+
+    private long retryDelaySeconds(MatrixSchedulerExecution execution, MatrixSchedulerJob job) {
+        long base = Math.max(1, job.getFretryIntervalSeconds() == null ? 60 : job.getFretryIntervalSeconds());
+        int exponent = Math.min(Math.max(0, execution.getFattemptNo() - 1), 6);
+        return Math.min(3600L, base * (1L << exponent));
+    }
+
+    private String terminalFailureStatus(MatrixSchedulerExecution execution) {
+        return execution.getFerrorCode() != null && execution.getFerrorCode().contains("TIMEOUT")
+                ? "TIMEOUT" : "FAILED";
+    }
+
+    private void finish(MatrixSchedulerExecution execution, String status, LocalDateTime now) {
+        execution.setFstatus(status);
+        if (execution.getFactualStartTime() == null) {
+            execution.setFactualStartTime(now);
+        }
+        execution.setFactualEndTime(now);
+        execution.setFnextRetryTime(null);
+        execution.setFdeadlineTime(null);
     }
 
     private String buildPayload(MatrixSchedulerJob job,
@@ -203,8 +350,8 @@ public class SchedulerDispatchService {
         payload.put("executorCode", job.getFexecutorCode());
         payload.put("handlerCode", job.getFhandlerCode());
         payload.put("executeType", job.getFexecuteType());
+        payload.put("attemptNo", execution.getFattemptNo());
         payload.put("timeoutSeconds", job.getFtimeoutSeconds());
-        payload.put("retryCount", job.getFretryCount());
         payload.put("parameters", job.getFexecuteParameters());
         try {
             return objectMapper.writeValueAsString(payload);

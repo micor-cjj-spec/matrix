@@ -22,11 +22,14 @@ public class SchedulerJobService {
 
     private final MatrixSchedulerJobMapper jobMapper;
     private final QuartzJobManager quartzJobManager;
+    private final ExecutorRegistryService executorRegistryService;
 
     public SchedulerJobService(MatrixSchedulerJobMapper jobMapper,
-                               QuartzJobManager quartzJobManager) {
+                               QuartzJobManager quartzJobManager,
+                               ExecutorRegistryService executorRegistryService) {
         this.jobMapper = jobMapper;
         this.quartzJobManager = quartzJobManager;
+        this.executorRegistryService = executorRegistryService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -110,6 +113,7 @@ public class SchedulerJobService {
     @Transactional(rollbackFor = Exception.class)
     public MatrixSchedulerJob resume(Long jobId) {
         MatrixSchedulerJob job = mustGet(jobId);
+        executorRegistryService.validateHandler(job.getFexecutorCode(), job.getFhandlerCode());
         job.setFstatus("ENABLED");
         job.setFnextFireTime(quartzJobManager.nextFireTime(job.getFcronExpression(), job.getFtimezone()));
         touch(job);
@@ -129,7 +133,8 @@ public class SchedulerJobService {
     }
 
     public Boolean runNow(Long jobId) {
-        mustGet(jobId);
+        MatrixSchedulerJob job = mustGet(jobId);
+        executorRegistryService.validateHandler(job.getFexecutorCode(), job.getFhandlerCode());
         quartzJobManager.runNow(jobId);
         return true;
     }
@@ -163,6 +168,12 @@ public class SchedulerJobService {
         if (!CronExpression.isValidExpression(request.getCronExpression())) {
             throw new IllegalArgumentException("Cron 表达式无效");
         }
+        String executeType = defaultText(request.getExecuteType(), "MQ").toUpperCase();
+        if (!"MQ".equals(executeType)) {
+            throw new IllegalArgumentException("第二期仅开放 MQ 执行类型");
+        }
+        executorRegistryService.validateHandler(request.getExecutorCode().trim(), request.getHandlerCode().trim());
+
         String policy = defaultText(request.getConcurrencyPolicy(), "SKIP").toUpperCase();
         if (!List.of("SKIP", "SERIAL", "PARALLEL").contains(policy)) {
             throw new IllegalArgumentException("不支持的并发策略: " + policy);
@@ -170,6 +181,14 @@ public class SchedulerJobService {
         String misfire = defaultText(request.getMisfirePolicy(), "FIRE_ONCE_NOW").toUpperCase();
         if (!List.of("DO_NOTHING", "FIRE_ONCE_NOW", "FIRE_ALL").contains(misfire)) {
             throw new IllegalArgumentException("不支持的 Misfire 策略: " + misfire);
+        }
+        if (request.getTimeoutSeconds() != null
+                && (request.getTimeoutSeconds() < 1 || request.getTimeoutSeconds() > 86400)) {
+            throw new IllegalArgumentException("超时时间必须在 1 到 86400 秒之间");
+        }
+        if (request.getRetryCount() != null
+                && (request.getRetryCount() < 0 || request.getRetryCount() > 20)) {
+            throw new IllegalArgumentException("重试次数必须在 0 到 20 之间");
         }
     }
 

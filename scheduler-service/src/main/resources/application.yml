@@ -52,7 +52,16 @@ mybatis-plus:
 
 matrix:
   scheduler:
+    internal-token: ${SCHEDULER_INTERNAL_TOKEN}
     exchange: ${SCHEDULER_EXCHANGE:matrix.scheduler.execute}
+    executor:
+      offline-seconds: ${SCHEDULER_EXECUTOR_OFFLINE_SECONDS:90}
+      offline-scan-ms: ${SCHEDULER_EXECUTOR_OFFLINE_SCAN_MS:30000}
+    reliability:
+      batch-size: ${SCHEDULER_RELIABILITY_BATCH_SIZE:100}
+      dispatch-timeout-seconds: ${SCHEDULER_DISPATCH_TIMEOUT_SECONDS:120}
+      retry-scan-ms: ${SCHEDULER_RETRY_SCAN_MS:5000}
+      timeout-scan-ms: ${SCHEDULER_TIMEOUT_SCAN_MS:10000}
     outbox:
       publish-delay-ms: ${SCHEDULER_OUTBOX_DELAY_MS:3000}
       batch-size: ${SCHEDULER_OUTBOX_BATCH_SIZE:100}

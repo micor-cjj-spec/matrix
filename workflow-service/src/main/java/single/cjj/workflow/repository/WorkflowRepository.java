@@ -154,6 +154,14 @@ public class WorkflowRepository {
                 """, outputJson, nodeInstanceId);
     }
 
+    public int cancelActiveNodes(String instanceId) {
+        return jdbcTemplate.update("""
+                UPDATE wf_node_instance
+                SET status = 'CANCELLED', ended_at = NOW()
+                WHERE instance_id = ? AND status = 'ACTIVE'
+                """, instanceId);
+    }
+
     public void insertTask(TaskRow row) {
         jdbcTemplate.update("""
                 INSERT INTO wf_task
@@ -170,12 +178,29 @@ public class WorkflowRepository {
                 this::mapTask, taskId));
     }
 
+    public Optional<TaskRow> findOpenTaskByInstanceAndNode(String instanceId, String nodeKey) {
+        return first(jdbcTemplate.query("""
+                SELECT * FROM wf_task
+                WHERE instance_id = ? AND node_key = ? AND status IN ('PENDING', 'CLAIMED')
+                ORDER BY created_at DESC
+                LIMIT 1
+                """, this::mapTask, instanceId, nodeKey));
+    }
+
     public int completeTask(String taskId, int expectedVersion, String terminalStatus) {
         return jdbcTemplate.update("""
                 UPDATE wf_task
                 SET status = ?, version = version + 1, completed_at = NOW()
                 WHERE id = ? AND status IN ('PENDING', 'CLAIMED') AND version = ?
                 """, terminalStatus, taskId, expectedVersion);
+    }
+
+    public int cancelOpenTasks(String instanceId) {
+        return jdbcTemplate.update("""
+                UPDATE wf_task
+                SET status = 'CANCELLED', version = version + 1, completed_at = NOW()
+                WHERE instance_id = ? AND status IN ('PENDING', 'CLAIMED')
+                """, instanceId);
     }
 
     public void updateInstancePosition(String instanceId,
@@ -186,6 +211,40 @@ public class WorkflowRepository {
                 SET current_node_key = ?, variables_json = CAST(? AS JSON), version = version + 1
                 WHERE id = ? AND status = 'RUNNING'
                 """, currentNodeKey, variablesJson, instanceId);
+    }
+
+    public int returnInstanceToInitiator(String instanceId,
+                                         int expectedVersion,
+                                         String variablesJson) {
+        return jdbcTemplate.update("""
+                UPDATE wf_instance
+                SET status = 'WAITING_RESUBMIT', current_node_key = '__RESUBMIT__',
+                    variables_json = CAST(? AS JSON), version = version + 1
+                WHERE id = ? AND status = 'RUNNING' AND version = ?
+                """, variablesJson, instanceId, expectedVersion);
+    }
+
+    public int resumeInstance(String instanceId,
+                              int expectedVersion,
+                              String resumeNodeKey,
+                              String variablesJson) {
+        return jdbcTemplate.update("""
+                UPDATE wf_instance
+                SET status = 'RUNNING', current_node_key = ?, variables_json = CAST(? AS JSON),
+                    ended_at = NULL, version = version + 1
+                WHERE id = ? AND status = 'WAITING_RESUBMIT' AND version = ?
+                """, resumeNodeKey, variablesJson, instanceId, expectedVersion);
+    }
+
+    public int cancelInstance(String instanceId,
+                              int expectedVersion,
+                              String variablesJson) {
+        return jdbcTemplate.update("""
+                UPDATE wf_instance
+                SET status = 'CANCELLED', current_node_key = NULL,
+                    variables_json = CAST(? AS JSON), ended_at = NOW(), version = version + 1
+                WHERE id = ? AND status IN ('RUNNING', 'WAITING_RESUBMIT') AND version = ?
+                """, variablesJson, instanceId, expectedVersion);
     }
 
     public int finishInstance(String instanceId,

@@ -3,7 +3,6 @@ package single.cjj.gateway.security;
 import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
-import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
@@ -30,7 +29,11 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
             "/api/swagger-ui/**",
             "/api/v3/api-docs/**",
             // OpenAPI 使用 AppKey + HMAC，由 openapi-service 再次执行强校验。
-            "/api/open-api/**"
+            "/api/open-api/**",
+            // 调度执行器内部接口由 scheduler-service 使用共享密钥再次校验。
+            "/api/scheduler/executors/register",
+            "/api/scheduler/executors/heartbeat",
+            "/api/scheduler/callback/**"
     );
 
     private static final List<String> INTERNAL_IDENTITY_HEADERS = List.of(
