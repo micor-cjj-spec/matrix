@@ -132,22 +132,29 @@ public class WorkflowAttachmentRepository {
                 """, operatorId, relationId);
     }
 
-    public boolean hasActiveRelation(String fileId) {
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM wf_attachment_relation WHERE file_id = ? AND status = 'ACTIVE'",
-                Integer.class, fileId);
-        return count != null && count > 0;
+    public Optional<RelationRow> findRelation(String relationId) {
+        return first(jdbcTemplate.query(
+                "SELECT * FROM wf_attachment_relation WHERE id = ?",
+                this::mapRelation, relationId));
     }
 
-    public Optional<RelationRow> findRelation(String relationId) {
-        return first(jdbcTemplate.query("SELECT * FROM wf_attachment_relation WHERE id = ?", (rs, rowNum) ->
-                new RelationRow(
-                        rs.getString("id"), rs.getString("file_id"), rs.getString("tenant_id"),
-                        rs.getString("source_system"), rs.getString("business_type"),
-                        rs.getString("business_id"), rs.getString("instance_id"),
-                        rs.getString("task_id"), rs.getString("category_code"),
-                        rs.getString("created_by"), rs.getObject("created_at", LocalDateTime.class)
-                ), relationId));
+    public Optional<RelationRow> findRelationByFile(String fileId) {
+        return first(jdbcTemplate.query("""
+                SELECT * FROM wf_attachment_relation
+                WHERE file_id = ? AND status = 'ACTIVE'
+                ORDER BY created_at
+                LIMIT 1
+                """, this::mapRelation, fileId));
+    }
+
+    private RelationRow mapRelation(ResultSet rs, int rowNum) throws SQLException {
+        return new RelationRow(
+                rs.getString("id"), rs.getString("file_id"), rs.getString("tenant_id"),
+                rs.getString("source_system"), rs.getString("business_type"),
+                rs.getString("business_id"), rs.getString("instance_id"),
+                rs.getString("task_id"), rs.getString("category_code"),
+                rs.getString("created_by"), rs.getObject("created_at", LocalDateTime.class)
+        );
     }
 
     private FileRow mapFile(ResultSet rs, int rowNum) throws SQLException {
