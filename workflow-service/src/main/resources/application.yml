@@ -28,6 +28,8 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 workflow:
+  callback:
+    signing-secret: ${WORKFLOW_CALLBACK_SECRET:change-me-in-production}
   attachment:
     base-url: ${WORKFLOW_ATTACHMENT_BASE_URL:http://localhost:10006}
     local-root: ${WORKFLOW_ATTACHMENT_LOCAL_ROOT:./data/workflow-attachments}

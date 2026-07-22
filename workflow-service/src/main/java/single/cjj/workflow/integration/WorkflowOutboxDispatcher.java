@@ -4,12 +4,14 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import single.cjj.workflow.repository.WorkflowOutboxRepository;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,15 +23,18 @@ public class WorkflowOutboxDispatcher {
 
     private final WorkflowOutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
+    private final WorkflowCallbackSigner callbackSigner;
     private final RestClient restClient = RestClient.create();
 
     @Value("${workflow.outbox.batch-size:20}")
     private int batchSize;
 
     public WorkflowOutboxDispatcher(WorkflowOutboxRepository outboxRepository,
-                                    ObjectMapper objectMapper) {
+                                    ObjectMapper objectMapper,
+                                    WorkflowCallbackSigner callbackSigner) {
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
+        this.callbackSigner = callbackSigner;
     }
 
     @Scheduled(fixedDelayString = "${workflow.outbox.dispatch-delay-ms:5000}")
@@ -58,11 +63,16 @@ public class WorkflowOutboxDispatcher {
                 return;
             }
 
+            long timestamp = Instant.now().getEpochSecond();
+            String rawBody = row.payloadJson();
             restClient.post()
                     .uri(callbackUrl)
+                    .contentType(MediaType.APPLICATION_JSON)
                     .header("X-Workflow-Event-Id", row.eventId())
                     .header("X-Workflow-Event-Type", row.eventType())
-                    .body(payload)
+                    .header("X-Workflow-Timestamp", String.valueOf(timestamp))
+                    .header("X-Workflow-Signature", callbackSigner.sign(timestamp, rawBody))
+                    .body(rawBody)
                     .retrieve()
                     .toBodilessEntity();
             outboxRepository.markSent(row.id());
