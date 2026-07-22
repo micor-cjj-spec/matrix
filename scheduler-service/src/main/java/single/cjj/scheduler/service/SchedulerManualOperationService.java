@@ -9,8 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import single.cjj.scheduler.entity.MatrixSchedulerExecution;
 import single.cjj.scheduler.entity.MatrixSchedulerOperationLog;
+import single.cjj.scheduler.entity.MatrixSchedulerOutbox;
 import single.cjj.scheduler.mapper.MatrixSchedulerExecutionMapper;
 import single.cjj.scheduler.mapper.MatrixSchedulerOperationLogMapper;
+import single.cjj.scheduler.mapper.MatrixSchedulerOutboxMapper;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -20,13 +22,16 @@ public class SchedulerManualOperationService {
 
     private final MatrixSchedulerExecutionMapper executionMapper;
     private final MatrixSchedulerOperationLogMapper operationLogMapper;
+    private final MatrixSchedulerOutboxMapper outboxMapper;
     private final SchedulerDispatchService dispatchService;
 
     public SchedulerManualOperationService(MatrixSchedulerExecutionMapper executionMapper,
                                            MatrixSchedulerOperationLogMapper operationLogMapper,
+                                           MatrixSchedulerOutboxMapper outboxMapper,
                                            SchedulerDispatchService dispatchService) {
         this.executionMapper = executionMapper;
         this.operationLogMapper = operationLogMapper;
+        this.outboxMapper = outboxMapper;
         this.dispatchService = dispatchService;
     }
 
@@ -62,6 +67,7 @@ public class SchedulerManualOperationService {
         String target = execution.getFerrorCode() != null && execution.getFerrorCode().contains("TIMEOUT")
                 ? "TIMEOUT" : "FAILED";
         transition(execution, target, true);
+        cancelPendingOutbox(executionNo, "MANUAL_STOP_RETRY");
         saveLog(executionNo, "STOP_RETRY", operatorId, reason, "RETRY_WAIT", target);
         return requiredExecution(executionNo);
     }
@@ -74,6 +80,7 @@ public class SchedulerManualOperationService {
         }
         String from = execution.getFstatus();
         transition(execution, "CANCELLED", true);
+        cancelPendingOutbox(executionNo, "MANUAL_CANCEL");
         saveLog(executionNo, "CANCEL", operatorId, reason, from, "CANCELLED");
         return requiredExecution(executionNo);
     }
@@ -86,6 +93,7 @@ public class SchedulerManualOperationService {
         }
         String from = execution.getFstatus();
         transition(execution, "SKIPPED", true);
+        cancelPendingOutbox(executionNo, "MANUAL_SKIP");
         saveLog(executionNo, "SKIP", operatorId, reason, from, "SKIPPED");
         return requiredExecution(executionNo);
     }
@@ -98,6 +106,14 @@ public class SchedulerManualOperationService {
         }
         String from = execution.getFstatus();
         transition(execution, "SUCCESS", true);
+        cancelPendingOutbox(executionNo, "MANUAL_MARK_SUCCESS");
+        executionMapper.update(null,
+                new LambdaUpdateWrapper<MatrixSchedulerExecution>()
+                        .eq(MatrixSchedulerExecution::getFid, execution.getFid())
+                        .set(MatrixSchedulerExecution::getFprogress, 100)
+                        .set(MatrixSchedulerExecution::getFcurrentStage, "MANUAL_SUCCESS")
+                        .set(MatrixSchedulerExecution::getFprogressMessage, "由管理员人工标记成功")
+                        .set(MatrixSchedulerExecution::getFlastProgressTime, LocalDateTime.now()));
         saveLog(executionNo, "MARK_SUCCESS", operatorId, reason, from, "SUCCESS");
         return requiredExecution(executionNo);
     }
@@ -121,6 +137,17 @@ public class SchedulerManualOperationService {
             wrapper.set(MatrixSchedulerExecution::getFactualEndTime, now);
         }
         ensureUpdated(executionMapper.update(null, wrapper));
+    }
+
+    private void cancelPendingOutbox(String executionNo, String reason) {
+        outboxMapper.update(null,
+                new LambdaUpdateWrapper<MatrixSchedulerOutbox>()
+                        .eq(MatrixSchedulerOutbox::getFaggregateId, executionNo)
+                        .in(MatrixSchedulerOutbox::getFstatus, "PENDING", "FAILED")
+                        .set(MatrixSchedulerOutbox::getFstatus, "CANCELLED")
+                        .set(MatrixSchedulerOutbox::getFnextRetryTime, null)
+                        .set(MatrixSchedulerOutbox::getFlastError, reason)
+                        .set(MatrixSchedulerOutbox::getFupdateTime, LocalDateTime.now()));
     }
 
     private MatrixSchedulerExecution requiredExecution(String executionNo) {
