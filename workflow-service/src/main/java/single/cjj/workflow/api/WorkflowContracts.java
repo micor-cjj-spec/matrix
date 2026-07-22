@@ -115,4 +115,20 @@ public final class WorkflowContracts {
             LocalDateTime completedAt
     ) {
     }
+
+    public record TimelineResponse(
+            String actionId,
+            String instanceId,
+            String taskId,
+            String nodeKey,
+            String nodeName,
+            String action,
+            String operatorId,
+            String comment,
+            String beforeStatus,
+            String afterStatus,
+            String requestId,
+            LocalDateTime occurredAt
+    ) {
+    }
 }

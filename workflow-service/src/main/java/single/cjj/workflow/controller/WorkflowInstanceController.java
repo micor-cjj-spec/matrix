@@ -11,16 +11,22 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.workflow.api.WorkflowContracts;
+import single.cjj.workflow.service.WorkflowHistoryService;
 import single.cjj.workflow.service.WorkflowService;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/workflow")
 public class WorkflowInstanceController {
 
     private final WorkflowService workflowService;
+    private final WorkflowHistoryService historyService;
 
-    public WorkflowInstanceController(WorkflowService workflowService) {
+    public WorkflowInstanceController(WorkflowService workflowService,
+                                      WorkflowHistoryService historyService) {
         this.workflowService = workflowService;
+        this.historyService = historyService;
     }
 
     @PostMapping("/instances")
@@ -50,6 +56,18 @@ public class WorkflowInstanceController {
     public ApiResponse<WorkflowContracts.InstanceResponse> get(
             @PathVariable("instanceId") String instanceId) {
         return ApiResponse.success(workflowService.getInstance(instanceId));
+    }
+
+    @GetMapping("/instances/{instanceId}/tasks")
+    public ApiResponse<List<WorkflowContracts.TaskResponse>> tasks(
+            @PathVariable("instanceId") String instanceId) {
+        return ApiResponse.success(historyService.listTasks(instanceId));
+    }
+
+    @GetMapping("/instances/{instanceId}/timeline")
+    public ApiResponse<List<WorkflowContracts.TimelineResponse>> timeline(
+            @PathVariable("instanceId") String instanceId) {
+        return ApiResponse.success(historyService.listTimeline(instanceId));
     }
 
     @GetMapping("/business/{sourceSystem}/{businessType}/{businessId}")
