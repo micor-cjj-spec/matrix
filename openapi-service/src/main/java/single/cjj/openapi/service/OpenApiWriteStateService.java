@@ -30,6 +30,7 @@ public class OpenApiWriteStateService {
     public static final String MANUAL_REQUIRED = "MANUAL_REQUIRED";
 
     private static final Set<String> CLAIMABLE = Set.of(ACCEPTED, RETRYING, PROCESSING_FAILED);
+    private static final Set<String> MANUALLY_RETRYABLE = Set.of(MANUAL_REQUIRED, PROCESSING_FAILED);
 
     private final OpenApiWriteRequestMapper requestMapper;
     private final OpenApiOutboxEventMapper outboxMapper;
@@ -128,17 +129,27 @@ public class OpenApiWriteStateService {
         if (current == null) {
             throw new OpenApiCallException("OPENAPI_40401", "写入任务不存在", 404);
         }
-        if (SUCCEEDED.equals(current.getStatus())) {
-            return false;
+        if (!MANUALLY_RETRYABLE.contains(current.getStatus())) {
+            throw new OpenApiCallException(
+                    "OPENAPI_VOUCHER_40903",
+                    "只有处理失败或需要人工处理的任务可以手动重试",
+                    409
+            );
         }
         LocalDateTime now = LocalDateTime.now();
-        requestMapper.update(null, new LambdaUpdateWrapper<OpenApiWriteRequest>()
+        int updated = requestMapper.update(null, new LambdaUpdateWrapper<OpenApiWriteRequest>()
                 .eq(OpenApiWriteRequest::getId, current.getId())
+                .in(OpenApiWriteRequest::getStatus, MANUALLY_RETRYABLE)
                 .set(OpenApiWriteRequest::getStatus, RETRYING)
                 .set(OpenApiWriteRequest::getErrorCode, null)
                 .set(OpenApiWriteRequest::getErrorMessage, null)
                 .set(OpenApiWriteRequest::getNextRetryAt, now)
                 .set(OpenApiWriteRequest::getUpdatedAt, now));
+        if (updated == 0) {
+            throw new OpenApiCallException(
+                    "OPENAPI_VOUCHER_40903", "任务状态已发生变化，请刷新后重试", 409
+            );
+        }
         appendLog(current.getId(), current.getStatus(), RETRYING, null, "管理员触发重新执行");
         createOutbox(current, now);
         return true;
