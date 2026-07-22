@@ -38,6 +38,10 @@ public class BizfiFiVoucher implements Serializable {
     @TableField("book_id")
     private String bookId;
 
+    /** OpenAPI写入来源请求，用于消费幂等 */
+    @TableField("source_request_id")
+    private String sourceRequestId;
+
     /** 凭证编号 */
     private String fnumber;
 

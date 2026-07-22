@@ -14,12 +14,13 @@ on:
       - '.github/workflows/openapi-ci.yml'
   push:
     branches:
-      - agent/openapi-governance-v2-dev
+      - 'agent/openapi-*'
     paths:
       - 'openapi-service/**'
       - 'fi-service/**'
       - 'gateway/**'
       - 'common/**'
+      - 'sql/matrix_open_api_*.sql'
       - 'pom.xml'
       - '.github/workflows/openapi-ci.yml'
 

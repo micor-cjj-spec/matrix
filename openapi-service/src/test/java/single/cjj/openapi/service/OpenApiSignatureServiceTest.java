@@ -2,6 +2,7 @@ package single.cjj.openapi.service;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -42,5 +43,32 @@ class OpenApiSignatureServiceTest {
                 service.sign("secret", canonical)
         );
         assertTrue(service.verify(service.sign("secret", canonical), service.sign("secret", canonical)));
+    }
+
+    @Test
+    void shouldIncludePostBodyHashInSignature() {
+        byte[] body = "{\"externalBizNo\":\"EXP-001\",\"idempotencyKey\":\"expense:EXP-001\"}"
+                .getBytes(StandardCharsets.UTF_8);
+        String canonical = service.canonicalRequest(
+                "POST",
+                "/open-api/v1/fi/voucher-requests",
+                Map.of(),
+                body,
+                "1784710000000",
+                "nonce-write-1"
+        );
+
+        assertEquals(
+                "POST\n" +
+                        "/open-api/v1/fi/voucher-requests\n\n" +
+                        "1de3b15095f7f6ad6f901a82eac829870bf182f0f4ae1a1de891847d3fe5db0b\n" +
+                        "1784710000000\n" +
+                        "nonce-write-1",
+                canonical
+        );
+        assertEquals(
+                "3f270d30a8f6820d725a23d89de0e94d30ae3b024d14a304855c8274e4925cac",
+                service.sign("secret", canonical)
+        );
     }
 }

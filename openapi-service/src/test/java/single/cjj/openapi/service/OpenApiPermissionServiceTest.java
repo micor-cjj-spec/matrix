@@ -41,6 +41,52 @@ class OpenApiPermissionServiceTest {
     }
 
     @Test
+    void shouldResolveVoucherWriteLimits() {
+        OpenApiApp app = new OpenApiApp();
+        app.setTenantId("tenant-write");
+        OpenApiGrant grant = new OpenApiGrant();
+        grant.setDataPermissionJson("""
+                {
+                  "organizationIds": ["ORG-W"],
+                  "bookIds": ["BOOK-W"],
+                  "maxLinesPerVoucher": 80,
+                  "dailyWriteQuota": 1200
+                }
+                """);
+
+        OpenApiPermissionService.VoucherWritePermission permission =
+                service.resolveVoucherWritePermission(app, grant);
+
+        assertEquals("tenant-write", permission.tenantId());
+        assertEquals(80, permission.maxLinesPerVoucher());
+        assertEquals(1200, permission.dailyWriteQuota());
+        assertTrue(permission.allowsOrganization("ORG-W"));
+        assertFalse(permission.allowsOrganization("ORG-X"));
+        assertTrue(permission.allowsBook("BOOK-W"));
+    }
+
+    @Test
+    void shouldClampVoucherWriteLimits() {
+        OpenApiApp app = new OpenApiApp();
+        app.setTenantId("default");
+        OpenApiGrant grant = new OpenApiGrant();
+        grant.setDataPermissionJson("""
+                {
+                  "maxLinesPerVoucher": 5000,
+                  "dailyWriteQuota": 5000000
+                }
+                """);
+
+        OpenApiPermissionService.VoucherWritePermission permission =
+                service.resolveVoucherWritePermission(app, grant);
+
+        assertEquals(500, permission.maxLinesPerVoucher());
+        assertEquals(1000000, permission.dailyWriteQuota());
+        assertTrue(permission.allowsOrganization("ANY-ORG"));
+        assertTrue(permission.allowsBook("ANY-BOOK"));
+    }
+
+    @Test
     void shouldTreatMissingOrganizationAndBookScopesAsTenantWildcard() {
         OpenApiApp app = new OpenApiApp();
         app.setTenantId("default");
