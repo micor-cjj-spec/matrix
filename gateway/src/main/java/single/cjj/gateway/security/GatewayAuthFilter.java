@@ -34,12 +34,14 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
             "/api/actuator/**",
             "/api/swagger-ui/**",
             "/api/v3/api-docs/**",
-            // OpenAPI 使用 AppKey + HMAC，由 openapi-service 再次执行强校验。
+            // OpenAPI 使用 AppKey + HMAC，由 openapi-service 或 im-service 再次执行强校验。
             "/api/open-api/**",
             // 调度执行器内部接口由 scheduler-service 使用共享密钥再次校验。
             "/api/scheduler/executors/register",
             "/api/scheduler/executors/heartbeat",
-            "/api/scheduler/callback/**"
+            "/api/scheduler/callback/**",
+            // IM 最终结果回调使用 X-IM-* HMAC 请求头，由 scheduler-service 校验。
+            "/api/scheduler/im/callbacks"
     );
 
     private static final List<String> INTERNAL_IDENTITY_HEADERS = List.of(
