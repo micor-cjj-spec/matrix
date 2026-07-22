@@ -44,7 +44,8 @@ public class ExecutorRegistryService {
         LocalDateTime now = LocalDateTime.now();
 
         MatrixSchedulerExecutor executor = findExecutor(executorCode);
-        if (executor == null) {
+        boolean create = executor == null;
+        if (create) {
             executor = new MatrixSchedulerExecutor();
             executor.setFid(IdWorker.getId());
             executor.setFexecutorCode(executorCode);
@@ -56,7 +57,7 @@ public class ExecutorRegistryService {
         executor.setFstatus("ONLINE");
         executor.setFlastHeartbeatTime(now);
         executor.setFupdateTime(now);
-        if (findExecutor(executorCode) == null) {
+        if (create) {
             executorMapper.insert(executor);
         } else {
             executorMapper.updateById(executor);
