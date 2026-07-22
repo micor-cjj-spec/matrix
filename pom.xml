@@ -19,6 +19,7 @@
         <module>share-service</module>
         <module>scheduler-service</module>
         <module>workflow-service</module>
+        <module>botp-service</module>
         <module>common</module>
         <module>infra</module>
         <module>config</module>
