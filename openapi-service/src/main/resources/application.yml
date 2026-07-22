@@ -10,6 +10,19 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   config:
     import: "nacos:${spring.application.name}"
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    publisher-confirm-type: correlated
+    listener:
+      simple:
+        acknowledge-mode: auto
+        default-requeue-rejected: false
+        concurrency: ${OPENAPI_WRITE_CONSUMERS:2}
+        max-concurrency: ${OPENAPI_WRITE_MAX_CONSUMERS:8}
   cloud:
     nacos:
       discovery:
@@ -26,7 +39,7 @@ spring:
         config:
           fi-service:
             connect-timeout: 3000
-            read-timeout: 5000
+            read-timeout: 10000
 
 matrix:
   openapi:
@@ -34,6 +47,14 @@ matrix:
     internal-token: ${MATRIX_INTERNAL_OPENAPI_TOKEN:}
     replay-window-seconds: ${OPENAPI_REPLAY_WINDOW_SECONDS:300}
     system-max-page-size: ${OPENAPI_SYSTEM_MAX_PAGE_SIZE:500}
+    max-request-body-bytes: ${OPENAPI_MAX_REQUEST_BODY_BYTES:1048576}
+    write:
+      exchange: ${OPENAPI_WRITE_EXCHANGE:matrix.openapi.write.exchange}
+      queue: ${OPENAPI_WRITE_QUEUE:matrix.openapi.voucher.write.queue}
+      routing-key: ${OPENAPI_WRITE_ROUTING_KEY:matrix.openapi.voucher.write}
+      outbox-poll-ms: ${OPENAPI_OUTBOX_POLL_MS:2000}
+      recovery-poll-ms: ${OPENAPI_WRITE_RECOVERY_POLL_MS:60000}
+      stale-processing-minutes: ${OPENAPI_STALE_PROCESSING_MINUTES:5}
 
 management:
   endpoints:
