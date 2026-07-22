@@ -1,6 +1,7 @@
 package single.cjj.fi.scheduler;
 
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import single.cjj.fi.gl.service.BizfiFiLedgerCollaborationService;
 import single.cjj.scheduler.client.annotation.MatrixJobHandler;
 import single.cjj.scheduler.client.core.JobContext;
@@ -24,6 +25,7 @@ public class VoucherPeriodCheckJob implements MatrixJob {
     @Override
     public JobResult execute(JobContext context) {
         YearMonth period = YearMonth.parse(context.getRequiredString("period"));
+        rejectUnsupportedBookScope(context.getString("bookId"));
         context.reportProgress(10, "VALIDATING", "正在校验任务参数");
         String startDate = period.atDay(1).toString();
         String endDate = period.atEndOfMonth().toString();
@@ -37,7 +39,7 @@ public class VoucherPeriodCheckJob implements MatrixJob {
         long highCount = number(checkResult.get("highCount"));
         Map<String, Object> data = new LinkedHashMap<>(checkResult);
         data.put("period", period.toString());
-        data.put("bookId", context.getString("bookId"));
+        data.put("scope", "ALL_BOOKS");
         data.put("passed", issueCount == 0);
 
         if (issueCount > 0) {
@@ -47,6 +49,12 @@ public class VoucherPeriodCheckJob implements MatrixJob {
                     data);
         }
         return JobResult.success(data);
+    }
+
+    private void rejectUnsupportedBookScope(String bookId) {
+        if (StringUtils.hasText(bookId)) {
+            throw new IllegalArgumentException("凭证期间检查当前仅支持全账簿范围，请移除bookId参数");
+        }
     }
 
     private long number(Object value) {
