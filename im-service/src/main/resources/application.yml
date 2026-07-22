@@ -47,16 +47,33 @@ spring:
       mail.smtp.starttls.enable: ${MAIL_STARTTLS:false}
 
 im:
+  security:
+    # Production must provide an independently generated Base64 encoded 32-byte key.
+    master-key: ${IM_SECRET_MASTER_KEY:bWF0cml4LWltLWRldi1tYXN0ZXIta2V5LTMyYnl0ZSE=}
   open-api:
     signature-window-seconds: ${IM_SIGNATURE_WINDOW_SECONDS:300}
+    fallback-rate-limit-per-minute: ${IM_FALLBACK_RATE_LIMIT_PER_MINUTE:600}
     credentials:
       matrix: ${IM_MATRIX_APP_SECRET:change-me-before-use}
+      scheduler: ${SCHEDULER_IM_APP_SECRET:}
   outbox:
     batch-size: ${IM_OUTBOX_BATCH_SIZE:100}
     fixed-delay-ms: ${IM_OUTBOX_FIXED_DELAY_MS:3000}
+    processing-timeout-minutes: ${IM_OUTBOX_PROCESSING_TIMEOUT_MINUTES:5}
+    recovery-delay-ms: ${IM_OUTBOX_RECOVERY_DELAY_MS:60000}
   channel:
     max-retry-count: ${IM_CHANNEL_MAX_RETRY_COUNT:5}
     processing-timeout-minutes: ${IM_PROCESSING_TIMEOUT_MINUTES:10}
+  callback:
+    batch-size: ${IM_CALLBACK_BATCH_SIZE:100}
+    max-retry-count: ${IM_CALLBACK_MAX_RETRY_COUNT:6}
+    processing-timeout-minutes: ${IM_CALLBACK_PROCESSING_TIMEOUT_MINUTES:10}
+    prepare-delay-ms: ${IM_CALLBACK_PREPARE_DELAY_MS:3000}
+    dispatch-delay-ms: ${IM_CALLBACK_DISPATCH_DELAY_MS:3000}
+    recovery-delay-ms: ${IM_CALLBACK_RECOVERY_DELAY_MS:60000}
+  reliability:
+    batch-size: ${IM_RELIABILITY_BATCH_SIZE:100}
+    reconcile-delay-ms: ${IM_RECONCILE_DELAY_MS:60000}
   email:
     from: ${IM_EMAIL_FROM:${MAIL_USERNAME:}}
   websocket:

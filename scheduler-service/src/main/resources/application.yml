@@ -77,3 +77,18 @@ matrix:
       publish-delay-ms: ${SCHEDULER_OUTBOX_DELAY_MS:3000}
       batch-size: ${SCHEDULER_OUTBOX_BATCH_SIZE:100}
       max-retry: ${SCHEDULER_OUTBOX_MAX_RETRY:10}
+    im:
+      enabled: ${SCHEDULER_IM_ENABLED:false}
+      base-url: ${SCHEDULER_IM_BASE_URL:http://127.0.0.1:10000/api}
+      app-code: ${SCHEDULER_IM_APP_CODE:scheduler}
+      app-secret: ${SCHEDULER_IM_APP_SECRET:}
+      tenant-id: ${SCHEDULER_IM_TENANT_ID:default}
+      callback-url: ${SCHEDULER_IM_CALLBACK_URL:}
+      callback-secret: ${SCHEDULER_IM_CALLBACK_SECRET:}
+      recipient-user-ids: ${SCHEDULER_IM_RECIPIENT_USER_IDS:}
+      channels: ${SCHEDULER_IM_CHANNELS:LOCAL}
+      batch-size: ${SCHEDULER_IM_BATCH_SIZE:100}
+      max-retry-count: ${SCHEDULER_IM_MAX_RETRY_COUNT:8}
+      processing-timeout-minutes: ${SCHEDULER_IM_PROCESSING_TIMEOUT_MINUTES:5}
+      dispatch-delay-ms: ${SCHEDULER_IM_DISPATCH_DELAY_MS:5000}
+      recovery-delay-ms: ${SCHEDULER_IM_RECOVERY_DELAY_MS:60000}

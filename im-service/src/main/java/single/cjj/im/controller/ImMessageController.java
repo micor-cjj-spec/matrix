@@ -20,6 +20,7 @@ import single.cjj.im.domain.ImModels.TemplateUpsertRequest;
 import single.cjj.im.realtime.RealtimeNotificationService;
 import single.cjj.im.security.OpenApiSignatureFilter;
 import single.cjj.im.service.MessageCommandService;
+import single.cjj.im.service.ReliableMessageFacade;
 
 import java.util.List;
 import java.util.Map;
@@ -28,11 +29,14 @@ import java.util.Map;
 public class ImMessageController {
 
     private final MessageCommandService messageService;
+    private final ReliableMessageFacade reliableMessageFacade;
     private final RealtimeNotificationService realtimeService;
 
     public ImMessageController(MessageCommandService messageService,
+                               ReliableMessageFacade reliableMessageFacade,
                                RealtimeNotificationService realtimeService) {
         this.messageService = messageService;
+        this.reliableMessageFacade = reliableMessageFacade;
         this.realtimeService = realtimeService;
     }
 
@@ -40,14 +44,14 @@ public class ImMessageController {
     public ApiResponse<AcceptedResponse> send(
             @RequestAttribute(OpenApiSignatureFilter.APP_CODE_ATTRIBUTE) String appCode,
             @Valid @RequestBody SendMessageRequest request) {
-        return ApiResponse.success("消息已可靠受理", messageService.acceptDirect(appCode, request));
+        return ApiResponse.success("消息已可靠受理", reliableMessageFacade.acceptDirect(appCode, request));
     }
 
     @PostMapping("/open-api/v1/messages/template-send")
     public ApiResponse<AcceptedResponse> templateSend(
             @RequestAttribute(OpenApiSignatureFilter.APP_CODE_ATTRIBUTE) String appCode,
             @Valid @RequestBody SendMessageRequest request) {
-        return ApiResponse.success("模板消息已可靠受理", messageService.acceptTemplate(appCode, request));
+        return ApiResponse.success("模板消息已可靠受理", reliableMessageFacade.acceptTemplate(appCode, request));
     }
 
     @GetMapping("/open-api/v1/messages/{messageNo}")

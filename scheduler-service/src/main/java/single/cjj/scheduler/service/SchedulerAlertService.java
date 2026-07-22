@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,16 +24,20 @@ public class SchedulerAlertService {
     private final MatrixSchedulerAlertRecordMapper alertMapper;
     private final MatrixSchedulerExecutionMapper executionMapper;
     private final MatrixSchedulerExecutorMapper executorMapper;
+    private final SchedulerImNotificationService imNotificationService;
 
     public SchedulerAlertService(MatrixSchedulerAlertRecordMapper alertMapper,
                                  MatrixSchedulerExecutionMapper executionMapper,
-                                 MatrixSchedulerExecutorMapper executorMapper) {
+                                 MatrixSchedulerExecutorMapper executorMapper,
+                                 SchedulerImNotificationService imNotificationService) {
         this.alertMapper = alertMapper;
         this.executionMapper = executionMapper;
         this.executorMapper = executorMapper;
+        this.imNotificationService = imNotificationService;
     }
 
     @Scheduled(fixedDelayString = "${matrix.scheduler.alert.scan-ms:30000}")
+    @Transactional(rollbackFor = Exception.class)
     public void scan() {
         scanExecutionFailures();
         scanOfflineExecutors();
@@ -112,11 +115,6 @@ public class SchedulerAlertService {
                                 String level,
                                 String title,
                                 String content) {
-        Long count = alertMapper.selectCount(new LambdaQueryWrapper<MatrixSchedulerAlertRecord>()
-                .eq(MatrixSchedulerAlertRecord::getFdedupeKey, dedupeKey));
-        if (count != null && count > 0) {
-            return;
-        }
         LocalDateTime now = LocalDateTime.now();
         MatrixSchedulerAlertRecord alert = new MatrixSchedulerAlertRecord();
         alert.setFid(IdWorker.getId());
@@ -131,10 +129,8 @@ public class SchedulerAlertService {
         alert.setFstatus("PENDING");
         alert.setFcreateTime(now);
         alert.setFupdateTime(now);
-        try {
-            alertMapper.insert(alert);
-        } catch (DuplicateKeyException ignored) {
-            // 多实例扫描时由唯一键完成最终去重。
+        if (alertMapper.insertIgnore(alert) > 0) {
+            imNotificationService.enqueue(alert);
         }
     }
 
