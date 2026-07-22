@@ -10,10 +10,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.botp.domain.BotpContracts.ExecutionDetails;
+import single.cjj.botp.domain.BotpContracts.ExecutionLog;
 import single.cjj.botp.domain.BotpContracts.ExecutionRequest;
 import single.cjj.botp.domain.BotpContracts.ExecutionResult;
 import single.cjj.botp.domain.BotpContracts.PreviewResult;
+import single.cjj.botp.execution.BotpExecutionLogRepository;
 import single.cjj.botp.execution.BotpExecutionService;
+import single.cjj.botp.execution.BotpRecoveryService;
 
 import java.util.List;
 
@@ -22,9 +25,17 @@ import java.util.List;
 public class BotpExecutionController {
 
     private final BotpExecutionService executionService;
+    private final BotpRecoveryService recoveryService;
+    private final BotpExecutionLogRepository logRepository;
 
-    public BotpExecutionController(BotpExecutionService executionService) {
+    public BotpExecutionController(
+            BotpExecutionService executionService,
+            BotpRecoveryService recoveryService,
+            BotpExecutionLogRepository logRepository
+    ) {
         this.executionService = executionService;
+        this.recoveryService = recoveryService;
+        this.logRepository = logRepository;
     }
 
     @PostMapping("/preview")
@@ -45,9 +56,22 @@ public class BotpExecutionController {
     }
 
     @GetMapping("/{executionId}")
-    public ApiResponse<ExecutionResult> getExecution(
-            @PathVariable("executionId") String executionId
-    ) {
+    public ApiResponse<ExecutionResult> getExecution(@PathVariable("executionId") String executionId) {
         return ApiResponse.success(executionService.getById(executionId));
+    }
+
+    @GetMapping("/{executionId}/logs")
+    public ApiResponse<List<ExecutionLog>> logs(@PathVariable("executionId") String executionId) {
+        return ApiResponse.success(logRepository.findByExecutionId(executionId));
+    }
+
+    @PostMapping("/{executionId}/resume")
+    public ApiResponse<ExecutionDetails> resume(@PathVariable("executionId") String executionId) {
+        return ApiResponse.success(recoveryService.resume(executionId));
+    }
+
+    @PostMapping("/{executionId}/retry-writeback")
+    public ApiResponse<ExecutionDetails> retryWriteback(@PathVariable("executionId") String executionId) {
+        return ApiResponse.success(recoveryService.retryWriteback(executionId));
     }
 }

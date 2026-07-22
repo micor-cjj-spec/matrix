@@ -49,13 +49,44 @@ public final class BotpContracts {
         SUCCEEDED,
         FAILED,
         REVERSE_PENDING,
+        REVERSING,
         REVERSED
     }
 
     public enum RelationStatus {
+        PENDING,
         ACTIVE,
         INVALID,
+        REVERSING,
         REVERSED
+    }
+
+    public enum WritebackTaskType {
+        FORWARD_WRITEBACK,
+        REVERSE_WRITEBACK,
+        RECOMPUTE_WRITEBACK
+    }
+
+    public enum TaskStatus {
+        PENDING,
+        PROCESSING,
+        SUCCEEDED,
+        FAILED,
+        DEAD
+    }
+
+    public enum ReconciliationIssueType {
+        SOURCE_AMOUNT_MISMATCH,
+        TARGET_VOID_RELATION_ACTIVE,
+        EXECUTION_TARGET_WITHOUT_RELATION,
+        TARGET_EXISTS_EXECUTION_INCOMPLETE
+    }
+
+    public enum ReconciliationStatus {
+        OPEN,
+        PROCESSING,
+        FIXED,
+        IGNORED
     }
 
     public record FieldMapping(
@@ -213,7 +244,92 @@ public final class BotpContracts {
             TargetResult targetDocument,
             BigDecimal allocatedAmount,
             RelationStatus status,
-            LocalDateTime createdTime
+            String targetStatus,
+            String lastEventId,
+            String invalidReason,
+            LocalDateTime createdTime,
+            LocalDateTime invalidTime,
+            LocalDateTime reversedTime
+    ) {
+    }
+
+    public record ExecutionLog(
+            Long logId,
+            String executionId,
+            String stage,
+            TaskStatus status,
+            String message,
+            String requestSnapshot,
+            String responseSnapshot,
+            String exceptionType,
+            LocalDateTime startTime,
+            LocalDateTime finishTime
+    ) {
+    }
+
+    public record WritebackTask(
+            Long taskId,
+            String tenantId,
+            String executionId,
+            Long relationId,
+            DocumentRef sourceDocument,
+            TargetResult targetDocument,
+            WritebackTaskType taskType,
+            TaskStatus status,
+            BigDecimal activeAllocatedAmount,
+            BigDecimal releaseReservedAmount,
+            int retryCount,
+            LocalDateTime nextRetryTime,
+            String errorMessage,
+            LocalDateTime createdTime,
+            LocalDateTime finishTime
+    ) {
+    }
+
+    public record ReconciliationIssue(
+            Long issueId,
+            String tenantId,
+            ReconciliationIssueType issueType,
+            ReconciliationStatus status,
+            String executionId,
+            Long relationId,
+            DocumentRef sourceDocument,
+            TargetResult targetDocument,
+            BigDecimal expectedAmount,
+            BigDecimal actualAmount,
+            String description,
+            String resolution,
+            LocalDateTime detectedTime,
+            LocalDateTime resolvedTime
+    ) {
+    }
+
+    public record TargetStatusEvent(
+            @NotBlank String eventId,
+            @NotBlank String tenantId,
+            @NotBlank String targetSystemCode,
+            @NotBlank String targetDocumentType,
+            @NotBlank String targetDocumentId,
+            @NotBlank String targetStatus,
+            String reason,
+            String operator,
+            LocalDateTime eventTime
+    ) {
+        public TargetStatusEvent {
+            eventTime = eventTime == null ? LocalDateTime.now() : eventTime;
+        }
+    }
+
+    public record RelationInvalidateRequest(
+            @NotBlank String eventId,
+            @NotBlank String reason,
+            String operator
+    ) {
+    }
+
+    public record ReconciliationActionRequest(
+            String resolution,
+            String operator
     ) {
     }
 
@@ -247,9 +363,7 @@ public final class BotpContracts {
         if (values == null) {
             return List.of();
         }
-        return values.stream()
-                .map(BotpContracts::immutableMap)
-                .toList();
+        return values.stream().map(BotpContracts::immutableMap).toList();
     }
 
     private static Map<String, Object> immutableMap(Map<String, Object> values) {
