@@ -5,6 +5,7 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -46,9 +47,10 @@ public class SchedulerClientAutoConfiguration {
     }
 
     @Bean
-    public Binding schedulerClientBinding(Queue schedulerClientQueue,
-                                          TopicExchange schedulerClientExchange,
-                                          SchedulerClientProperties properties) {
+    public Binding schedulerClientBinding(
+            @Qualifier("schedulerClientQueue") Queue schedulerClientQueue,
+            TopicExchange schedulerClientExchange,
+            SchedulerClientProperties properties) {
         return BindingBuilder.bind(schedulerClientQueue)
                 .to(schedulerClientExchange)
                 .with("scheduler.execute." + properties.requiredExecutorCode());
