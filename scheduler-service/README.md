@@ -8,8 +8,11 @@ Matrix 定时任务调度中心。Quartz 负责触发，业务事务负责生成
 2. 依次执行：
    - `src/main/resources/db/migration/V1__scheduler_core.sql`
    - `src/main/resources/db/migration/V2__scheduler_executor_reliability.sql`
+   - `src/main/resources/db/migration/V3__scheduler_operations_observability.sql`
 3. 执行 Quartz 2.x 官方 MySQL InnoDB 建表脚本，保留默认 `QRTZ_` 前缀。
-4. 在 Nacos 创建 `scheduler-service.yaml`，配置数据源、RabbitMQ 和内部令牌：
+4. `fi-service` 所在业务库执行：
+   - `fi-service/src/main/resources/db/migration/V1__scheduler_financial_reports.sql`
+5. 在 Nacos 创建 `scheduler-service.yaml`，配置数据源、RabbitMQ 和内部令牌：
 
 ```yaml
 spring:
@@ -28,8 +31,8 @@ matrix:
     internal-token: ${SCHEDULER_INTERNAL_TOKEN}
 ```
 
-5. `base-service` 等执行器服务必须配置相同的 `SCHEDULER_INTERNAL_TOKEN` 和 RabbitMQ 连接。
-6. 在网关 Nacos 配置中增加路由：
+6. `base-service`、`fi-service` 等执行器服务必须配置相同的 `SCHEDULER_INTERNAL_TOKEN`、`SCHEDULER_BASE_URL` 和 RabbitMQ 连接。
+7. 在网关 Nacos 配置中增加路由：
 
 ```yaml
 spring:
@@ -64,6 +67,7 @@ spring:
 public class DatabaseHealthCheckJob implements MatrixJob {
     @Override
     public JobResult execute(JobContext context) {
+        context.reportProgress(50, "CHECKING", "正在检查数据库连接");
         return JobResult.success();
     }
 }
@@ -76,6 +80,7 @@ public class DatabaseHealthCheckJob implements MatrixJob {
 - 定时心跳。
 - 创建本地 `matrix_scheduler_execution_record` 幂等表。
 - 消费消息并回调 RUNNING/SUCCESS/FAILED。
+- 上报 0-100 的执行进度、阶段和说明。
 
 ## RabbitMQ 路由
 
@@ -98,11 +103,63 @@ scheduler.execute.{executorCode}
 - RUNNING 超过任务 timeoutSeconds 自动超时。
 - SERIAL 任务进入 WAITING，通过数据库条件更新竞争唤醒。
 - 执行器超过 90 秒未心跳标记 OFFLINE。
+- 进度回调只能单调增加，终态实例不再接受进度。
+
+## 人工补偿与告警
+
+运行中心路由：`/scheduler/operations`
+
+支持：
+
+- 立即重试
+- 终止重试
+- 取消
+- 跳过
+- 人工标记成功
+- 操作审计日志
+- 最终失败、超时、DEAD 和执行器离线告警
+- 告警确认
+
+当前告警已完成落库与页面处理，尚未接通 IM、邮件或飞书投递。
+
+## 已接入 Handler
+
+### base-service
+
+- `database-health-check`
+
+### fi-service
+
+- `voucher-period-check`
+- `financial-report-generate`
+- `period-close-precheck`
+
+财务任务通用参数：
+
+```json
+{
+  "period": "2026-07",
+  "bookId": "optional-book-id"
+}
+```
+
+## 监控
+
+Actuator Prometheus 指标包括：
+
+```text
+matrix_scheduler_execution_active
+matrix_scheduler_execution_waiting
+matrix_scheduler_execution_retry_wait
+matrix_scheduler_executor_online
+matrix_scheduler_outbox_pending
+matrix_scheduler_alert_pending
+```
 
 ## 验证
 
 ```bash
-mvn -B -pl scheduler-service,base-service -am test
+mvn -B -pl scheduler-service,base-service,fi-service -am test
 ```
 
 前端：
@@ -114,6 +171,6 @@ npm run build
 
 ## 当前边界
 
-- 已实现调度控制面、执行器接入、幂等、心跳、失败重试、超时和 SERIAL 排队。
-- 已接入 `base-service/database-health-check` 作为首个真实 Handler。
-- 尚未完成生产部署联调、告警看板、任务分片和 DAG。
+- 已实现调度控制面、执行器接入、幂等、心跳、失败重试、超时、SERIAL 排队、执行进度、人工补偿、告警落库和运行看板。
+- 已接入基础服务与财务服务真实 Handler。
+- 尚未完成生产部署联调、告警渠道投递、协作式取消、任务分片和 DAG。
