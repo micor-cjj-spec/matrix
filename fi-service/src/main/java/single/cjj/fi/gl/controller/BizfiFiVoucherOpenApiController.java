@@ -3,9 +3,13 @@ package single.cjj.fi.gl.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,9 +20,13 @@ import single.cjj.fi.gl.entity.BizfiFiVoucher;
 import single.cjj.fi.gl.entity.BizfiFiVoucherLine;
 import single.cjj.fi.gl.service.BizfiFiVoucherService;
 import single.cjj.openapi.contract.OpenApiPageResponse;
+import single.cjj.openapi.contract.OpenVoucherDraftCreateCommand;
+import single.cjj.openapi.contract.OpenVoucherDraftCreateResult;
+import single.cjj.openapi.contract.OpenVoucherDraftLineCommand;
 import single.cjj.openapi.contract.OpenVoucherLineResponse;
 import single.cjj.openapi.contract.OpenVoucherResponse;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -27,8 +35,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 仅供 openapi-service 调用的凭证只读适配器。
- * 所有租户、组织、账簿和状态权限均在 SQL 条件中执行。
+ * 仅供 openapi-service 调用的凭证适配器。
+ * 查询按租户、组织、账簿和状态在 SQL 中过滤；写入仅创建草稿。
  */
 @RestController
 @RequestMapping("/internal/openapi/v1/vouchers")
@@ -45,6 +53,48 @@ public class BizfiFiVoucherOpenApiController {
 
     public BizfiFiVoucherOpenApiController(BizfiFiVoucherService voucherService) {
         this.voucherService = voucherService;
+    }
+
+    @PostMapping("/drafts")
+    @Transactional(rollbackFor = Exception.class)
+    public ApiResponse<OpenVoucherDraftCreateResult> createDraft(
+            @RequestBody OpenVoucherDraftCreateCommand command) {
+        validateDraftCommand(command);
+        BizfiFiVoucher existing = findBySourceRequest(command.getTenantId(), command.getSourceRequestId());
+        if (existing != null) {
+            return ApiResponse.success(toDraftResult(existing));
+        }
+
+        BizfiFiVoucher voucher = new BizfiFiVoucher();
+        voucher.setTenantId(command.getTenantId().trim());
+        voucher.setOrganizationId(command.getOrganizationId().trim());
+        voucher.setBookId(command.getBookId().trim());
+        voucher.setSourceRequestId(command.getSourceRequestId().trim());
+        voucher.setFdate(command.getVoucherDate());
+        voucher.setFsummary(command.getSummary().trim());
+        voucher.setFamount(command.getLines().stream()
+                .map(OpenVoucherDraftLineCommand::getDebitAmount)
+                .map(this::amount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        voucher.setFcreatedBy(StringUtils.hasText(command.getCreatedBy())
+                ? command.getCreatedBy().trim() : "openapi");
+
+        BizfiFiVoucher saved;
+        try {
+            saved = voucherService.saveDraft(voucher);
+        } catch (DuplicateKeyException e) {
+            BizfiFiVoucher concurrent = findBySourceRequest(command.getTenantId(), command.getSourceRequestId());
+            if (concurrent != null) {
+                return ApiResponse.success(toDraftResult(concurrent));
+            }
+            throw e;
+        }
+
+        List<BizfiFiVoucherLine> lines = command.getLines().stream()
+                .map(this::toVoucherLine)
+                .collect(Collectors.toList());
+        voucherService.saveLines(saved.getFid(), lines);
+        return ApiResponse.success(toDraftResult(voucherService.get(saved.getFid())));
     }
 
     @GetMapping
@@ -141,6 +191,71 @@ public class BizfiFiVoucherOpenApiController {
             return ApiResponse.success(Collections.emptyList());
         }
         return ApiResponse.success(lines.stream().map(this::toOpenLine).collect(Collectors.toList()));
+    }
+
+    private void validateDraftCommand(OpenVoucherDraftCreateCommand command) {
+        if (command == null
+                || !StringUtils.hasText(command.getSourceRequestId())
+                || !StringUtils.hasText(command.getTenantId())
+                || !StringUtils.hasText(command.getOrganizationId())
+                || !StringUtils.hasText(command.getBookId())
+                || command.getVoucherDate() == null
+                || !StringUtils.hasText(command.getSummary())) {
+            throw new BizException("凭证草稿写入参数不完整");
+        }
+        if (command.getLines() == null || command.getLines().size() < 2) {
+            throw new BizException("凭证至少需要2条分录");
+        }
+        BigDecimal debit = BigDecimal.ZERO;
+        BigDecimal credit = BigDecimal.ZERO;
+        int index = 1;
+        for (OpenVoucherDraftLineCommand line : command.getLines()) {
+            if (line == null || !StringUtils.hasText(line.getAccountCode())) {
+                throw new BizException("第" + index + "行科目不能为空");
+            }
+            BigDecimal lineDebit = amount(line.getDebitAmount());
+            BigDecimal lineCredit = amount(line.getCreditAmount());
+            if (lineDebit.signum() < 0 || lineCredit.signum() < 0
+                    || (lineDebit.signum() == 0) == (lineCredit.signum() == 0)) {
+                throw new BizException("第" + index + "行借贷金额不合法");
+            }
+            debit = debit.add(lineDebit);
+            credit = credit.add(lineCredit);
+            index++;
+        }
+        if (debit.compareTo(credit) != 0) {
+            throw new BizException("凭证借贷金额不平衡");
+        }
+    }
+
+    private BizfiFiVoucher findBySourceRequest(String tenantId, String sourceRequestId) {
+        return voucherService.getOne(new LambdaQueryWrapper<BizfiFiVoucher>()
+                .eq(BizfiFiVoucher::getTenantId, tenantId.trim())
+                .eq(BizfiFiVoucher::getSourceRequestId, sourceRequestId.trim()), false);
+    }
+
+    private BizfiFiVoucherLine toVoucherLine(OpenVoucherDraftLineCommand source) {
+        BizfiFiVoucherLine line = new BizfiFiVoucherLine();
+        line.setFlineNo(source.getLineNo());
+        line.setFaccountCode(source.getAccountCode());
+        line.setFsummary(source.getSummary());
+        line.setFdebitAmount(source.getDebitAmount());
+        line.setFcreditAmount(source.getCreditAmount());
+        line.setFcurrency(source.getCurrency());
+        line.setFrate(source.getRate());
+        line.setForiginalAmount(source.getOriginalAmount());
+        line.setFcashflowItem(source.getCashflowItem());
+        return line;
+    }
+
+    private OpenVoucherDraftCreateResult toDraftResult(BizfiFiVoucher voucher) {
+        return new OpenVoucherDraftCreateResult(
+                voucher.getFid(), voucher.getFnumber(), voucher.getFstatus()
+        );
+    }
+
+    private BigDecimal amount(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private BizfiFiVoucher requireAllowedVoucher(Long voucherId,

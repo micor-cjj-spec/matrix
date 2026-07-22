@@ -32,6 +32,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -43,6 +44,7 @@ public class OpenApiAuthenticationFilter extends OncePerRequestFilter {
     private static final String NONCE_HEADER = "X-Matrix-Nonce";
     private static final String SIGNATURE_HEADER = "X-Matrix-Signature";
     private static final String REQUEST_ID_HEADER = "X-Matrix-Request-Id";
+    private static final Set<String> ALLOWED_METHODS = Set.of("GET", "POST");
 
     private final OpenApiAppMapper appMapper;
     private final OpenApiDefinitionMapper definitionMapper;
@@ -54,6 +56,7 @@ public class OpenApiAuthenticationFilter extends OncePerRequestFilter {
     private final ObjectMapper objectMapper;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
     private final long replayWindowSeconds;
+    private final int maxRequestBodyBytes;
 
     public OpenApiAuthenticationFilter(OpenApiAppMapper appMapper,
                                        OpenApiDefinitionMapper definitionMapper,
@@ -63,7 +66,8 @@ public class OpenApiAuthenticationFilter extends OncePerRequestFilter {
                                        OpenApiSignatureService signatureService,
                                        StringRedisTemplate redisTemplate,
                                        ObjectMapper objectMapper,
-                                       @Value("${matrix.openapi.replay-window-seconds:300}") long replayWindowSeconds) {
+                                       @Value("${matrix.openapi.replay-window-seconds:300}") long replayWindowSeconds,
+                                       @Value("${matrix.openapi.max-request-body-bytes:1048576}") int maxRequestBodyBytes) {
         this.appMapper = appMapper;
         this.definitionMapper = definitionMapper;
         this.grantMapper = grantMapper;
@@ -73,6 +77,7 @@ public class OpenApiAuthenticationFilter extends OncePerRequestFilter {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.replayWindowSeconds = Math.max(60, replayWindowSeconds);
+        this.maxRequestBodyBytes = Math.max(1024, maxRequestBodyBytes);
     }
 
     @Override
@@ -91,34 +96,46 @@ public class OpenApiAuthenticationFilter extends OncePerRequestFilter {
         String errorMessage = null;
         OpenApiApp app = null;
         OpenApiDefinition definition = null;
+        HttpServletRequest effectiveRequest = request;
 
         response.setHeader(REQUEST_ID_HEADER, requestId);
 
         try {
-            if (!"GET".equalsIgnoreCase(request.getMethod())) {
-                throw new OpenApiAuthException("OPENAPI_40001", "第一阶段只支持GET请求", 405);
+            String method = request.getMethod().toUpperCase();
+            if (!ALLOWED_METHODS.contains(method)) {
+                throw new OpenApiAuthException("OPENAPI_40001", "开放平台当前只支持GET和POST请求", 405);
             }
 
-            String appKey = requiredHeader(request, APP_KEY_HEADER, "OPENAPI_40101", "AppKey缺失");
-            String timestamp = requiredHeader(request, TIMESTAMP_HEADER, "OPENAPI_40103", "时间戳缺失");
-            String nonce = requiredHeader(request, NONCE_HEADER, "OPENAPI_40104", "Nonce缺失");
-            String signature = requiredHeader(request, SIGNATURE_HEADER, "OPENAPI_40102", "签名缺失");
+            byte[] requestBody = new byte[0];
+            if ("POST".equals(method)) {
+                CachedBodyHttpServletRequest cachedRequest = new CachedBodyHttpServletRequest(request);
+                requestBody = cachedRequest.getCachedBody();
+                if (requestBody.length > maxRequestBodyBytes) {
+                    throw new OpenApiAuthException("OPENAPI_41301", "请求体超过开放平台大小限制", 413);
+                }
+                effectiveRequest = cachedRequest;
+            }
+
+            String appKey = requiredHeader(effectiveRequest, APP_KEY_HEADER, "OPENAPI_40101", "AppKey缺失");
+            String timestamp = requiredHeader(effectiveRequest, TIMESTAMP_HEADER, "OPENAPI_40103", "时间戳缺失");
+            String nonce = requiredHeader(effectiveRequest, NONCE_HEADER, "OPENAPI_40104", "Nonce缺失");
+            String signature = requiredHeader(effectiveRequest, SIGNATURE_HEADER, "OPENAPI_40102", "签名缺失");
 
             validateTimestamp(timestamp);
             app = findApp(appKey);
             validateApp(app);
 
-            String path = relativePath(request);
-            definition = findDefinition(request.getMethod(), path);
+            String path = relativePath(effectiveRequest);
+            definition = findDefinition(method, path);
             OpenApiGrant grant = findGrant(app.getId(), definition.getId());
             validateGrant(grant);
-            validateIp(app, clientIp(request));
+            validateIp(app, clientIp(effectiveRequest));
 
             String canonicalRequest = signatureService.canonicalRequest(
-                    request.getMethod(),
+                    method,
                     path,
-                    request.getParameterMap(),
-                    new byte[0],
+                    effectiveRequest.getParameterMap(),
+                    requestBody,
                     timestamp,
                     nonce
             );
@@ -133,11 +150,15 @@ public class OpenApiAuthenticationFilter extends OncePerRequestFilter {
             validateNonce(app.getAppKey(), nonce);
             validateRateLimit(app, definition);
 
-            request.setAttribute(
+            effectiveRequest.setAttribute(
                     OpenApiContext.REQUEST_ATTRIBUTE,
                     new OpenApiContext(requestId, app, definition, grant)
             );
-            filterChain.doFilter(request, response);
+            effectiveRequest.setAttribute(
+                    OpenApiContext.REQUEST_BODY_HASH_ATTRIBUTE,
+                    signatureService.sha256Hex(requestBody)
+            );
+            filterChain.doFilter(effectiveRequest, response);
         } catch (OpenApiAuthException e) {
             errorCode = e.getCode();
             errorMessage = e.getMessage();
@@ -151,7 +172,7 @@ public class OpenApiAuthenticationFilter extends OncePerRequestFilter {
             }
         } finally {
             writeRequestLog(
-                    request,
+                    effectiveRequest,
                     response,
                     requestId,
                     requestTime,
