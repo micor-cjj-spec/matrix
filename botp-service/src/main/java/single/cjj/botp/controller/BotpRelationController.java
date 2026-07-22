@@ -1,11 +1,19 @@
 package single.cjj.botp.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.botp.domain.BotpContracts.DocumentRelation;
+import single.cjj.botp.domain.BotpContracts.RelationInvalidateRequest;
+import single.cjj.botp.domain.BotpContracts.TargetStatusEvent;
+import single.cjj.botp.domain.BotpContracts.WritebackTask;
+import single.cjj.botp.relation.BotpRelationLifecycleService;
 import single.cjj.botp.relation.BotpRelationRepository;
 
 import java.util.List;
@@ -15,9 +23,14 @@ import java.util.List;
 public class BotpRelationController {
 
     private final BotpRelationRepository repository;
+    private final BotpRelationLifecycleService lifecycleService;
 
-    public BotpRelationController(BotpRelationRepository repository) {
+    public BotpRelationController(
+            BotpRelationRepository repository,
+            BotpRelationLifecycleService lifecycleService
+    ) {
         this.repository = repository;
+        this.lifecycleService = lifecycleService;
     }
 
     @GetMapping
@@ -28,5 +41,25 @@ public class BotpRelationController {
             @RequestParam(value = "limit", defaultValue = "50") int limit
     ) {
         return ApiResponse.success(repository.find(tenantId, sourceDocumentId, targetDocumentId, limit));
+    }
+
+    @PostMapping("/target-events")
+    public ApiResponse<List<DocumentRelation>> targetStatusEvent(
+            @Valid @RequestBody TargetStatusEvent event
+    ) {
+        return ApiResponse.success(lifecycleService.handleTargetStatusEvent(event));
+    }
+
+    @PostMapping("/{relationId}/invalidate")
+    public ApiResponse<DocumentRelation> invalidate(
+            @PathVariable("relationId") Long relationId,
+            @Valid @RequestBody RelationInvalidateRequest request
+    ) {
+        return ApiResponse.success(lifecycleService.invalidateManually(relationId, request));
+    }
+
+    @PostMapping("/{relationId}/recompute")
+    public ApiResponse<WritebackTask> recompute(@PathVariable("relationId") Long relationId) {
+        return ApiResponse.success(lifecycleService.recompute(relationId));
     }
 }

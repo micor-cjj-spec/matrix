@@ -7,6 +7,7 @@ import single.cjj.botp.domain.BotpContracts.TargetResult;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 public interface BotpRelationRepository {
 
@@ -21,5 +22,25 @@ public interface BotpRelationRepository {
 
     BigDecimal sumActiveAmount(String tenantId, DocumentRef source);
 
+    Optional<DocumentRelation> findById(Long relationId);
+
+    List<DocumentRelation> findByTarget(String tenantId, String targetDocumentId);
+
     List<DocumentRelation> find(String tenantId, String sourceDocumentId, String targetDocumentId, int limit);
+
+    List<DocumentRelation> findActive(int limit);
+
+    List<DocumentRelation> invalidateByTarget(
+            String tenantId,
+            String targetDocumentId,
+            String eventId,
+            String targetStatus,
+            String reason
+    );
+
+    DocumentRelation invalidateById(Long relationId, String eventId, String reason);
+
+    DocumentRelation markReversing(Long relationId);
+
+    DocumentRelation markReversed(Long relationId);
 }

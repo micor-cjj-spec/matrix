@@ -8,6 +8,7 @@ import single.cjj.botp.adapter.BotpAdapterRegistry;
 import single.cjj.botp.adapter.BotpDocumentAdapter;
 import single.cjj.botp.domain.BotpContracts.DocumentData;
 import single.cjj.botp.domain.BotpContracts.DocumentRef;
+import single.cjj.botp.domain.BotpContracts.DocumentRelation;
 import single.cjj.botp.domain.BotpContracts.ExecutionDetails;
 import single.cjj.botp.domain.BotpContracts.ExecutionMode;
 import single.cjj.botp.domain.BotpContracts.ExecutionRequest;
@@ -17,11 +18,14 @@ import single.cjj.botp.domain.BotpContracts.PreviewResult;
 import single.cjj.botp.domain.BotpContracts.RuleDefinition;
 import single.cjj.botp.domain.BotpContracts.TargetDraft;
 import single.cjj.botp.domain.BotpContracts.TargetResult;
+import single.cjj.botp.domain.BotpContracts.TaskStatus;
 import single.cjj.botp.domain.BotpContracts.WritebackCommand;
 import single.cjj.botp.engine.BotpMappingEngine;
 import single.cjj.botp.relation.BotpRelationRepository;
 import single.cjj.botp.relation.InMemoryBotpRelationRepository;
 import single.cjj.botp.rule.BotpRuleRepository;
+import single.cjj.botp.writeback.BotpWritebackService;
+import single.cjj.botp.writeback.InMemoryBotpWritebackTaskRepository;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -38,6 +42,8 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
     private final BotpMappingEngine mappingEngine;
     private final BotpExecutionStore executionStore;
     private final BotpRelationRepository relationRepository;
+    private final BotpExecutionLogRepository logRepository;
+    private final BotpWritebackService writebackService;
 
     @Autowired
     public DefaultBotpExecutionService(
@@ -45,29 +51,38 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
             BotpAdapterRegistry adapterRegistry,
             BotpMappingEngine mappingEngine,
             BotpExecutionStore executionStore,
-            BotpRelationRepository relationRepository
+            BotpRelationRepository relationRepository,
+            BotpExecutionLogRepository logRepository,
+            BotpWritebackService writebackService
     ) {
         this.ruleRepository = ruleRepository;
         this.adapterRegistry = adapterRegistry;
         this.mappingEngine = mappingEngine;
         this.executionStore = executionStore;
         this.relationRepository = relationRepository;
+        this.logRepository = logRepository;
+        this.writebackService = writebackService;
     }
 
-    /**
-     * 保留给纯单元测试和嵌入式调用，生产环境使用上面的 Spring 构造器。
-     */
+    /** 保留给纯单元测试和嵌入式调用。 */
     public DefaultBotpExecutionService(
             BotpRuleRepository ruleRepository,
             BotpAdapterRegistry adapterRegistry,
             BotpMappingEngine mappingEngine
     ) {
+        this(ruleRepository, adapterRegistry, mappingEngine, createTestDependencies(adapterRegistry));
+    }
+
+    private DefaultBotpExecutionService(
+            BotpRuleRepository ruleRepository,
+            BotpAdapterRegistry adapterRegistry,
+            BotpMappingEngine mappingEngine,
+            TestDependencies dependencies
+    ) {
         this(
-                ruleRepository,
-                adapterRegistry,
-                mappingEngine,
-                new InMemoryBotpExecutionStore(),
-                new InMemoryBotpRelationRepository()
+                ruleRepository, adapterRegistry, mappingEngine,
+                dependencies.executionStore(), dependencies.relationRepository(),
+                dependencies.logRepository(), dependencies.writebackService()
         );
     }
 
@@ -75,11 +90,9 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
     public PreviewResult preview(ExecutionRequest request) {
         RuleDefinition rule = requirePublishedRule(request.ruleCode());
         List<SourceAndDraft> transformed = transformSources(request, rule, "PREVIEW");
-        List<TargetDraft> drafts = transformed.stream()
-                .map(SourceAndDraft::targetDraft)
-                .toList();
+        List<TargetDraft> drafts = transformed.stream().map(SourceAndDraft::targetDraft).toList();
         List<String> warnings = drafts.size() > 1
-                ? List.of("V2 仍按源单逐张生成目标草稿，尚未启用多源合并")
+                ? List.of("V3 仍按源单逐张生成目标草稿，尚未启用多源合并")
                 : List.of();
         return new PreviewResult(rule.ruleCode(), rule.version(), drafts, warnings);
     }
@@ -87,14 +100,11 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
     @Override
     public synchronized ExecutionResult execute(ExecutionRequest request) {
         if (request.executionMode() == ExecutionMode.ASYNC) {
-            throw new BizException("BOTP V2 当前仅开放 SYNC 执行");
+            throw new BizException("BOTP V3 当前仅开放 SYNC 创建，失败补偿由异步任务执行");
         }
 
         ExecutionDetails existing = executionStore.findByRequest(
-                request.tenantId(),
-                request.sourceSystem(),
-                request.requestId()
-        ).orElse(null);
+                request.tenantId(), request.sourceSystem(), request.requestId()).orElse(null);
         if (existing != null) {
             return existing.toResult();
         }
@@ -112,13 +122,12 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
         List<TargetResult> targets = new ArrayList<>();
         try {
             save(request, rule, executionId, ExecutionStatus.VALIDATING, targets, null);
+            save(request, rule, executionId, ExecutionStatus.SOURCE_LOADING, targets, null);
             List<SourceAndDraft> transformed = transformSources(request, rule, executionId);
             save(request, rule, executionId, ExecutionStatus.TRANSFORMING, targets, null);
 
             BotpDocumentAdapter targetAdapter = adapterRegistry.require(
-                    rule.targetSystemCode(),
-                    rule.targetDocumentType()
-            );
+                    rule.targetSystemCode(), rule.targetDocumentType());
 
             for (int index = 0; index < transformed.size(); index++) {
                 SourceAndDraft sourceAndDraft = transformed.get(index);
@@ -130,20 +139,13 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
                 save(request, rule, executionId, ExecutionStatus.TARGET_CREATED, targets, null);
 
                 save(request, rule, executionId, ExecutionStatus.RELATION_SAVING, targets, null);
-                relationRepository.saveActive(
-                        request.tenantId(),
-                        executionId,
-                        rule,
-                        sourceAndDraft.sourceDocument().reference(),
-                        target,
-                        sourceAndDraft.allocatedAmount()
-                );
+                DocumentRelation relation = relationRepository.saveActive(
+                        request.tenantId(), executionId, rule,
+                        sourceAndDraft.sourceDocument().reference(), target, sourceAndDraft.allocatedAmount());
                 save(request, rule, executionId, ExecutionStatus.RELATION_SAVED, targets, null);
 
                 BigDecimal activeAmount = relationRepository.sumActiveAmount(
-                        request.tenantId(),
-                        sourceAndDraft.sourceDocument().reference()
-                );
+                        request.tenantId(), sourceAndDraft.sourceDocument().reference());
                 Map<String, Object> writebackContext = new LinkedHashMap<>(sourceAndDraft.context());
                 writebackContext.put("activeAllocatedAmount", activeAmount);
                 writebackContext.put("releaseReservedAmount", sourceAndDraft.allocatedAmount());
@@ -158,27 +160,19 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
                             writebackContext
                     ));
                 } catch (RuntimeException writebackException) {
+                    writebackService.enqueueForward(
+                            request.tenantId(), executionId, relation, activeAmount, sourceAndDraft.allocatedAmount());
                     return save(
-                            request,
-                            rule,
-                            executionId,
-                            ExecutionStatus.WRITEBACK_PENDING,
-                            targets,
-                            safeMessage(writebackException)
-                    );
+                            request, rule, executionId, ExecutionStatus.WRITEBACK_PENDING,
+                            targets, safeMessage(writebackException));
                 }
             }
 
             return save(request, rule, executionId, ExecutionStatus.SUCCEEDED, targets, null);
         } catch (RuntimeException exception) {
             return save(
-                    request,
-                    rule,
-                    executionId,
-                    ExecutionStatus.FAILED,
-                    targets,
-                    safeMessage(exception)
-            );
+                    request, rule, executionId, ExecutionStatus.FAILED,
+                    targets, safeMessage(exception));
         }
     }
 
@@ -194,42 +188,28 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
         return executionStore.list(limit);
     }
 
-    private List<SourceAndDraft> transformSources(
-            ExecutionRequest request,
-            RuleDefinition rule,
-            String executionId
-    ) {
+    private List<SourceAndDraft> transformSources(ExecutionRequest request, RuleDefinition rule, String executionId) {
         if (request.sourceDocuments().isEmpty()) {
             throw new BizException("BOTP 至少需要一个源单引用");
         }
-
         List<SourceAndDraft> transformed = new ArrayList<>();
         for (DocumentRef sourceRef : request.sourceDocuments()) {
             validateSourceRef(rule, sourceRef);
             BotpDocumentAdapter sourceAdapter = adapterRegistry.require(
-                    sourceRef.systemCode(),
-                    sourceRef.documentType()
-            );
+                    sourceRef.systemCode(), sourceRef.documentType());
             DocumentData sourceDocument = sourceAdapter.load(sourceRef);
             Map<String, Object> context = enrichContext(request, sourceRef, executionId);
             sourceAdapter.validateSource(sourceDocument, context);
             TargetDraft targetDraft = mappingEngine.transform(rule, sourceDocument, context);
             transformed.add(new SourceAndDraft(
-                    sourceAdapter,
-                    sourceDocument,
-                    targetDraft,
-                    context,
+                    sourceAdapter, sourceDocument, targetDraft, context,
                     resolveAllocatedAmount(context, targetDraft)
             ));
         }
         return transformed;
     }
 
-    private Map<String, Object> enrichContext(
-            ExecutionRequest request,
-            DocumentRef sourceRef,
-            String executionId
-    ) {
+    private Map<String, Object> enrichContext(ExecutionRequest request, DocumentRef sourceRef, String executionId) {
         Map<String, Object> context = new LinkedHashMap<>(request.parameters());
         context.put("executionId", executionId);
         context.put("sourceSystemCode", sourceRef.systemCode());
@@ -300,14 +280,43 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
             List<TargetResult> targets,
             String errorMessage
     ) {
-        return executionStore.save(request, rule, executionId, status, targets, errorMessage).toResult();
+        ExecutionDetails details = executionStore.save(
+                request, rule, executionId, status, targets, errorMessage);
+        logRepository.append(
+                executionId,
+                status.name(),
+                logStatus(status),
+                errorMessage == null ? "执行阶段完成: " + status.name() : errorMessage,
+                status == ExecutionStatus.CREATED ? request.toString() : null,
+                targets.isEmpty() ? null : targets.toString(),
+                errorMessage == null ? null : new RuntimeException(errorMessage)
+        );
+        return details.toResult();
+    }
+
+    private TaskStatus logStatus(ExecutionStatus status) {
+        if (status == ExecutionStatus.SUCCEEDED || status == ExecutionStatus.REVERSED) {
+            return TaskStatus.SUCCEEDED;
+        }
+        if (status == ExecutionStatus.FAILED || status == ExecutionStatus.WRITEBACK_PENDING) {
+            return TaskStatus.FAILED;
+        }
+        return TaskStatus.PROCESSING;
     }
 
     private String safeMessage(Throwable throwable) {
-        String message = throwable.getMessage();
-        return message == null || message.isBlank()
+        return throwable.getMessage() == null || throwable.getMessage().isBlank()
                 ? throwable.getClass().getSimpleName()
-                : message;
+                : throwable.getMessage();
+    }
+
+    private static TestDependencies createTestDependencies(BotpAdapterRegistry adapterRegistry) {
+        InMemoryBotpExecutionStore executionStore = new InMemoryBotpExecutionStore();
+        InMemoryBotpRelationRepository relationRepository = new InMemoryBotpRelationRepository();
+        InMemoryBotpExecutionLogRepository logRepository = new InMemoryBotpExecutionLogRepository();
+        BotpWritebackService writebackService = new BotpWritebackService(
+                new InMemoryBotpWritebackTaskRepository(), adapterRegistry, relationRepository, logRepository);
+        return new TestDependencies(executionStore, relationRepository, logRepository, writebackService);
     }
 
     private record SourceAndDraft(
@@ -316,6 +325,14 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
             TargetDraft targetDraft,
             Map<String, Object> context,
             BigDecimal allocatedAmount
+    ) {
+    }
+
+    private record TestDependencies(
+            BotpExecutionStore executionStore,
+            BotpRelationRepository relationRepository,
+            BotpExecutionLogRepository logRepository,
+            BotpWritebackService writebackService
     ) {
     }
 }

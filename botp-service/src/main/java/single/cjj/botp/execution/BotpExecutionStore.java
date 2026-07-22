@@ -13,6 +13,8 @@ public interface BotpExecutionStore {
 
     Optional<ExecutionDetails> findById(String executionId);
 
+    Optional<ExecutionRequest> findRequestById(String executionId);
+
     Optional<ExecutionDetails> findByRequest(String tenantId, String sourceSystem, String requestId);
 
     ExecutionDetails save(
@@ -23,6 +25,8 @@ public interface BotpExecutionStore {
             List<TargetResult> targets,
             String errorMessage
     );
+
+    ExecutionDetails updateStatus(String executionId, ExecutionStatus status, String errorMessage);
 
     List<ExecutionDetails> list(int limit);
 }

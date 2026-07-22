@@ -11,15 +11,15 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
-@TableName("matrix_botp_document_relation")
-public class BotpDocumentRelationEntity {
-
+@TableName("matrix_botp_reconciliation_issue")
+public class BotpReconciliationIssueEntity {
     @TableId(type = IdType.ASSIGN_ID)
     private Long fid;
     private String ftenantId;
+    private String fissueType;
+    private String fstatus;
     private String fexecutionId;
-    private String fruleCode;
-    private Integer fruleVersion;
+    private Long frelationId;
     private String fsourceSystemCode;
     private String fsourceDocumentType;
     private String fsourceDocumentId;
@@ -27,16 +27,13 @@ public class BotpDocumentRelationEntity {
     private String ftargetDocumentType;
     private String ftargetDocumentId;
     private String ftargetDocumentNo;
-    private BigDecimal fallocatedAmount;
-    private String frelationStatus;
-    private String ftargetStatus;
-    private String flastEventId;
-    private String finvalidReason;
-    private LocalDateTime finvalidTime;
-    private LocalDateTime freversedTime;
-    private Long fcreateBy;
+    private BigDecimal fexpectedAmount;
+    private BigDecimal factualAmount;
+    private String fdescription;
+    private String fresolution;
+    private LocalDateTime fdetectedTime;
+    private LocalDateTime fresolvedTime;
     private LocalDateTime fcreateTime;
-    private Long fmodifyBy;
     private LocalDateTime fmodifyTime;
     @TableLogic
     private Integer fdeleteFlag;

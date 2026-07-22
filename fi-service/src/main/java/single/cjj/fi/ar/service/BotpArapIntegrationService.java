@@ -13,6 +13,7 @@ import single.cjj.fi.ar.mapper.BotpArapIntegrationMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Service
 public class BotpArapIntegrationService {
@@ -21,6 +22,7 @@ public class BotpArapIntegrationService {
     private static final String PAYMENT_APPLICATION = "AP_PAYMENT_APPLY";
     private static final String AUDITED = "AUDITED";
     private static final String DRAFT = "DRAFT";
+    private static final String VOID = "VOID";
 
     private final BizfiFiArapDocMapper arapDocMapper;
     private final BotpArapIntegrationMapper lockMapper;
@@ -141,6 +143,28 @@ public class BotpArapIntegrationService {
         }
         arapDocMapper.updateById(source);
         return arapDocMapper.selectById(sourceId);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public BizfiFiArapDoc voidPaymentApplication(Long targetId, String operator) {
+        BizfiFiArapDoc target = lockMapper.selectByIdForUpdate(targetId);
+        if (target == null) {
+            throw new BizException("付款申请单不存在: " + targetId);
+        }
+        if (!PAYMENT_APPLICATION.equalsIgnoreCase(target.getFdoctype())) {
+            throw new BizException("仅付款申请单允许执行 BOTP 作废");
+        }
+        if (VOID.equalsIgnoreCase(target.getFstatus())) {
+            return target;
+        }
+        target.setFstatus(VOID);
+        target.setFauditedBy(StringUtils.hasText(operator) ? operator : "system");
+        target.setFauditedTime(LocalDateTime.now());
+        if (target.getFversion() == null) {
+            target.setFversion(0);
+        }
+        arapDocMapper.updateById(target);
+        return arapDocMapper.selectById(targetId);
     }
 
     private void validateSource(BizfiFiArapDoc source) {

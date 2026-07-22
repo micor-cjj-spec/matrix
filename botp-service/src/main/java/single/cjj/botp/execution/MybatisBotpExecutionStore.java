@@ -42,10 +42,13 @@ public class MybatisBotpExecutionStore implements BotpExecutionStore {
 
     @Override
     public Optional<ExecutionDetails> findById(String executionId) {
-        BotpExecutionEntity entity = executionMapper.selectOne(new LambdaQueryWrapper<BotpExecutionEntity>()
-                .eq(BotpExecutionEntity::getFexecutionId, executionId)
-                .last("limit 1"));
-        return Optional.ofNullable(entity).map(this::toDetails);
+        return Optional.ofNullable(findEntity(executionId)).map(this::toDetails);
+    }
+
+    @Override
+    public Optional<ExecutionRequest> findRequestById(String executionId) {
+        BotpExecutionEntity entity = findEntity(executionId);
+        return entity == null ? Optional.empty() : Optional.of(deserializeRequest(entity.getFrequestJson()));
     }
 
     @Override
@@ -69,9 +72,7 @@ public class MybatisBotpExecutionStore implements BotpExecutionStore {
             String errorMessage
     ) {
         LocalDateTime now = LocalDateTime.now();
-        BotpExecutionEntity entity = executionMapper.selectOne(new LambdaQueryWrapper<BotpExecutionEntity>()
-                .eq(BotpExecutionEntity::getFexecutionId, executionId)
-                .last("limit 1"));
+        BotpExecutionEntity entity = findEntity(executionId);
         boolean insert = entity == null;
         if (insert) {
             entity = new BotpExecutionEntity();
@@ -106,23 +107,37 @@ public class MybatisBotpExecutionStore implements BotpExecutionStore {
     }
 
     @Override
+    public ExecutionDetails updateStatus(String executionId, ExecutionStatus status, String errorMessage) {
+        BotpExecutionEntity entity = findEntity(executionId);
+        if (entity == null) {
+            throw new BizException("BOTP 执行任务不存在: " + executionId);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        entity.setFstatus(status.name());
+        entity.setFerrorMessage(errorMessage);
+        entity.setFfinishTime(isTerminal(status) ? now : null);
+        entity.setFmodifyTime(now);
+        entity.setFretryCount((entity.getFretryCount() == null ? 0 : entity.getFretryCount()) + 1);
+        executionMapper.updateById(entity);
+        return toDetails(entity);
+    }
+
+    @Override
     public List<ExecutionDetails> list(int limit) {
         int size = Math.max(1, Math.min(limit, 200));
         return executionMapper.selectList(new LambdaQueryWrapper<BotpExecutionEntity>()
                         .orderByDesc(BotpExecutionEntity::getFstartTime)
                         .last("limit " + size))
-                .stream()
-                .map(this::toDetails)
-                .toList();
+                .stream().map(this::toDetails).toList();
     }
 
-    private void upsertTarget(
-            String tenantId,
-            String executionId,
-            int index,
-            TargetResult target,
-            LocalDateTime now
-    ) {
+    private BotpExecutionEntity findEntity(String executionId) {
+        return executionMapper.selectOne(new LambdaQueryWrapper<BotpExecutionEntity>()
+                .eq(BotpExecutionEntity::getFexecutionId, executionId)
+                .last("limit 1"));
+    }
+
+    private void upsertTarget(String tenantId, String executionId, int index, TargetResult target, LocalDateTime now) {
         BotpExecutionTargetEntity entity = targetMapper.selectOne(
                 new LambdaQueryWrapper<BotpExecutionTargetEntity>()
                         .eq(BotpExecutionTargetEntity::getFexecutionId, executionId)
@@ -161,26 +176,14 @@ public class MybatisBotpExecutionStore implements BotpExecutionStore {
                                 .orderByAsc(BotpExecutionTargetEntity::getFtargetIndex))
                 .stream()
                 .map(item -> new TargetResult(
-                        item.getFtargetSystemCode(),
-                        item.getFtargetDocumentType(),
-                        item.getFtargetDocumentId(),
-                        item.getFtargetDocumentNo()
-                ))
+                        item.getFtargetSystemCode(), item.getFtargetDocumentType(),
+                        item.getFtargetDocumentId(), item.getFtargetDocumentNo()))
                 .toList();
         return new ExecutionDetails(
-                entity.getFtenantId(),
-                entity.getFsourceSystem(),
-                entity.getFrequestId(),
-                entity.getFexecutionId(),
-                entity.getFruleCode(),
-                entity.getFruleVersion(),
-                ExecutionMode.valueOf(entity.getFexecutionMode()),
-                ExecutionStatus.valueOf(entity.getFstatus()),
-                request.sourceDocuments(),
-                targets,
-                entity.getFerrorMessage(),
-                entity.getFstartTime(),
-                entity.getFfinishTime()
+                entity.getFtenantId(), entity.getFsourceSystem(), entity.getFrequestId(), entity.getFexecutionId(),
+                entity.getFruleCode(), entity.getFruleVersion(), ExecutionMode.valueOf(entity.getFexecutionMode()),
+                ExecutionStatus.valueOf(entity.getFstatus()), request.sourceDocuments(), targets,
+                entity.getFerrorMessage(), entity.getFstartTime(), entity.getFfinishTime()
         );
     }
 
