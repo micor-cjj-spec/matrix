@@ -7,6 +7,7 @@ import single.cjj.workflow.model.WorkflowDefinition;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class WorkflowContracts {
@@ -83,6 +84,12 @@ public final class WorkflowContracts {
         RETURN_TO_INITIATOR
     }
 
+    public enum TaskCenterView {
+        TODO,
+        DONE,
+        INITIATED
+    }
+
     public record InstanceResponse(
             String instanceId,
             String tenantId,
@@ -129,6 +136,34 @@ public final class WorkflowContracts {
             String afterStatus,
             String requestId,
             LocalDateTime occurredAt
+    ) {
+    }
+
+    public record TaskCenterItem(
+            String taskId,
+            String instanceId,
+            String definitionKey,
+            String sourceSystem,
+            String businessType,
+            String businessId,
+            String initiatorId,
+            String currentNodeKey,
+            String taskName,
+            String assigneeType,
+            String assigneeValue,
+            String taskStatus,
+            String instanceStatus,
+            String action,
+            LocalDateTime createdAt,
+            LocalDateTime completedAt
+    ) {
+    }
+
+    public record TaskCenterPage(
+            List<TaskCenterItem> items,
+            long total,
+            int page,
+            int size
     ) {
     }
 }

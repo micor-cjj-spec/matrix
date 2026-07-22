@@ -3,22 +3,27 @@ package single.cjj.workflow.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import single.cjj.bizfi.exception.BizException;
 import single.cjj.workflow.api.WorkflowContracts;
+import single.cjj.workflow.engine.WorkflowAssigneeResolver;
+import single.cjj.workflow.engine.WorkflowAssigneeResolverRegistry;
 import single.cjj.workflow.engine.WorkflowConditionEvaluator;
 import single.cjj.workflow.engine.WorkflowNodeHandler;
 import single.cjj.workflow.engine.WorkflowNodeHandlerRegistry;
 import single.cjj.workflow.model.WorkflowDefinition;
 import single.cjj.workflow.repository.WorkflowRepository;
+import single.cjj.workflow.repository.WorkflowTaskCandidateRepository;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -42,15 +47,30 @@ public class WorkflowService {
     private final WorkflowConditionEvaluator conditionEvaluator;
     private final WorkflowNodeHandlerRegistry handlerRegistry;
     private final ObjectMapper objectMapper;
+    private final WorkflowAssigneeResolverRegistry assigneeResolverRegistry;
+    private final WorkflowTaskCandidateRepository candidateRepository;
+
+    @Autowired
+    public WorkflowService(WorkflowRepository repository,
+                           WorkflowConditionEvaluator conditionEvaluator,
+                           WorkflowNodeHandlerRegistry handlerRegistry,
+                           ObjectMapper objectMapper,
+                           WorkflowAssigneeResolverRegistry assigneeResolverRegistry,
+                           WorkflowTaskCandidateRepository candidateRepository) {
+        this.repository = repository;
+        this.conditionEvaluator = conditionEvaluator;
+        this.handlerRegistry = handlerRegistry;
+        this.objectMapper = objectMapper;
+        this.assigneeResolverRegistry = assigneeResolverRegistry;
+        this.candidateRepository = candidateRepository;
+    }
 
     public WorkflowService(WorkflowRepository repository,
                            WorkflowConditionEvaluator conditionEvaluator,
                            WorkflowNodeHandlerRegistry handlerRegistry,
                            ObjectMapper objectMapper) {
-        this.repository = repository;
-        this.conditionEvaluator = conditionEvaluator;
-        this.handlerRegistry = handlerRegistry;
-        this.objectMapper = objectMapper;
+        this(repository, conditionEvaluator, handlerRegistry, objectMapper,
+                WorkflowAssigneeResolverRegistry.defaultRegistry(), null);
     }
 
     @Transactional
@@ -58,27 +78,19 @@ public class WorkflowService {
             WorkflowContracts.DefinitionCreateRequest request) {
         validateDefinition(request.definition());
         repository.ensureDefinition(
-                request.tenantId(),
-                request.definitionKey(),
-                request.definitionName(),
-                request.createdBy()
-        );
+                request.tenantId(), request.definitionKey(),
+                request.definitionName(), request.createdBy());
         int version = repository.nextDefinitionVersion(request.tenantId(), request.definitionKey());
         repository.insertDefinitionVersion(
-                request.tenantId(),
-                request.definitionKey(),
-                request.definitionName(),
-                version,
-                writeJson(request.definition()),
-                request.createdBy()
-        );
+                request.tenantId(), request.definitionKey(), request.definitionName(),
+                version, writeJson(request.definition()), request.createdBy());
         return getDefinition(request.tenantId(), request.definitionKey(), version);
     }
 
     @Transactional
     public WorkflowContracts.DefinitionResponse publishDefinition(String tenantId,
-                                                                  String definitionKey,
-                                                                  int version) {
+                                                                   String definitionKey,
+                                                                   int version) {
         WorkflowRepository.DefinitionVersionRow row = repository
                 .findDefinition(tenantId, definitionKey, version)
                 .orElseThrow(() -> new BizException("流程定义版本不存在"));
@@ -91,7 +103,7 @@ public class WorkflowService {
     }
 
     public WorkflowContracts.DefinitionResponse getPublishedDefinition(String tenantId,
-                                                                       String definitionKey) {
+                                                                        String definitionKey) {
         WorkflowRepository.DefinitionVersionRow row = repository
                 .findPublishedDefinition(tenantId, definitionKey)
                 .orElseThrow(() -> new BizException("没有已发布的流程定义"));
@@ -99,8 +111,8 @@ public class WorkflowService {
     }
 
     public WorkflowContracts.DefinitionResponse getDefinition(String tenantId,
-                                                              String definitionKey,
-                                                              int version) {
+                                                               String definitionKey,
+                                                               int version) {
         WorkflowRepository.DefinitionVersionRow row = repository
                 .findDefinition(tenantId, definitionKey, version)
                 .orElseThrow(() -> new BizException("流程定义版本不存在"));
@@ -131,33 +143,19 @@ public class WorkflowService {
         String instanceId = newId();
         Map<String, Object> variables = request.safeVariables();
         variables.putIfAbsent("initiatorId", request.initiatorId());
-        String businessKey = request.sourceSystem() + ":" + request.businessType() + ":" + request.businessId();
+        String businessKey = request.sourceSystem() + ":"
+                + request.businessType() + ":" + request.businessId();
         LocalDateTime now = LocalDateTime.now();
 
         WorkflowRepository.InstanceRow instance = new WorkflowRepository.InstanceRow(
-                instanceId,
-                request.tenantId(),
-                request.definitionKey(),
-                definitionRow.version(),
-                request.sourceSystem(),
-                request.businessType(),
-                request.businessId(),
-                businessKey,
-                idempotencyKey,
-                request.initiatorId(),
-                null,
-                INSTANCE_RUNNING,
-                writeJson(variables),
-                request.callbackUrl(),
-                0,
-                now,
-                null
-        );
+                instanceId, request.tenantId(), request.definitionKey(), definitionRow.version(),
+                request.sourceSystem(), request.businessType(), request.businessId(), businessKey,
+                idempotencyKey, request.initiatorId(), null, INSTANCE_RUNNING,
+                writeJson(variables), request.callbackUrl(), 0, now, null);
         repository.insertInstance(instance);
         repository.insertActionLog(
                 newId(), instanceId, null, "START", request.initiatorId(),
-                "启动流程", null, INSTANCE_RUNNING, idempotencyKey
-        );
+                "启动流程", null, INSTANCE_RUNNING, idempotencyKey);
 
         WorkflowDefinition.Node startNode = definition.requireStartNode();
         String startNodeInstanceId = createNodeInstance(instanceId, startNode, variables);
@@ -168,14 +166,22 @@ public class WorkflowService {
 
     @Transactional
     public WorkflowContracts.InstanceResponse actOnTask(String taskId,
-                                                        WorkflowContracts.TaskActionRequest request,
-                                                        String requestId) {
+                                                         WorkflowContracts.TaskActionRequest request,
+                                                         String requestId) {
+        return actOnTask(taskId, request, requestId, Set.of());
+    }
+
+    @Transactional
+    public WorkflowContracts.InstanceResponse actOnTask(String taskId,
+                                                         WorkflowContracts.TaskActionRequest request,
+                                                         String requestId,
+                                                         Set<String> operatorRoles) {
         WorkflowRepository.TaskRow task = repository.findTask(taskId)
                 .orElseThrow(() -> new BizException("待办任务不存在"));
         if (!("PENDING".equals(task.status()) || "CLAIMED".equals(task.status()))) {
             throw new BizException("待办任务已经处理");
         }
-        validateOperator(task, request.operatorId());
+        validateOperator(task, request.operatorId(), operatorRoles);
 
         WorkflowRepository.InstanceRow instance = repository.findInstance(task.instanceId())
                 .orElseThrow(() -> new BizException("流程实例不存在"));
@@ -207,8 +213,7 @@ public class WorkflowService {
         repository.completeNode(task.nodeInstanceId(), writeJson(nodeOutput));
         repository.insertActionLog(
                 newId(), instance.id(), task.id(), request.action().name(),
-                request.operatorId(), request.comment(), task.status(), taskTerminalStatus, requestId
-        );
+                request.operatorId(), request.comment(), task.status(), taskTerminalStatus, requestId);
 
         switch (request.action()) {
             case REJECT -> rejectInstance(instance, variables);
@@ -266,15 +271,13 @@ public class WorkflowService {
         repository.completeNode(resubmitTask.nodeInstanceId(), writeJson(nodeOutput));
 
         int resumed = repository.resumeInstance(
-                instance.id(), instance.version(), resumeNodeKey, writeJson(variables)
-        );
+                instance.id(), instance.version(), resumeNodeKey, writeJson(variables));
         if (resumed != 1) {
             throw new BizException("流程状态已变化，请刷新后重试");
         }
         repository.insertActionLog(
                 newId(), instance.id(), resubmitTask.id(), "RESUBMIT", request.operatorId(),
-                request.comment(), INSTANCE_WAITING_RESUBMIT, INSTANCE_RUNNING, requestId
-        );
+                request.comment(), INSTANCE_WAITING_RESUBMIT, INSTANCE_RUNNING, requestId);
         activateUserTask(instance, resumeNode, variables);
         emitInstanceEvent(instance, "RESUBMITTED", INSTANCE_RUNNING, variables);
         return getInstance(instance.id());
@@ -306,8 +309,7 @@ public class WorkflowService {
         repository.cancelActiveNodes(instance.id());
         repository.insertActionLog(
                 newId(), instance.id(), null, "CANCEL", request.operatorId(), request.reason(),
-                instance.status(), INSTANCE_CANCELLED, requestId
-        );
+                instance.status(), INSTANCE_CANCELLED, requestId);
         emitInstanceEvent(instance, "CANCELLED", INSTANCE_CANCELLED, variables);
         return getInstance(instance.id());
     }
@@ -319,9 +321,9 @@ public class WorkflowService {
     }
 
     public WorkflowContracts.InstanceResponse getBusinessInstance(String tenantId,
-                                                                  String sourceSystem,
-                                                                  String businessType,
-                                                                  String businessId) {
+                                                                   String sourceSystem,
+                                                                   String businessType,
+                                                                   String businessId) {
         return repository.findLatestBusinessInstance(tenantId, sourceSystem, businessType, businessId)
                 .map(this::toInstanceResponse)
                 .orElseThrow(() -> new BizException("业务对象没有流程实例"));
@@ -352,8 +354,7 @@ public class WorkflowService {
         variables.put(VAR_RETURNED_AT, LocalDateTime.now().toString());
 
         int returned = repository.returnInstanceToInitiator(
-                instance.id(), instance.version(), writeJson(variables)
-        );
+                instance.id(), instance.version(), writeJson(variables));
         if (returned != 1) {
             throw new BizException("流程实例状态已变化，请刷新后重试");
         }
@@ -365,30 +366,16 @@ public class WorkflowService {
                                       Map<String, Object> variables) {
         String nodeInstanceId = newId();
         repository.insertNodeInstance(new WorkflowRepository.NodeInstanceRow(
-                nodeInstanceId,
-                instance.id(),
-                RESUBMIT_NODE_KEY,
-                "修改并重新提交",
-                WorkflowDefinition.NodeType.USER_TASK.name(),
-                "ACTIVE",
-                null,
-                writeJson(variables),
-                LocalDateTime.now()
-        ));
+                nodeInstanceId, instance.id(), RESUBMIT_NODE_KEY, "修改并重新提交",
+                WorkflowDefinition.NodeType.USER_TASK.name(), "ACTIVE", null,
+                writeJson(variables), LocalDateTime.now()));
+        String taskId = newId();
         repository.insertTask(new WorkflowRepository.TaskRow(
-                newId(),
-                instance.tenantId(),
-                instance.id(),
-                nodeInstanceId,
-                RESUBMIT_NODE_KEY,
-                "修改并重新提交",
-                "USER",
-                instance.initiatorId(),
-                "PENDING",
-                0,
-                LocalDateTime.now(),
-                null
-        ));
+                taskId, instance.tenantId(), instance.id(), nodeInstanceId,
+                RESUBMIT_NODE_KEY, "修改并重新提交", "USER", instance.initiatorId(),
+                "PENDING", 0, LocalDateTime.now(), null));
+        insertCandidates(taskId, List.of(
+                new WorkflowAssigneeResolver.Candidate("USER", instance.initiatorId())));
     }
 
     private void advanceFrom(WorkflowRepository.InstanceRow instance,
@@ -413,8 +400,7 @@ public class WorkflowService {
                             .require(node.getHandlerKey())
                             .execute(new WorkflowNodeHandler.ExecutionContext(
                                     instance.id(), node,
-                                    Collections.unmodifiableMap(new LinkedHashMap<>(variables))
-                            ));
+                                    Collections.unmodifiableMap(new LinkedHashMap<>(variables))));
                     if (!result.success()) {
                         throw new BizException(result.message());
                     }
@@ -433,8 +419,7 @@ public class WorkflowService {
                     String nodeInstanceId = createNodeInstance(instance.id(), node, variables);
                     repository.completeNode(nodeInstanceId, "{}");
                     int finished = repository.finishInstance(
-                            instance.id(), INSTANCE_COMPLETED, writeJson(variables)
-                    );
+                            instance.id(), INSTANCE_COMPLETED, writeJson(variables));
                     if (finished != 1) {
                         throw new BizException("流程实例状态已变化，请刷新后重试");
                     }
@@ -449,24 +434,28 @@ public class WorkflowService {
     private void activateUserTask(WorkflowRepository.InstanceRow instance,
                                   WorkflowDefinition.Node node,
                                   Map<String, Object> variables) {
-        Assignee assignee = resolveAssignee(node, variables);
+        WorkflowAssigneeResolver.Resolution resolution = assigneeResolverRegistry.resolve(
+                node.getAssigneeRule(),
+                new WorkflowAssigneeResolver.Context(instance.id(), instance.initiatorId(), variables));
+        List<WorkflowAssigneeResolver.Candidate> candidates = resolution.candidates();
+        String assigneeType = candidates.size() == 1 ? candidates.get(0).type() : "CANDIDATE";
+        String assigneeValue = candidates.size() == 1 ? candidates.get(0).value() : "MULTIPLE";
+
         String nodeInstanceId = createNodeInstance(instance.id(), node, variables);
         String taskId = newId();
         repository.insertTask(new WorkflowRepository.TaskRow(
-                taskId,
-                instance.tenantId(),
-                instance.id(),
-                nodeInstanceId,
-                node.getKey(),
-                node.getName(),
-                assignee.type(),
-                assignee.value(),
-                "PENDING",
-                0,
-                LocalDateTime.now(),
-                null
-        ));
+                taskId, instance.tenantId(), instance.id(), nodeInstanceId,
+                node.getKey(), node.getName(), assigneeType, assigneeValue,
+                "PENDING", 0, LocalDateTime.now(), null));
+        insertCandidates(taskId, candidates);
         repository.updateInstancePosition(instance.id(), node.getKey(), writeJson(variables));
+    }
+
+    private void insertCandidates(String taskId,
+                                  List<WorkflowAssigneeResolver.Candidate> candidates) {
+        if (candidateRepository != null) {
+            candidateRepository.insertCandidates(taskId, candidates);
+        }
     }
 
     private String createNodeInstance(String instanceId,
@@ -474,43 +463,38 @@ public class WorkflowService {
                                       Map<String, Object> variables) {
         String nodeInstanceId = newId();
         repository.insertNodeInstance(new WorkflowRepository.NodeInstanceRow(
-                nodeInstanceId,
-                instanceId,
-                node.getKey(),
+                nodeInstanceId, instanceId, node.getKey(),
                 StringUtils.hasText(node.getName()) ? node.getName() : node.getKey(),
-                node.getType().name(),
-                "ACTIVE",
-                node.getHandlerKey(),
-                writeJson(variables),
-                LocalDateTime.now()
-        ));
+                node.getType().name(), "ACTIVE", node.getHandlerKey(),
+                writeJson(variables), LocalDateTime.now()));
         return nodeInstanceId;
     }
 
-    private Assignee resolveAssignee(WorkflowDefinition.Node node,
-                                     Map<String, Object> variables) {
-        WorkflowDefinition.AssigneeRule rule = node.getAssigneeRule();
-        if (rule == null || rule.getType() == null || !StringUtils.hasText(rule.getValue())) {
-            throw new BizException("人工节点未配置审批人规则: " + node.getKey());
-        }
-        return switch (rule.getType()) {
-            case USER -> new Assignee("USER", rule.getValue());
-            case ROLE -> new Assignee("ROLE", rule.getValue());
-            case VARIABLE -> {
-                Object value = variables.get(rule.getValue());
-                if (value == null || !StringUtils.hasText(String.valueOf(value))) {
-                    throw new BizException("审批人变量不存在: " + rule.getValue());
+    private void validateOperator(WorkflowRepository.TaskRow task,
+                                  String operatorId,
+                                  Set<String> operatorRoles) {
+        Set<String> roles = operatorRoles == null ? Set.of() : operatorRoles;
+        if (candidateRepository != null) {
+            List<WorkflowTaskCandidateRepository.CandidateRow> candidates =
+                    candidateRepository.findByTaskId(task.id());
+            if (!candidates.isEmpty()) {
+                if (!candidateRepository.canOperate(task.id(), operatorId, roles)) {
+                    throw new BizException("当前用户不在该任务候选人范围内");
                 }
-                yield new Assignee("USER", String.valueOf(value));
+                return;
             }
-        };
-    }
-
-    private void validateOperator(WorkflowRepository.TaskRow task, String operatorId) {
-        if ("USER".equals(task.assigneeType()) && !task.assigneeValue().equals(operatorId)) {
+        }
+        if ("USER".equals(task.assigneeType())
+                && !task.assigneeValue().equals(operatorId)) {
             throw new BizException("当前用户不是该任务的处理人");
         }
-        // ROLE 类型由网关或权限服务校验角色成员关系；工作流服务保留最终任务并发校验。
+        if ("ROLE".equals(task.assigneeType())
+                && !roles.contains(task.assigneeValue())) {
+            throw new BizException("当前用户不具备任务要求的角色");
+        }
+        if ("CANDIDATE".equals(task.assigneeType())) {
+            throw new BizException("任务候选人数据缺失，无法授权处理");
+        }
     }
 
     private void validateInitiator(WorkflowRepository.InstanceRow instance, String operatorId) {
@@ -564,9 +548,8 @@ public class WorkflowService {
             if (node.getType() == WorkflowDefinition.NodeType.END) {
                 endCount++;
             }
-            if (node.getType() == WorkflowDefinition.NodeType.USER_TASK
-                    && node.getAssigneeRule() == null) {
-                throw new BizException("人工节点必须配置审批人规则: " + node.getKey());
+            if (node.getType() == WorkflowDefinition.NodeType.USER_TASK) {
+                validateAssigneeRule(node);
             }
             if (node.getType() == WorkflowDefinition.NodeType.SERVICE_TASK
                     && !StringUtils.hasText(node.getHandlerKey())) {
@@ -585,6 +568,43 @@ public class WorkflowService {
                     || !nodeKeys.contains(transition.getTo())) {
                 throw new BizException("流程连线引用了不存在的节点");
             }
+            validateCondition(transition.getCondition());
+        }
+    }
+
+    private void validateAssigneeRule(WorkflowDefinition.Node node) {
+        WorkflowDefinition.AssigneeRule rule = node.getAssigneeRule();
+        if (rule == null || rule.getType() == null) {
+            throw new BizException("人工节点必须配置审批人规则: " + node.getKey());
+        }
+        switch (rule.getType()) {
+            case INITIATOR -> {
+                return;
+            }
+            case USERS, ROLES -> {
+                if (rule.getValues() == null || rule.getValues().stream().noneMatch(StringUtils::hasText)) {
+                    throw new BizException("人工节点候选人列表不能为空: " + node.getKey());
+                }
+            }
+            default -> {
+                if (!StringUtils.hasText(rule.getValue())) {
+                    throw new BizException("人工节点审批人规则值不能为空: " + node.getKey());
+                }
+            }
+        }
+    }
+
+    private void validateCondition(WorkflowDefinition.Condition condition) {
+        if (condition == null) {
+            return;
+        }
+        List<WorkflowDefinition.Condition> children = condition.getChildren();
+        if (children != null && !children.isEmpty()) {
+            children.forEach(this::validateCondition);
+            return;
+        }
+        if (!StringUtils.hasText(condition.getField()) || condition.getOperator() == null) {
+            throw new BizException("流程条件必须配置 field 和 operator");
         }
     }
 
@@ -592,8 +612,7 @@ public class WorkflowService {
             WorkflowRepository.DefinitionVersionRow row) {
         return new WorkflowContracts.DefinitionResponse(
                 row.tenantId(), row.definitionKey(), row.definitionName(), row.version(),
-                row.status(), readDefinition(row.definitionJson()), row.createdAt(), row.publishedAt()
-        );
+                row.status(), readDefinition(row.definitionJson()), row.createdAt(), row.publishedAt());
     }
 
     private WorkflowContracts.InstanceResponse toInstanceResponse(
@@ -602,16 +621,14 @@ public class WorkflowService {
                 row.id(), row.tenantId(), row.definitionKey(), row.definitionVersion(),
                 row.sourceSystem(), row.businessType(), row.businessId(), row.initiatorId(),
                 row.currentNodeKey(), row.status(), row.version(), readMap(row.variablesJson()),
-                row.startedAt(), row.endedAt()
-        );
+                row.startedAt(), row.endedAt());
     }
 
     private WorkflowContracts.TaskResponse toTaskResponse(WorkflowRepository.TaskRow row) {
         return new WorkflowContracts.TaskResponse(
                 row.id(), row.instanceId(), row.nodeInstanceId(), row.nodeKey(),
                 row.taskName(), row.assigneeType(), row.assigneeValue(), row.status(),
-                row.version(), row.createdAt(), row.completedAt()
-        );
+                row.version(), row.createdAt(), row.completedAt());
     }
 
     private WorkflowDefinition readDefinition(String json) {
@@ -644,8 +661,5 @@ public class WorkflowService {
 
     private String newId() {
         return UUID.randomUUID().toString().replace("-", "");
-    }
-
-    private record Assignee(String type, String value) {
     }
 }

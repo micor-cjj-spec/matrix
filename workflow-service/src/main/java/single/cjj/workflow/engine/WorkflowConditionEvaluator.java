@@ -44,7 +44,19 @@ public class WorkflowConditionEvaluator {
 
     public boolean matches(WorkflowDefinition.Condition condition,
                            Map<String, Object> variables) {
-        Object actual = variables.get(condition.getField());
+        if (condition == null) {
+            return true;
+        }
+        List<WorkflowDefinition.Condition> children = condition.getChildren();
+        if (children != null && !children.isEmpty()) {
+            WorkflowDefinition.ConditionLogic logic = condition.getLogic() == null
+                    ? WorkflowDefinition.ConditionLogic.ALL : condition.getLogic();
+            return logic == WorkflowDefinition.ConditionLogic.ANY
+                    ? children.stream().anyMatch(child -> matches(child, variables))
+                    : children.stream().allMatch(child -> matches(child, variables));
+        }
+
+        Object actual = resolvePath(variables, condition.getField());
         Object expected = condition.getValue();
         WorkflowDefinition.ConditionOperator operator = condition.getOperator();
         if (operator == null) {
@@ -65,6 +77,20 @@ public class WorkflowConditionEvaluator {
             case NOT_IN -> expected instanceof Collection<?> collection
                     && collection.stream().noneMatch(item -> equalsValue(actual, item));
         };
+    }
+
+    private Object resolvePath(Map<String, Object> variables, String path) {
+        if (variables == null || path == null || path.isBlank()) {
+            return null;
+        }
+        Object current = variables;
+        for (String segment : path.split("\\.")) {
+            if (!(current instanceof Map<?, ?> map)) {
+                return null;
+            }
+            current = map.get(segment);
+        }
+        return current;
     }
 
     private boolean equalsValue(Object actual, Object expected) {

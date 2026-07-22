@@ -21,7 +21,10 @@ import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -45,6 +48,7 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
     private static final List<String> INTERNAL_IDENTITY_HEADERS = List.of(
             "X-User-Id",
             "X-Tenant-Id",
+            "X-User-Roles",
             "X-OpenApi-App-Id",
             "X-OpenApi-Tenant-Id",
             "X-OpenApi-Verified"
@@ -73,15 +77,49 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
             String userId = String.valueOf(claims.get("id"));
             Object tenantClaim = claims.get("tenantId");
             String tenantId = tenantClaim == null ? "default" : String.valueOf(tenantClaim);
+            String roles = resolveRoles(claims);
 
-            ServerHttpRequest mutated = request.mutate()
+            ServerHttpRequest.Builder builder = request.mutate()
                     .header("X-User-Id", userId)
-                    .header("X-Tenant-Id", tenantId)
-                    .build();
-            return chain.filter(sanitizedExchange.mutate().request(mutated).build());
+                    .header("X-Tenant-Id", tenantId);
+            if (StringUtils.hasText(roles)) {
+                builder.header("X-User-Roles", roles);
+            }
+            return chain.filter(sanitizedExchange.mutate().request(builder.build()).build());
         } catch (Exception e) {
             log.warn("gateway jwt verify failed: {}", e.getMessage());
             return unauthorized(exchange.getResponse(), "token无效或已过期");
+        }
+    }
+
+    private String resolveRoles(Claims claims) {
+        Object value = claims.get("roles");
+        if (value == null) {
+            value = claims.get("roleCodes");
+        }
+        if (value == null) {
+            value = claims.get("authorities");
+        }
+        if (value == null) {
+            value = claims.get("role");
+        }
+        Set<String> roles = new LinkedHashSet<>();
+        collectRoles(value, roles);
+        return String.join(",", roles);
+    }
+
+    private void collectRoles(Object value, Set<String> roles) {
+        if (value == null) {
+            return;
+        }
+        if (value instanceof Collection<?> collection) {
+            collection.forEach(item -> collectRoles(item, roles));
+            return;
+        }
+        for (String role : String.valueOf(value).split(",")) {
+            if (StringUtils.hasText(role)) {
+                roles.add(role.trim());
+            }
         }
     }
 
