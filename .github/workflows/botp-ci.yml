@@ -4,15 +4,19 @@ on:
   pull_request:
     paths:
       - 'botp-service/**'
+      - 'fi-service/**'
       - 'common/**'
+      - 'deliverables/botp/**'
       - 'pom.xml'
       - '.github/workflows/botp-ci.yml'
   push:
     branches:
-      - feature/botp-foundation
+      - 'feature/botp-*'
     paths:
       - 'botp-service/**'
+      - 'fi-service/**'
       - 'common/**'
+      - 'deliverables/botp/**'
       - 'pom.xml'
       - '.github/workflows/botp-ci.yml'
 
@@ -30,5 +34,5 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Test BOTP module
-        run: mvn -B -pl botp-service -am test
+      - name: Test BOTP and FI integration
+        run: mvn -B -pl botp-service,fi-service -am test
