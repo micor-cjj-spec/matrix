@@ -1,0 +1,37 @@
+server:
+  port: ${SERVER_PORT:10006}
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: workflow-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  config:
+    import: optional:nacos:${spring.application.name}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        group: ${NACOS_GROUP:DEV_GROUP}
+        namespace: ${NACOS_NAMESPACE:public}
+      config:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        file-extension: yaml
+        group: ${NACOS_GROUP:DEV_GROUP}
+        namespace: ${NACOS_NAMESPACE:public}
+  datasource:
+    url: ${WORKFLOW_DB_URL:jdbc:mysql://127.0.0.1:3306/matrix_workflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
+    username: ${WORKFLOW_DB_USERNAME:root}
+    password: ${WORKFLOW_DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
