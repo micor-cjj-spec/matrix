@@ -38,4 +38,4 @@ jobs:
           cache: maven
 
       - name: Test OpenAPI modules
-        run: mvn -B -pl openapi-service,fi-service,gateway -am test
+        run: mvn -q -pl openapi-service,fi-service,gateway -am test
