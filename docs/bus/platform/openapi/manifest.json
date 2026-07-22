@@ -4,12 +4,13 @@
   "bizCode": "openapi",
   "bizName": "开放平台",
   "status": "development",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "busDocs": [
     "business.md",
     "rules.md",
     "api.md",
-    "deployment.md"
+    "deployment.md",
+    "governance-v2.md"
   ],
   "promptDocs": [
     "docs/prompt/platform/openapi/backend.md",

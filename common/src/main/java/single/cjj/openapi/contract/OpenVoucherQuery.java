@@ -11,6 +11,8 @@ public class OpenVoucherQuery {
     private Integer pageSize = 20;
     private String voucherNumber;
     private String status;
+    private String organizationId;
+    private String bookId;
     private LocalDate startDate;
     private LocalDate endDate;
 }

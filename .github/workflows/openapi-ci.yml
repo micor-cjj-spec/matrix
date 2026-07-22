@@ -1,0 +1,55 @@
+name: OpenAPI CI
+
+on:
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - 'openapi-service/**'
+      - 'fi-service/**'
+      - 'gateway/**'
+      - 'common/**'
+      - 'sql/matrix_open_api_*.sql'
+      - 'pom.xml'
+      - '.github/workflows/openapi-ci.yml'
+  push:
+    branches:
+      - agent/openapi-governance-v2-dev
+    paths:
+      - 'openapi-service/**'
+      - 'fi-service/**'
+      - 'gateway/**'
+      - 'common/**'
+      - 'pom.xml'
+      - '.github/workflows/openapi-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Test OpenAPI modules
+        id: maven
+        continue-on-error: true
+        run: mvn -q -pl openapi-service,fi-service,gateway -am test > openapi-ci.log 2>&1
+
+      - name: Upload OpenAPI CI log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-ci-log
+          path: openapi-ci.log
+          if-no-files-found: error
+
+      - name: Fail when Maven failed
+        if: steps.maven.outcome == 'failure'
+        run: exit 1

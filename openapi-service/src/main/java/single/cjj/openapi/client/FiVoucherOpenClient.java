@@ -26,20 +26,31 @@ public interface FiVoucherOpenClient {
             @RequestParam("pageSize") int pageSize,
             @RequestParam(value = "voucherNumber", required = false) String voucherNumber,
             @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "organizationId", required = false) String organizationId,
+            @RequestParam(value = "bookId", required = false) String bookId,
             @RequestParam(value = "startDate", required = false) String startDate,
             @RequestParam(value = "endDate", required = false) String endDate,
-            @RequestHeader("X-OpenApi-Allowed-Statuses") String allowedStatuses
+            @RequestHeader("X-OpenApi-Tenant-Id") String tenantId,
+            @RequestHeader("X-OpenApi-Allowed-Statuses") String allowedStatuses,
+            @RequestHeader("X-OpenApi-Allowed-Organizations") String allowedOrganizations,
+            @RequestHeader("X-OpenApi-Allowed-Books") String allowedBooks
     );
 
     @GetMapping("/{voucherId}")
     ApiResponse<OpenVoucherResponse> detail(
             @PathVariable("voucherId") Long voucherId,
-            @RequestHeader("X-OpenApi-Allowed-Statuses") String allowedStatuses
+            @RequestHeader("X-OpenApi-Tenant-Id") String tenantId,
+            @RequestHeader("X-OpenApi-Allowed-Statuses") String allowedStatuses,
+            @RequestHeader("X-OpenApi-Allowed-Organizations") String allowedOrganizations,
+            @RequestHeader("X-OpenApi-Allowed-Books") String allowedBooks
     );
 
     @GetMapping("/{voucherId}/lines")
     ApiResponse<List<OpenVoucherLineResponse>> lines(
             @PathVariable("voucherId") Long voucherId,
-            @RequestHeader("X-OpenApi-Allowed-Statuses") String allowedStatuses
+            @RequestHeader("X-OpenApi-Tenant-Id") String tenantId,
+            @RequestHeader("X-OpenApi-Allowed-Statuses") String allowedStatuses,
+            @RequestHeader("X-OpenApi-Allowed-Organizations") String allowedOrganizations,
+            @RequestHeader("X-OpenApi-Allowed-Books") String allowedBooks
     );
 }
