@@ -20,6 +20,11 @@ import java.util.List;
 @Service
 public class SchedulerManualOperationService {
 
+    private static final List<String> RETRYABLE_TERMINAL_STATUSES =
+            List.of("FAILED", "TIMEOUT", "DEAD", "CANCELLED", "SKIPPED");
+    private static final List<String> MARK_SUCCESS_STATUSES =
+            List.of("FAILED", "TIMEOUT", "DEAD", "CANCELLED", "SKIPPED", "RETRY_WAIT");
+
     private final MatrixSchedulerExecutionMapper executionMapper;
     private final MatrixSchedulerOperationLogMapper operationLogMapper;
     private final MatrixSchedulerOutboxMapper outboxMapper;
@@ -49,7 +54,7 @@ public class SchedulerManualOperationService {
                             .set(MatrixSchedulerExecution::getFupdateTime, LocalDateTime.now()));
             ensureUpdated(updated);
             result = dispatchService.retry(executionNo);
-        } else if (List.of("FAILED", "TIMEOUT", "DEAD", "CANCELLED", "SKIPPED").contains(fromStatus)) {
+        } else if (RETRYABLE_TERMINAL_STATUSES.contains(fromStatus)) {
             result = dispatchService.createExecution(execution.getFjobId(), LocalDateTime.now(), "MANUAL_RETRY");
         } else {
             throw new IllegalArgumentException("当前状态不允许立即重试: " + fromStatus);
@@ -88,8 +93,8 @@ public class SchedulerManualOperationService {
     @Transactional(rollbackFor = Exception.class)
     public MatrixSchedulerExecution skip(String executionNo, String operatorId, String reason) {
         MatrixSchedulerExecution execution = requiredExecution(executionNo);
-        if (!List.of("WAITING", "CREATED", "QUEUED", "RETRY_WAIT").contains(execution.getFstatus())) {
-            throw new IllegalArgumentException("当前状态不允许跳过: " + execution.getFstatus());
+        if (!List.of("WAITING", "CREATED", "RETRY_WAIT").contains(execution.getFstatus())) {
+            throw new IllegalArgumentException("只有尚未投递的执行允许跳过，当前状态: " + execution.getFstatus());
         }
         String from = execution.getFstatus();
         transition(execution, "SKIPPED", true);
@@ -103,6 +108,9 @@ public class SchedulerManualOperationService {
         MatrixSchedulerExecution execution = requiredExecution(executionNo);
         if ("SUCCESS".equals(execution.getFstatus())) {
             return execution;
+        }
+        if (!MARK_SUCCESS_STATUSES.contains(execution.getFstatus())) {
+            throw new IllegalArgumentException("运行中或尚未完成的实例不能人工标记成功: " + execution.getFstatus());
         }
         String from = execution.getFstatus();
         transition(execution, "SUCCESS", true);
