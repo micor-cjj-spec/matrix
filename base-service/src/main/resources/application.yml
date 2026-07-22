@@ -27,6 +27,7 @@ matrix:
       executor-code: base-service
       executor-name: 基础服务执行器
       scheduler-base-url: ${SCHEDULER_BASE_URL:http://127.0.0.1:8080/api}
+      internal-token: ${SCHEDULER_INTERNAL_TOKEN}
       concurrency: ${SCHEDULER_CONCURRENCY:1}
       max-concurrency: ${SCHEDULER_MAX_CONCURRENCY:10}
       heartbeat-interval-ms: ${SCHEDULER_HEARTBEAT_INTERVAL_MS:30000}
