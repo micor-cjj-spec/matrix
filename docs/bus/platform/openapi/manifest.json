@@ -8,7 +8,8 @@
   "busDocs": [
     "business.md",
     "rules.md",
-    "api.md"
+    "api.md",
+    "deployment.md"
   ],
   "promptDocs": [
     "docs/prompt/platform/openapi/backend.md",
