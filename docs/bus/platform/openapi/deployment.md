@@ -43,7 +43,7 @@ spring:
 
 不要把 `/api/internal/openapi/**` 配置成公网 Gateway 路由。
 
-## 4. 主密钥
+## 4. 密钥配置
 
 生成 32 字节 AES 密钥并进行 Base64 编码，将结果通过环境变量注入：
 
@@ -51,7 +51,13 @@ spring:
 MATRIX_OPENAPI_MASTER_KEY=<base64-key>
 ```
 
-主密钥不能写入 Git、Nacos 明文公共配置或日志。主密钥丢失后，已有 AppSecret 密文无法恢复，需要执行密钥轮换。
+再生成一段至少 32 字节的随机内部令牌，并把相同值同时注入 `openapi-service` 与 `fi-service`：
+
+```text
+MATRIX_INTERNAL_OPENAPI_TOKEN=<random-internal-token>
+```
+
+主密钥和内部令牌不能写入 Git、公共 Nacos 配置或日志。主密钥丢失后，已有 AppSecret 密文无法恢复，需要执行密钥轮换。
 
 ## 5. 启动顺序
 
@@ -65,4 +71,4 @@ MATRIX_OPENAPI_MASTER_KEY=<base64-key>
 1. 内部管理员调用 `/api/openapi/admin/apps` 创建应用并保存一次性返回的 AppSecret。
 2. 查询 `/api/openapi/admin/definitions` 获取三个 API 定义 ID。
 3. 调用 `/api/openapi/admin/grants` 授权。
-4. 外部系统按签名规则调用 `/api/open-api/v1/fi/vouchers`。
+4. 外部系统按签名规则调用 `/api/open-api/v1/fi/vouchers`；签名原文中的路径使用 `/open-api/v1/fi/vouchers`。
