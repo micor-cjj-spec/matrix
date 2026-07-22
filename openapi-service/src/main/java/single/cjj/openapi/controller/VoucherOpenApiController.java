@@ -46,9 +46,14 @@ public class VoucherOpenApiController {
             HttpServletRequest request) {
         OpenApiContext context = context(request);
         OpenApiPermissionService.VoucherPermission permission =
-                permissionService.resolveVoucherPermission(context.getGrant());
+                permissionService.resolveVoucherPermission(context.getApp(), context.getGrant());
 
         String status = resolveStatus(query.getStatus(), permission.allowedStatuses());
+        String organizationId = resolveScope(
+                query.getOrganizationId(), permission.organizationIds(), "组织"
+        );
+        String bookId = resolveScope(query.getBookId(), permission.bookIds(), "账簿");
+
         LocalDate today = LocalDate.now();
         LocalDate cutoff = today.minusMonths(permission.maxHistoryMonths());
         LocalDate startDate = query.getStartDate() == null || query.getStartDate().isBefore(cutoff)
@@ -70,9 +75,14 @@ public class VoucherOpenApiController {
                 pageSize,
                 query.getVoucherNumber(),
                 status,
+                organizationId,
+                bookId,
                 startDate.toString(),
                 endDate.toString(),
-                statusHeader(permission.allowedStatuses())
+                permission.tenantId(),
+                scopeHeader(permission.allowedStatuses()),
+                scopeHeader(permission.organizationIds()),
+                scopeHeader(permission.bookIds())
         );
         return OpenApiEnvelope.success(context.getRequestId(), unwrap(response));
     }
@@ -83,7 +93,7 @@ public class VoucherOpenApiController {
             HttpServletRequest request) {
         OpenApiContext context = context(request);
         OpenApiPermissionService.VoucherPermission permission =
-                permissionService.resolveVoucherPermission(context.getGrant());
+                permissionService.resolveVoucherPermission(context.getApp(), context.getGrant());
         OpenVoucherResponse voucher = loadAndValidateVoucher(voucherId, permission);
         return OpenApiEnvelope.success(context.getRequestId(), voucher);
     }
@@ -94,11 +104,14 @@ public class VoucherOpenApiController {
             HttpServletRequest request) {
         OpenApiContext context = context(request);
         OpenApiPermissionService.VoucherPermission permission =
-                permissionService.resolveVoucherPermission(context.getGrant());
+                permissionService.resolveVoucherPermission(context.getApp(), context.getGrant());
         loadAndValidateVoucher(voucherId, permission);
         ApiResponse<List<OpenVoucherLineResponse>> response = voucherClient.lines(
                 voucherId,
-                statusHeader(permission.allowedStatuses())
+                permission.tenantId(),
+                scopeHeader(permission.allowedStatuses()),
+                scopeHeader(permission.organizationIds()),
+                scopeHeader(permission.bookIds())
         );
         return OpenApiEnvelope.success(context.getRequestId(), unwrap(response));
     }
@@ -108,7 +121,10 @@ public class VoucherOpenApiController {
             OpenApiPermissionService.VoucherPermission permission) {
         ApiResponse<OpenVoucherResponse> response = voucherClient.detail(
                 voucherId,
-                statusHeader(permission.allowedStatuses())
+                permission.tenantId(),
+                scopeHeader(permission.allowedStatuses()),
+                scopeHeader(permission.organizationIds()),
+                scopeHeader(permission.bookIds())
         );
         OpenVoucherResponse voucher = unwrap(response);
         if (voucher == null) {
@@ -132,6 +148,19 @@ public class VoucherOpenApiController {
         return allowedStatuses.iterator().next();
     }
 
+    private String resolveScope(String requestedValue, Set<String> allowedValues, String label) {
+        if (!StringUtils.hasText(requestedValue)) {
+            return null;
+        }
+        String normalized = requestedValue.trim();
+        if (!allowedValues.contains("*") && !allowedValues.contains(normalized)) {
+            throw new OpenApiCallException(
+                    "OPENAPI_40303", "请求的" + label + "不在授权范围内", 403
+            );
+        }
+        return normalized;
+    }
+
     private int resolvePageSizeLimit(OpenApiContext context) {
         int appLimit = context.getApp().getMaxPageSize() == null || context.getApp().getMaxPageSize() <= 0
                 ? 200
@@ -143,8 +172,8 @@ public class VoucherOpenApiController {
         return Math.max(1, Math.min(systemMaxPageSize, Math.min(appLimit, apiLimit)));
     }
 
-    private String statusHeader(Set<String> statuses) {
-        return statuses.stream().sorted().collect(Collectors.joining(","));
+    private String scopeHeader(Set<String> values) {
+        return values.stream().sorted().collect(Collectors.joining(","));
     }
 
     private OpenApiContext context(HttpServletRequest request) {
