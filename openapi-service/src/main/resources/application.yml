@@ -56,6 +56,16 @@ matrix:
       recovery-poll-ms: ${OPENAPI_WRITE_RECOVERY_POLL_MS:60000}
       stale-processing-minutes: ${OPENAPI_STALE_PROCESSING_MINUTES:5}
       publisher-confirm-timeout-ms: ${OPENAPI_PUBLISHER_CONFIRM_TIMEOUT_MS:5000}
+    callback:
+      allow-http: ${OPENAPI_CALLBACK_ALLOW_HTTP:false}
+      materialize-poll-ms: ${OPENAPI_CALLBACK_MATERIALIZE_POLL_MS:5000}
+      dispatch-poll-ms: ${OPENAPI_CALLBACK_DISPATCH_POLL_MS:3000}
+      connect-timeout-seconds: ${OPENAPI_CALLBACK_CONNECT_TIMEOUT_SECONDS:3}
+      request-timeout-seconds: ${OPENAPI_CALLBACK_REQUEST_TIMEOUT_SECONDS:5}
+    reconcile:
+      cron: ${OPENAPI_RECONCILE_CRON:0 30 2 * * ?}
+      lookback-days: ${OPENAPI_RECONCILE_LOOKBACK_DAYS:7}
+      stuck-minutes: ${OPENAPI_RECONCILE_STUCK_MINUTES:10}
 
 management:
   endpoints:
