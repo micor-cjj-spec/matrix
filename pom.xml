@@ -17,6 +17,7 @@
         <module>auth-service</module>
         <module>fi-service</module>
         <module>share-service</module>
+        <module>im-service</module>
         <module>common</module>
         <module>infra</module>
         <module>config</module>
