@@ -3,6 +3,8 @@ package single.cjj.openapi.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,13 +21,18 @@ import single.cjj.openapi.mapper.OpenApiOutboxEventMapper;
 import single.cjj.openapi.mapper.OpenApiReconcileRecordMapper;
 import single.cjj.openapi.mapper.OpenApiWriteRequestMapper;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class OpenApiReconciliationService {
+
+    private static final Set<String> ACTIVE_OUTBOX_STATUSES = Set.of("PENDING", "SENDING", "FAILED", "DEAD");
+    private static final String SCHEDULE_LOCK_KEY = "openapi:reconcile:scheduled-lock";
 
     private final OpenApiWriteRequestMapper writeRequestMapper;
     private final OpenApiOutboxEventMapper outboxMapper;
@@ -34,6 +41,7 @@ public class OpenApiReconciliationService {
     private final FiVoucherWriteClient fiVoucherWriteClient;
     private final OpenApiWriteStateService writeStateService;
     private final OpenApiCallbackTaskService callbackTaskService;
+    private final StringRedisTemplate redisTemplate;
     private final int defaultLookbackDays;
     private final int stuckMinutes;
 
@@ -44,6 +52,7 @@ public class OpenApiReconciliationService {
                                         FiVoucherWriteClient fiVoucherWriteClient,
                                         OpenApiWriteStateService writeStateService,
                                         OpenApiCallbackTaskService callbackTaskService,
+                                        StringRedisTemplate redisTemplate,
                                         @Value("${matrix.openapi.reconcile.lookback-days:7}") int defaultLookbackDays,
                                         @Value("${matrix.openapi.reconcile.stuck-minutes:10}") int stuckMinutes) {
         this.writeRequestMapper = writeRequestMapper;
@@ -53,13 +62,19 @@ public class OpenApiReconciliationService {
         this.fiVoucherWriteClient = fiVoucherWriteClient;
         this.writeStateService = writeStateService;
         this.callbackTaskService = callbackTaskService;
+        this.redisTemplate = redisTemplate;
         this.defaultLookbackDays = Math.max(1, Math.min(defaultLookbackDays, 90));
         this.stuckMinutes = Math.max(1, stuckMinutes);
     }
 
     @Scheduled(cron = "${matrix.openapi.reconcile.cron:0 30 2 * * ?}")
     public void scheduledRun() {
-        run(defaultLookbackDays);
+        Boolean locked = redisTemplate.opsForValue().setIfAbsent(
+                SCHEDULE_LOCK_KEY, UUID.randomUUID().toString(), Duration.ofHours(1)
+        );
+        if (Boolean.TRUE.equals(locked)) {
+            run(defaultLookbackDays);
+        }
     }
 
     public ReconcileSummary run(int lookbackDays) {
@@ -138,16 +153,16 @@ public class OpenApiReconciliationService {
         List<OpenApiOutboxEvent> events = outboxMapper.selectList(
                 new LambdaQueryWrapper<OpenApiOutboxEvent>()
                         .ge(OpenApiOutboxEvent::getCreatedAt, from)
-                        .in(OpenApiOutboxEvent::getStatus, "PENDING", "SENDING", "FAILED", "DEAD")
                         .orderByAsc(OpenApiOutboxEvent::getId)
                         .last("LIMIT 5000")
         );
         int issues = 0;
         for (OpenApiOutboxEvent event : events) {
             String issueKey = "OUTBOX_STUCK:" + event.getEventId();
-            boolean stuck = "DEAD".equals(event.getStatus())
+            boolean active = ACTIVE_OUTBOX_STATUSES.contains(event.getStatus());
+            boolean stuck = active && ("DEAD".equals(event.getStatus())
                     || event.getUpdatedAt() == null
-                    || event.getUpdatedAt().isBefore(cutoff);
+                    || event.getUpdatedAt().isBefore(cutoff));
             if (stuck) {
                 OpenApiWriteRequest request = writeRequestMapper.selectById(event.getAggregateId());
                 upsertIssue(
@@ -208,11 +223,10 @@ public class OpenApiReconciliationService {
             return true;
         }
         if ("OUTBOX_STUCK".equals(record.getIssueType())) {
+            String eventId = record.getIssueKey().substring("OUTBOX_STUCK:".length());
             OpenApiOutboxEvent event = outboxMapper.selectOne(
                     new LambdaQueryWrapper<OpenApiOutboxEvent>()
-                            .eq(OpenApiOutboxEvent::getAggregateId, record.getWriteRequestId())
-                            .orderByDesc(OpenApiOutboxEvent::getId)
-                            .last("LIMIT 1")
+                            .eq(OpenApiOutboxEvent::getEventId, eventId)
             );
             if (event == null) {
                 throw new OpenApiCallException("OPENAPI_RECONCILE_40902", "Outbox事件不存在", 409);
@@ -260,6 +274,33 @@ public class OpenApiReconciliationService {
             record.setIssueKey(issueKey);
             record.setCreatedAt(now);
         }
+        applyIssue(record, issueType, severity, request, expectedStatus, actualStatus, detail, now);
+        if (record.getId() == null) {
+            try {
+                reconcileRecordMapper.insert(record);
+            } catch (DuplicateKeyException race) {
+                OpenApiReconcileRecord existing = reconcileRecordMapper.selectOne(
+                        new LambdaQueryWrapper<OpenApiReconcileRecord>()
+                                .eq(OpenApiReconcileRecord::getIssueKey, issueKey)
+                );
+                if (existing != null) {
+                    applyIssue(existing, issueType, severity, request, expectedStatus, actualStatus, detail, now);
+                    reconcileRecordMapper.updateById(existing);
+                }
+            }
+        } else {
+            reconcileRecordMapper.updateById(record);
+        }
+    }
+
+    private void applyIssue(OpenApiReconcileRecord record,
+                            String issueType,
+                            String severity,
+                            OpenApiWriteRequest request,
+                            String expectedStatus,
+                            String actualStatus,
+                            String detail,
+                            LocalDateTime now) {
         record.setIssueType(issueType);
         record.setSeverity(severity);
         record.setWriteRequestId(request == null ? null : request.getId());
@@ -274,11 +315,6 @@ public class OpenApiReconciliationService {
         record.setResolvedAt(null);
         record.setDetectedAt(now);
         record.setUpdatedAt(now);
-        if (record.getId() == null) {
-            reconcileRecordMapper.insert(record);
-        } else {
-            reconcileRecordMapper.updateById(record);
-        }
     }
 
     private void resolveIfOpen(String issueKey, String resolution) {
