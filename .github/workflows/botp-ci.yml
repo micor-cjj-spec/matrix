@@ -4,15 +4,19 @@ on:
   pull_request:
     paths:
       - 'botp-service/**'
+      - 'fi-service/**'
       - 'common/**'
+      - 'deliverables/botp/**'
       - 'pom.xml'
       - '.github/workflows/botp-ci.yml'
   push:
     branches:
-      - feature/botp-foundation
+      - 'feature/botp-*'
     paths:
       - 'botp-service/**'
+      - 'fi-service/**'
       - 'common/**'
+      - 'deliverables/botp/**'
       - 'pom.xml'
       - '.github/workflows/botp-ci.yml'
 
@@ -30,5 +34,20 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Test BOTP module
-        run: mvn -B -pl botp-service -am test
+      - name: Test BOTP and FI integration
+        shell: bash
+        run: |
+          set +e
+          mvn -q -Dstyle.color=never -pl botp-service,fi-service -am test > /tmp/botp-maven.log 2>&1
+          status=$?
+          cat /tmp/botp-maven.log
+          exit $status
+
+      - name: Upload Maven failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: botp-maven-failure-log
+          path: /tmp/botp-maven.log
+          if-no-files-found: error
+          retention-days: 3

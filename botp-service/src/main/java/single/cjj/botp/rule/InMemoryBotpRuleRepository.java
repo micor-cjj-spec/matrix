@@ -1,5 +1,6 @@
 package single.cjj.botp.rule;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Repository;
 import single.cjj.bizfi.exception.BizException;
 import single.cjj.botp.domain.BotpContracts.FieldMapping;
@@ -17,37 +18,15 @@ import java.util.Optional;
 import java.util.Set;
 
 @Repository
+@ConditionalOnProperty(name = "botp.persistence.mode", havingValue = "memory")
 public class InMemoryBotpRuleRepository implements BotpRuleRepository {
 
     private final Map<String, RuleDefinition> drafts = new LinkedHashMap<>();
     private final Map<String, List<RuleDefinition>> publishedVersions = new LinkedHashMap<>();
 
     public InMemoryBotpRuleRepository() {
-        RuleDefinition demoRule = new RuleDefinition(
-                "DEMO_ORDER_TO_DELIVERY",
-                "演示订单下推发货单",
-                1,
-                RuleStatus.PUBLISHED,
-                "DEMO",
-                "DEMO_ORDER",
-                "DEMO",
-                "DEMO_DELIVERY",
-                List.of(
-                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "orderNo", "sourceOrderNo", null, true),
-                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "customerId", "customerId", null, true),
-                        new FieldMapping(MappingSourceType.CONTEXT, "operatorId", "createdBy", null, false),
-                        new FieldMapping(MappingSourceType.CONSTANT, null, "sourceChannel", "BOTP", true)
-                ),
-                List.of(
-                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "materialId", "materialId", null, true),
-                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "quantity", "deliveryQuantity", null, true),
-                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "amount", "deliveryAmount", null, false)
-                ),
-                List.of(
-                        new WritebackMapping("documentNo", "lastTargetNo", "OVERWRITE")
-                )
-        );
-        publishedVersions.put(demoRule.ruleCode(), new ArrayList<>(List.of(demoRule)));
+        registerPublished(demoRule());
+        registerPublished(apToPaymentApplicationRule());
     }
 
     @Override
@@ -120,7 +99,7 @@ public class InMemoryBotpRuleRepository implements BotpRuleRepository {
                 draft.entryMappings(),
                 draft.writebackMappings()
         );
-        publishedVersions.computeIfAbsent(ruleCode, key -> new ArrayList<>()).add(published);
+        registerPublished(published);
         return published;
     }
 
@@ -128,5 +107,62 @@ public class InMemoryBotpRuleRepository implements BotpRuleRepository {
     public synchronized List<RuleDefinition> findVersions(String ruleCode) {
         List<RuleDefinition> versions = publishedVersions.get(ruleCode);
         return versions == null ? List.of() : List.copyOf(versions);
+    }
+
+    private void registerPublished(RuleDefinition rule) {
+        publishedVersions.computeIfAbsent(rule.ruleCode(), key -> new ArrayList<>()).add(rule);
+    }
+
+    private RuleDefinition demoRule() {
+        return new RuleDefinition(
+                "DEMO_ORDER_TO_DELIVERY",
+                "演示订单下推发货单",
+                1,
+                RuleStatus.PUBLISHED,
+                "DEMO",
+                "DEMO_ORDER",
+                "DEMO",
+                "DEMO_DELIVERY",
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "orderNo", "sourceOrderNo", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "customerId", "customerId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "operatorId", "createdBy", null, false),
+                        new FieldMapping(MappingSourceType.CONSTANT, null, "sourceChannel", "BOTP", true)
+                ),
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "materialId", "materialId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "quantity", "deliveryQuantity", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "amount", "deliveryAmount", null, false)
+                ),
+                List.of(new WritebackMapping("documentNo", "lastTargetNo", "OVERWRITE"))
+        );
+    }
+
+    private RuleDefinition apToPaymentApplicationRule() {
+        return new RuleDefinition(
+                "AP_TO_PAYMENT_APPLICATION",
+                "应付单下推付款申请单",
+                1,
+                RuleStatus.PUBLISHED,
+                "MATRIX",
+                "FI_AP_DOC",
+                "MATRIX",
+                "FI_PAYMENT_APPLICATION",
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "number", "sourceBillNo", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "counterparty", "counterparty", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "sourceSystemCode", "sourceSystem", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "sourceDocumentType", "sourceDocumentType", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "sourceDocumentId", "sourceDocumentId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "executionId", "sourceExecutionId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "pushAmount", "amount", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "payMethod", "payMethod", null, false),
+                        new FieldMapping(MappingSourceType.CONTEXT, "plannedPayDate", "plannedPayDate", null, false),
+                        new FieldMapping(MappingSourceType.CONTEXT, "operator", "operator", null, false),
+                        new FieldMapping(MappingSourceType.CONSTANT, null, "docType", "AP_PAYMENT_APPLY", true)
+                ),
+                List.of(),
+                List.of(new WritebackMapping("allocatedAmount", "appliedAmount", "RECOMPUTE"))
+        );
     }
 }
