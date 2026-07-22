@@ -40,6 +40,7 @@ public class BizfiFiArapDoc implements Serializable {
 
     /** BOTP 下推与反写 */
     private BigDecimal fappliedAmount;
+    private BigDecimal freservedAmount;
     private BigDecimal fremainingAmount;
     private String fpushStatus;
     private String fbotpIdempotencyKey;
