@@ -35,4 +35,4 @@ jobs:
           cache: maven
 
       - name: Test BOTP and FI integration
-        run: mvn -B -pl botp-service,fi-service -am test
+        run: mvn -q -Dstyle.color=never -pl botp-service,fi-service -am test
