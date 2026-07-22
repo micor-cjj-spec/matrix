@@ -4,6 +4,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -35,14 +37,25 @@ public final class BotpContracts {
 
     public enum ExecutionStatus {
         CREATED,
+        VALIDATING,
         SOURCE_LOADING,
         TRANSFORMING,
         TARGET_CREATING,
         TARGET_CREATED,
+        RELATION_SAVING,
         RELATION_SAVED,
         WRITEBACK_PENDING,
+        WRITEBACK_PROCESSING,
         SUCCEEDED,
-        FAILED
+        FAILED,
+        REVERSE_PENDING,
+        REVERSED
+    }
+
+    public enum RelationStatus {
+        ACTIVE,
+        INVALID,
+        REVERSED
     }
 
     public record FieldMapping(
@@ -165,14 +178,64 @@ public final class BotpContracts {
         }
     }
 
+    public record ExecutionDetails(
+            String tenantId,
+            String sourceSystem,
+            String requestId,
+            String executionId,
+            String ruleCode,
+            int ruleVersion,
+            ExecutionMode executionMode,
+            ExecutionStatus status,
+            List<DocumentRef> sourceDocuments,
+            List<TargetResult> targetDocuments,
+            String errorMessage,
+            LocalDateTime startTime,
+            LocalDateTime finishTime
+    ) {
+        public ExecutionDetails {
+            sourceDocuments = immutable(sourceDocuments);
+            targetDocuments = immutable(targetDocuments);
+        }
+
+        public ExecutionResult toResult() {
+            return new ExecutionResult(executionId, ruleCode, ruleVersion, status, targetDocuments, errorMessage);
+        }
+    }
+
+    public record DocumentRelation(
+            Long relationId,
+            String tenantId,
+            String executionId,
+            String ruleCode,
+            int ruleVersion,
+            DocumentRef sourceDocument,
+            TargetResult targetDocument,
+            BigDecimal allocatedAmount,
+            RelationStatus status,
+            LocalDateTime createdTime
+    ) {
+    }
+
     public record WritebackCommand(
             String executionId,
             DocumentRef sourceDocument,
             TargetResult targetDocument,
-            List<WritebackMapping> mappings
+            List<WritebackMapping> mappings,
+            Map<String, Object> context
     ) {
         public WritebackCommand {
             mappings = immutable(mappings);
+            context = immutableMap(context);
+        }
+
+        public WritebackCommand(
+                String executionId,
+                DocumentRef sourceDocument,
+                TargetResult targetDocument,
+                List<WritebackMapping> mappings
+        ) {
+            this(executionId, sourceDocument, targetDocument, mappings, Map.of());
         }
     }
 
