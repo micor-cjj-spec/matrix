@@ -1,0 +1,20 @@
+{
+  "domain": "platform",
+  "subDomain": "integration",
+  "bizCode": "openapi",
+  "bizName": "开放平台",
+  "status": "development",
+  "version": "0.1.0",
+  "busDocs": [
+    "business.md",
+    "rules.md",
+    "api.md"
+  ],
+  "promptDocs": [
+    "docs/prompt/platform/openapi/backend.md",
+    "docs/prompt/platform/openapi/sql.md",
+    "docs/prompt/platform/openapi/test.md"
+  ],
+  "owner": "",
+  "updatedAt": "2026-07-22"
+}
