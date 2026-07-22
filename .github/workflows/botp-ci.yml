@@ -35,4 +35,19 @@ jobs:
           cache: maven
 
       - name: Test BOTP and FI integration
-        run: mvn -q -Dstyle.color=never -pl botp-service,fi-service -am test
+        shell: bash
+        run: |
+          set +e
+          mvn -q -Dstyle.color=never -pl botp-service,fi-service -am test > /tmp/botp-maven.log 2>&1
+          status=$?
+          cat /tmp/botp-maven.log
+          exit $status
+
+      - name: Upload Maven failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: botp-maven-failure-log
+          path: /tmp/botp-maven.log
+          if-no-files-found: error
+          retention-days: 3
