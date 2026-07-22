@@ -3,6 +3,7 @@ package single.cjj.scheduler.client.core;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import single.cjj.scheduler.client.config.SchedulerClientProperties;
 import single.cjj.scheduler.client.model.SchedulerExecutionMessage;
@@ -34,8 +35,8 @@ public class SchedulerMessageListener {
 
     @RabbitListener(queues = "#{schedulerClientQueue.name}",
             concurrency = "${matrix.scheduler.client.concurrency:1}")
-    public void consume(String payload) {
-        SchedulerExecutionMessage message = parse(payload);
+    public void consume(Message rabbitMessage) {
+        SchedulerExecutionMessage message = parse(rabbitMessage.getBody());
         if (!properties.requiredExecutorCode().equals(message.getExecutorCode())) {
             throw new IllegalArgumentException("消息执行器不匹配: " + message.getExecutorCode());
         }
@@ -81,7 +82,7 @@ public class SchedulerMessageListener {
         }
     }
 
-    private SchedulerExecutionMessage parse(String payload) {
+    private SchedulerExecutionMessage parse(byte[] payload) {
         try {
             return objectMapper.readValue(payload, SchedulerExecutionMessage.class);
         } catch (Exception e) {
