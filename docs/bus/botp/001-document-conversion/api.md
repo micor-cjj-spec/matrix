@@ -4,11 +4,53 @@
 
 `GET /api/botp/rules`
 
-返回所有可用规则摘要。
+返回规则列表。若某规则存在未发布草稿，则列表优先返回草稿；否则返回最新已发布版本。
 
 `GET /api/botp/rules/{ruleCode}`
 
-返回规则定义和当前版本。
+返回规则当前草稿或最新已发布版本。
+
+`GET /api/botp/rules/{ruleCode}/versions`
+
+返回所有已发布的不可变版本。
+
+## 保存规则草稿
+
+`POST /api/botp/rules`
+
+新建或保存规则草稿。
+
+`PUT /api/botp/rules/{ruleCode}`
+
+更新规则草稿。路径编码必须与请求体 `ruleCode` 一致。若已有已发布版本，则草稿版本自动使用最新已发布版本号加一。
+
+```json
+{
+  "ruleCode": "DEMO_ORDER_TO_DELIVERY",
+  "ruleName": "演示订单下推发货单",
+  "sourceSystemCode": "DEMO",
+  "sourceDocumentType": "DEMO_ORDER",
+  "targetSystemCode": "DEMO",
+  "targetDocumentType": "DEMO_DELIVERY",
+  "headerMappings": [
+    {
+      "sourceType": "SOURCE_FIELD",
+      "sourcePath": "orderNo",
+      "targetPath": "sourceOrderNo",
+      "constantValue": null,
+      "required": true
+    }
+  ],
+  "entryMappings": [],
+  "writebackMappings": []
+}
+```
+
+## 发布规则版本
+
+`POST /api/botp/rules/{ruleCode}/publish`
+
+将当前草稿发布为不可变版本。没有草稿时返回业务错误。
 
 ## 预览转换
 
@@ -47,13 +89,13 @@
 
 `GET /api/botp/executions/{executionId}`
 
-返回状态、目标单列表和错误信息。
+返回状态、规则版本、目标单列表和错误信息。
 
 ## 错误约定
 
-- 400：参数或映射校验失败。
+- 400：参数、规则状态或映射校验失败。
 - 404：规则、执行任务或适配器不存在。
-- 409：规则状态不允许执行或幂等冲突。
+- 409：幂等冲突或并发状态冲突。
 - 500：适配器或目标领域服务异常。
 
 ## 外部系统安全预留
