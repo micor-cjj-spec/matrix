@@ -16,6 +16,7 @@
         <module>gateway</module>
         <module>auth-service</module>
         <module>fi-service</module>
+        <module>openapi-service</module>
         <module>share-service</module>
         <module>scheduler-service</module>
         <module>workflow-service</module>

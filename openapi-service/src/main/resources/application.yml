@@ -1,13 +1,15 @@
+server:
+  port: ${OPENAPI_PORT:10005}
+  servlet:
+    context-path: /api
+
 spring:
   application:
-    name: fi-service
-
+    name: openapi-service
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
-
   config:
     import: "nacos:${spring.application.name}"
-
   cloud:
     nacos:
       discovery:
@@ -19,7 +21,25 @@ spring:
         file-extension: yaml
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
+    openfeign:
+      client:
+        config:
+          fi-service:
+            connect-timeout: 3000
+            read-timeout: 5000
 
 matrix:
   openapi:
+    master-key-base64: ${MATRIX_OPENAPI_MASTER_KEY:}
     internal-token: ${MATRIX_INTERNAL_OPENAPI_TOKEN:}
+    replay-window-seconds: ${OPENAPI_REPLAY_WINDOW_SECONDS:300}
+    system-max-page-size: ${OPENAPI_SYSTEM_MAX_PAGE_SIZE:500}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

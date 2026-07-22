@@ -28,18 +28,28 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
             "/api/auth/**",
             "/api/actuator/**",
             "/api/swagger-ui/**",
-            "/api/v3/api-docs/**"
+            "/api/v3/api-docs/**",
+            // OpenAPI 使用 AppKey + HMAC，由 openapi-service 再次执行强校验。
+            "/api/open-api/**"
+    );
+
+    private static final List<String> INTERNAL_IDENTITY_HEADERS = List.of(
+            "X-User-Id",
+            "X-OpenApi-App-Id",
+            "X-OpenApi-Tenant-Id",
+            "X-OpenApi-Verified"
     );
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        ServerHttpRequest request = exchange.getRequest();
+        ServerHttpRequest request = sanitizeIdentityHeaders(exchange.getRequest());
+        ServerWebExchange sanitizedExchange = exchange.mutate().request(request).build();
         String path = request.getURI().getPath();
 
         if (isWhitelisted(path)) {
-            return chain.filter(exchange);
+            return chain.filter(sanitizedExchange);
         }
 
         String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
@@ -55,11 +65,17 @@ public class GatewayAuthFilter implements GlobalFilter, Ordered {
             ServerHttpRequest mutated = request.mutate()
                     .header("X-User-Id", userId)
                     .build();
-            return chain.filter(exchange.mutate().request(mutated).build());
+            return chain.filter(sanitizedExchange.mutate().request(mutated).build());
         } catch (Exception e) {
             log.warn("gateway jwt verify failed: {}", e.getMessage());
             return unauthorized(exchange.getResponse(), "token无效或已过期");
         }
+    }
+
+    private ServerHttpRequest sanitizeIdentityHeaders(ServerHttpRequest request) {
+        return request.mutate().headers(headers ->
+                INTERNAL_IDENTITY_HEADERS.forEach(headers::remove)
+        ).build();
     }
 
     private boolean isWhitelisted(String path) {
