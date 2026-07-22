@@ -12,7 +12,7 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -71,7 +71,7 @@ public class WorkflowAttachmentService {
         long expires = Instant.now().getEpochSecond() + uploadTtlSeconds;
         return new AttachmentContracts.UploadUrlResponse(
                 fileId, relationId, "PUT", signedUrl("UPLOAD", fileId, expires),
-                LocalDateTime.ofInstant(Instant.ofEpochSecond(expires), ZoneOffset.systemDefault()),
+                LocalDateTime.ofInstant(Instant.ofEpochSecond(expires), ZoneId.systemDefault()),
                 "PENDING"
         );
     }
