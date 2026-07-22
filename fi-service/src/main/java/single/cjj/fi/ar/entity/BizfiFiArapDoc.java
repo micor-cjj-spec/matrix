@@ -2,6 +2,7 @@ package single.cjj.fi.ar.entity;
 
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -34,8 +35,20 @@ public class BizfiFiArapDoc implements Serializable {
     private String fsettleMethod;
     private String fwriteoffDetail;
 
-    /** 差异化字段：暂估单 */
+    /** 差异化字段：暂估单/下游来源 */
     private String fsourceBillNo;
+
+    /** BOTP 下推与反写 */
+    private BigDecimal fappliedAmount;
+    private BigDecimal fremainingAmount;
+    private String fpushStatus;
+    private String fbotpIdempotencyKey;
+    private String fsourceSystem;
+    private String fsourceDocumentType;
+    private String fsourceDocumentId;
+    private String fsourceExecutionId;
+    @Version
+    private Integer fversion;
 
     /** 联动凭证 */
     private Long fvoucherId;
