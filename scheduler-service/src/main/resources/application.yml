@@ -43,6 +43,15 @@ spring:
     publisher-confirm-type: correlated
     publisher-returns: true
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
@@ -62,6 +71,8 @@ matrix:
       dispatch-timeout-seconds: ${SCHEDULER_DISPATCH_TIMEOUT_SECONDS:120}
       retry-scan-ms: ${SCHEDULER_RETRY_SCAN_MS:5000}
       timeout-scan-ms: ${SCHEDULER_TIMEOUT_SCAN_MS:10000}
+    alert:
+      scan-ms: ${SCHEDULER_ALERT_SCAN_MS:30000}
     outbox:
       publish-delay-ms: ${SCHEDULER_OUTBOX_DELAY_MS:3000}
       batch-size: ${SCHEDULER_OUTBOX_BATCH_SIZE:100}
