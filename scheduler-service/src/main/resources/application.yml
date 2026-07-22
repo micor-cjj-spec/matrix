@@ -1,0 +1,59 @@
+server:
+  port: ${SCHEDULER_PORT:10005}
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: scheduler-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  config:
+    import: "optional:nacos:${spring.application.name}"
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:117.72.216.168:8848}
+        group: ${NACOS_GROUP:DEV_GROUP}
+        namespace: ${NACOS_NAMESPACE:public}
+      config:
+        server-addr: ${NACOS_ADDR:117.72.216.168:8848}
+        file-extension: yaml
+        group: ${NACOS_GROUP:DEV_GROUP}
+        namespace: ${NACOS_NAMESPACE:public}
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org:
+        quartz:
+          scheduler:
+            instanceName: MatrixScheduler
+            instanceId: AUTO
+          jobStore:
+            class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+            isClustered: true
+            clusterCheckinInterval: 10000
+            misfireThreshold: 60000
+          threadPool:
+            threadCount: 10
+            threadPriority: 5
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+
+matrix:
+  scheduler:
+    exchange: ${SCHEDULER_EXCHANGE:matrix.scheduler.execute}
+    outbox:
+      publish-delay-ms: ${SCHEDULER_OUTBOX_DELAY_MS:3000}
+      batch-size: ${SCHEDULER_OUTBOX_BATCH_SIZE:100}
+      max-retry: ${SCHEDULER_OUTBOX_MAX_RETRY:10}
