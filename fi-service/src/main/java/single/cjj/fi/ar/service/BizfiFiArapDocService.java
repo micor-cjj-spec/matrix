@@ -1,6 +1,8 @@
 package single.cjj.fi.ar.service;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import single.cjj.fi.ar.dto.BotpArapContracts.ArapWritebackRequest;
+import single.cjj.fi.ar.dto.BotpArapContracts.PaymentApplicationCreateRequest;
 import single.cjj.fi.ar.entity.BizfiFiArapDoc;
 import single.cjj.fi.ar.entity.BizfiFiCounterpartyCredit;
 
@@ -37,4 +39,10 @@ public interface BizfiFiArapDocService {
     BizfiFiCounterpartyCredit saveCreditConfig(BizfiFiCounterpartyCredit config, String operator);
 
     List<BizfiFiCounterpartyCredit> listCreditConfigs(String docTypeRoot);
+
+    BizfiFiArapDoc findByBotpIdempotencyKey(String idempotencyKey);
+
+    BizfiFiArapDoc createPaymentApplicationFromBotp(PaymentApplicationCreateRequest request);
+
+    BizfiFiArapDoc recomputeBotpWriteback(Long sourceId, ArapWritebackRequest request);
 }
