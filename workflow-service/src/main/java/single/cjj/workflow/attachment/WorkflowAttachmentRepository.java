@@ -120,7 +120,9 @@ public class WorkflowAttachmentRepository {
                         AND r.business_id = i.business_id)
                   )
                 GROUP BY r.category_code
-                """, rs -> result.put(rs.getString("category_code"), rs.getLong("attachment_count")), instanceId);
+                """, rs -> {
+                    result.put(rs.getString("category_code"), rs.getLong("attachment_count"));
+                }, instanceId);
         return result;
     }
 
