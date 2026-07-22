@@ -1,0 +1,28 @@
+name: IM Service CI
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'pom.xml'
+      - 'common/**'
+      - 'im-service/**'
+      - '.github/workflows/im-service-ci.yml'
+  pull_request:
+    paths:
+      - 'pom.xml'
+      - 'common/**'
+      - 'im-service/**'
+      - '.github/workflows/im-service-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout quietly
+        shell: bash
+        run: |
+          ref="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          git clone --quiet --depth=1 --branch "$ref" "https://github.com/$GITHUB_REPOSITORY.git" .
+      - name: Test IM module
+        run: mvn -q -Dstyle.color=never -pl im-service -am test
