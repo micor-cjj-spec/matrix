@@ -24,6 +24,8 @@ public class OpenApiApp {
     private String ipWhitelist;
     private Integer qpsLimit;
     private Integer maxPageSize;
+    private Boolean callbackEnabled;
+    private String callbackUrl;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
