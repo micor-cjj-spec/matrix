@@ -31,6 +31,7 @@ spring:
 matrix:
   openapi:
     master-key-base64: ${MATRIX_OPENAPI_MASTER_KEY:}
+    internal-token: ${MATRIX_INTERNAL_OPENAPI_TOKEN:}
     replay-window-seconds: ${OPENAPI_REPLAY_WINDOW_SECONDS:300}
     system-max-page-size: ${OPENAPI_SYSTEM_MAX_PAGE_SIZE:500}
 
