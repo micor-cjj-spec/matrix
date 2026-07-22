@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -107,7 +108,12 @@ public class SchedulerJobController {
     @PostMapping("/callback/executions/{executionNo}")
     public ApiResponse<MatrixSchedulerExecution> callback(
             @PathVariable("executionNo") String executionNo,
+            @RequestHeader("X-Executor-Code") String executorCode,
             @Valid @RequestBody ExecutionCallbackRequest request) {
+        MatrixSchedulerExecution execution = dispatchService.getExecution(executionNo);
+        if (!executorCode.equals(execution.getFexecutorCode())) {
+            throw new IllegalArgumentException("执行器无权回调该执行实例");
+        }
         return ApiResponse.success(dispatchService.callback(executionNo, request));
     }
 }
