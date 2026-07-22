@@ -51,6 +51,7 @@ public class SchedulerMessageListener {
 
         String instanceId = instanceIdentity.getInstanceId();
         callbackClient.running(message.getExecutionNo(), instanceId);
+        callbackClient.progress(message.getExecutionNo(), instanceId, 0, "STARTING", "任务开始执行");
         try {
             MatrixJob handler = handlerRegistry.required(message.getHandlerCode());
             JobContext context = new JobContext(
@@ -60,13 +61,16 @@ public class SchedulerMessageListener {
                     message.getHandlerCode(),
                     message.getAttemptNo() == null ? 1 : message.getAttemptNo(),
                     message.getParameters(),
-                    objectMapper);
+                    objectMapper,
+                    (progress, stage, progressMessage) -> callbackClient.progress(
+                            message.getExecutionNo(), instanceId, progress, stage, progressMessage));
             JobResult result = handler.execute(context);
             if (result == null) {
                 result = JobResult.success();
             }
             String resultJson = objectMapper.writeValueAsString(result);
             if (result.success()) {
+                callbackClient.progress(message.getExecutionNo(), instanceId, 100, "FINISHED", "任务执行完成");
                 recordRepository.markSuccess(message.getExecutionNo(), resultJson);
                 callbackClient.success(message.getExecutionNo(), instanceId, resultJson);
             } else {
