@@ -1,0 +1,17 @@
+{
+  "code": "platform.scheduler.job-scheduling",
+  "name": "定时任务调度",
+  "group": "platform/scheduler",
+  "status": "partial_backend_frontend_integrated",
+  "backendModule": "scheduler-service",
+  "frontendRoute": "/scheduler/jobs",
+  "version": "1.0.0",
+  "documents": [
+    "business.md",
+    "fields.md",
+    "flow.md",
+    "rules.md",
+    "page.md",
+    "api.md"
+  ]
+}
