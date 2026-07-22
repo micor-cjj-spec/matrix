@@ -1,4 +1,4 @@
-name: Scheduler Phase 2 CI
+name: Scheduler Reliability CI
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
       - 'scheduler-client/**'
       - 'scheduler-service/**'
       - 'base-service/**'
+      - 'fi-service/**'
       - 'gateway/**'
       - 'pom.xml'
       - '.github/workflows/scheduler-phase2-ci.yml'
@@ -15,6 +16,7 @@ on:
       - 'scheduler-client/**'
       - 'scheduler-service/**'
       - 'base-service/**'
+      - 'fi-service/**'
       - 'gateway/**'
       - 'pom.xml'
 
@@ -29,4 +31,4 @@ jobs:
           java-version: '17'
           cache: maven
       - name: Compile and test scheduler modules
-        run: mvn -B -pl scheduler-service,base-service -am test
+        run: mvn -B -pl scheduler-service,base-service,fi-service -am test
