@@ -76,8 +76,15 @@ public class MybatisBotpRuleRepository implements BotpRuleRepository {
             BotpRuleEntity created = new BotpRuleEntity();
             created.setFtenantId(tenantId);
             created.setFcode(request.ruleCode());
+            created.setFname(request.ruleName());
+            created.setFsourceSystemCode(request.sourceSystemCode());
+            created.setFsourceDocumentType(request.sourceDocumentType());
+            created.setFtargetSystemCode(request.targetSystemCode());
+            created.setFtargetDocumentType(request.targetDocumentType());
             created.setFcurrentVersion(0);
+            created.setFstatus(RuleStatus.DRAFT.name());
             created.setFcreateTime(now);
+            created.setFmodifyTime(now);
             created.setFdeleteFlag(0);
             created.setFversion(0);
             ruleMapper.insert(created);
