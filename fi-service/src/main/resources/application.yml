@@ -44,3 +44,5 @@ fi:
     outbox:
       batch-size: ${FI_WORKFLOW_OUTBOX_BATCH_SIZE:20}
       dispatch-delay-ms: ${FI_WORKFLOW_OUTBOX_DISPATCH_DELAY_MS:5000}
+    reconciliation:
+      delay-ms: ${FI_WORKFLOW_RECONCILIATION_DELAY_MS:600000}

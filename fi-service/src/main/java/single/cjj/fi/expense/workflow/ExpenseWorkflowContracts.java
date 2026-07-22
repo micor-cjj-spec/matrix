@@ -1,5 +1,6 @@
 package single.cjj.fi.expense.workflow;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -27,6 +28,19 @@ public final class ExpenseWorkflowContracts {
         }
     }
 
+    public record UpdateExpenseRequest(
+            @NotBlank String operatorId,
+            @NotBlank String departmentCode,
+            @NotNull @DecimalMin(value = "0.01") BigDecimal amount,
+            String currency,
+            @NotBlank String description,
+            @NotNull Integer version
+    ) {
+        public String safeCurrency() {
+            return currency == null || currency.isBlank() ? "CNY" : currency.trim().toUpperCase();
+        }
+    }
+
     public record SubmitExpenseRequest(
             @NotBlank String operatorId,
             String definitionKey,
@@ -36,6 +50,12 @@ public final class ExpenseWorkflowContracts {
             return definitionKey == null || definitionKey.isBlank()
                     ? "expense-reimbursement" : definitionKey.trim();
         }
+    }
+
+    public record CancelExpenseRequest(
+            @NotBlank String operatorId,
+            String reason
+    ) {
     }
 
     public record ExpenseResponse(
@@ -54,6 +74,19 @@ public final class ExpenseWorkflowContracts {
             LocalDateTime submittedAt,
             LocalDateTime completedAt
     ) {
+    }
+
+    public record ApprovalDetailResponse(
+            ExpenseResponse document,
+            Map<String, Object> binding,
+            JsonNode workflow,
+            JsonNode attachments,
+            JsonNode tasks,
+            JsonNode timeline
+    ) {
+    }
+
+    public record ReconciliationResponse(int scanned, int repaired, int failed) {
     }
 
     public record WorkflowEventRequest(
@@ -90,5 +123,8 @@ public final class ExpenseWorkflowContracts {
             String comment,
             Map<String, Object> variables
     ) {
+    }
+
+    public record WorkflowCancelPayload(String operatorId, String reason) {
     }
 }

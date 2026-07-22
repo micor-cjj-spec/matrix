@@ -37,6 +37,23 @@ public class ExpenseWorkflowRepository {
         ));
     }
 
+    public int updateEditable(String expenseId,
+                              String applicantId,
+                              int expectedVersion,
+                              String departmentCode,
+                              BigDecimal amount,
+                              String currency,
+                              String description) {
+        return jdbcTemplate.update("""
+                UPDATE fi_expense_reimbursement
+                SET department_code = ?, amount = ?, currency_code = ?, description_text = ?,
+                    version = version + 1, updated_at = NOW()
+                WHERE id = ? AND applicant_id = ? AND version = ?
+                  AND status IN ('DRAFT', 'RETURNED')
+                """, departmentCode, amount, currency, description,
+                expenseId, applicantId, expectedVersion);
+    }
+
     public int markApproving(String expenseId, int expectedVersion, String workflowInstanceId) {
         return jdbcTemplate.update("""
                 UPDATE fi_expense_reimbursement
@@ -75,6 +92,16 @@ public class ExpenseWorkflowRepository {
                 WHERE tenant_id = ? AND business_type = ? AND business_id = ?
                 LIMIT 1
                 """, this::mapBinding, tenantId, businessType, businessId));
+    }
+
+    public int markCancelRequested(String tenantId, String businessId, String workflowInstanceId) {
+        return jdbcTemplate.update("""
+                UPDATE fi_workflow_binding
+                SET workflow_status = 'CANCEL_REQUESTED', version = version + 1
+                WHERE tenant_id = ? AND business_type = 'EXPENSE_REIMBURSEMENT'
+                  AND business_id = ? AND workflow_instance_id = ?
+                  AND workflow_status <> 'CANCEL_REQUESTED'
+                """, tenantId, businessId, workflowInstanceId);
     }
 
     public void insertOutbox(OutboxRow row) {
@@ -185,6 +212,67 @@ public class ExpenseWorkflowRepository {
                 """, eventId);
     }
 
+    public List<BindingRow> findReconciliationCandidates(int limit) {
+        return jdbcTemplate.query("""
+                SELECT * FROM fi_workflow_binding
+                WHERE business_type = 'EXPENSE_REIMBURSEMENT'
+                  AND workflow_instance_id IS NOT NULL
+                  AND (
+                    business_status IN ('APPROVING', 'RETURNED')
+                    OR workflow_status IN ('START_REQUESTED', 'RESUBMIT_REQUESTED',
+                                           'CANCEL_REQUESTED', 'RUNNING', 'WAITING_RESUBMIT')
+                  )
+                ORDER BY submitted_at
+                LIMIT ?
+                """, this::mapBinding, limit);
+    }
+
+    public void reconcileStatus(String tenantId,
+                                String businessId,
+                                String workflowInstanceId,
+                                String workflowStatus,
+                                String businessStatus,
+                                boolean terminal) {
+        jdbcTemplate.update("""
+                UPDATE fi_expense_reimbursement
+                SET status = ?, workflow_instance_id = ?,
+                    completed_at = CASE WHEN ? THEN NOW() ELSE completed_at END,
+                    version = version + 1, updated_at = NOW()
+                WHERE tenant_id = ? AND id = ?
+                """, businessStatus, workflowInstanceId, terminal, tenantId, businessId);
+        jdbcTemplate.update("""
+                UPDATE fi_workflow_binding
+                SET workflow_instance_id = ?, workflow_status = ?, business_status = ?,
+                    completed_at = CASE WHEN ? THEN NOW() ELSE completed_at END,
+                    version = version + 1
+                WHERE tenant_id = ? AND business_type = 'EXPENSE_REIMBURSEMENT'
+                  AND business_id = ?
+                """, workflowInstanceId, workflowStatus, businessStatus,
+                terminal, tenantId, businessId);
+    }
+
+    public void upsertReconciliationIssue(ReconciliationIssueRow row) {
+        jdbcTemplate.update("""
+                INSERT INTO fi_workflow_reconciliation_issue
+                    (id, tenant_id, business_type, business_id, workflow_instance_id,
+                     issue_type, old_business_status, old_workflow_status,
+                     actual_business_status, actual_workflow_status,
+                     resolve_status, detail_text, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    workflow_instance_id = VALUES(workflow_instance_id),
+                    old_business_status = VALUES(old_business_status),
+                    old_workflow_status = VALUES(old_workflow_status),
+                    actual_business_status = VALUES(actual_business_status),
+                    actual_workflow_status = VALUES(actual_workflow_status),
+                    detail_text = VALUES(detail_text),
+                    updated_at = VALUES(updated_at)
+                """, row.id(), row.tenantId(), row.businessType(), row.businessId(),
+                row.workflowInstanceId(), row.issueType(), row.oldBusinessStatus(),
+                row.oldWorkflowStatus(), row.actualBusinessStatus(), row.actualWorkflowStatus(),
+                row.resolveStatus(), abbreviate(row.detail(), 1000), row.createdAt(), row.createdAt());
+    }
+
     private ExpenseRow mapExpense(ResultSet rs, int rowNum) throws SQLException {
         return new ExpenseRow(
                 rs.getString("id"), rs.getString("tenant_id"), rs.getString("document_number"),
@@ -254,6 +342,15 @@ public class ExpenseWorkflowRepository {
     public record WorkflowEventRow(
             String eventId, String eventType, String workflowInstanceId,
             String businessType, String businessId, LocalDateTime createdAt
+    ) {
+    }
+
+    public record ReconciliationIssueRow(
+            String id, String tenantId, String businessType, String businessId,
+            String workflowInstanceId, String issueType, String oldBusinessStatus,
+            String oldWorkflowStatus, String actualBusinessStatus,
+            String actualWorkflowStatus, String resolveStatus, String detail,
+            LocalDateTime createdAt
     ) {
     }
 }

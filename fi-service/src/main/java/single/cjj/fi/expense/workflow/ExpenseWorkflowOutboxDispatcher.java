@@ -54,6 +54,12 @@ public class ExpenseWorkflowOutboxDispatcher {
                 }
                 result = gateway.resubmit(
                         binding.workflowInstanceId(), row.payloadJson(), row.idempotencyKey());
+            } else if (ExpenseWorkflowService.EVENT_CANCEL.equals(row.eventType())) {
+                if (!StringUtils.hasText(binding.workflowInstanceId())) {
+                    throw new IllegalStateException("撤销缺少 workflowInstanceId");
+                }
+                result = gateway.cancel(
+                        binding.workflowInstanceId(), row.payloadJson(), row.idempotencyKey());
             } else {
                 throw new IllegalStateException("不支持的业务 Outbox 事件: " + row.eventType());
             }
