@@ -14,8 +14,12 @@ import java.time.LocalDateTime;
 public class OpenVoucherResponse {
 
     private String voucherId;
+    private String tenantId;
+    private String organizationId;
+    private String bookId;
     private String voucherNumber;
     private LocalDate voucherDate;
+    private String period;
     private String summary;
     private BigDecimal amount;
     private String status;
