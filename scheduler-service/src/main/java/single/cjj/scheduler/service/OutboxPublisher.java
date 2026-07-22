@@ -50,11 +50,21 @@ public class OutboxPublisher {
                         .last("LIMIT " + batchSize));
 
         for (MatrixSchedulerOutbox event : events) {
-            publishOne(event);
+            publishOne(event.getFid());
         }
     }
 
-    private void publishOne(MatrixSchedulerOutbox event) {
+    private void publishOne(Long outboxId) {
+        MatrixSchedulerOutbox event = outboxMapper.selectById(outboxId);
+        if (event == null || !List.of("PENDING", "FAILED").contains(event.getFstatus())) {
+            return;
+        }
+        MatrixSchedulerExecution execution = findExecution(event.getFaggregateId());
+        if (execution == null || isTerminal(execution.getFstatus())) {
+            cancelEvent(event, "EXECUTION_ALREADY_TERMINAL");
+            return;
+        }
+
         try {
             rabbitTemplate.convertAndSend(exchange, event.getFroutingKey(), event.getFpayload(), message -> {
                 message.getMessageProperties().setMessageId(event.getFeventId());
@@ -66,7 +76,7 @@ public class OutboxPublisher {
             event.setFlastError(null);
             event.setFupdateTime(LocalDateTime.now());
             outboxMapper.updateById(event);
-            markExecutionQueued(event.getFaggregateId());
+            markExecutionQueued(execution);
         } catch (Exception e) {
             int retries = event.getFretryCount() == null ? 1 : event.getFretryCount() + 1;
             event.setFretryCount(retries);
@@ -80,16 +90,32 @@ public class OutboxPublisher {
         }
     }
 
-    private void markExecutionQueued(String executionNo) {
-        MatrixSchedulerExecution execution = executionMapper.selectOne(
+    private MatrixSchedulerExecution findExecution(String executionNo) {
+        return executionMapper.selectOne(
                 new LambdaQueryWrapper<MatrixSchedulerExecution>()
                         .eq(MatrixSchedulerExecution::getFexecutionNo, executionNo)
                         .last("LIMIT 1"));
+    }
+
+    private void cancelEvent(MatrixSchedulerOutbox event, String reason) {
+        event.setFstatus("CANCELLED");
+        event.setFnextRetryTime(null);
+        event.setFlastError(reason);
+        event.setFupdateTime(LocalDateTime.now());
+        outboxMapper.updateById(event);
+    }
+
+    private void markExecutionQueued(MatrixSchedulerExecution execution) {
         if (execution != null && "CREATED".equals(execution.getFstatus())) {
             execution.setFstatus("QUEUED");
             execution.setFupdateTime(LocalDateTime.now());
             executionMapper.updateById(execution);
         }
+    }
+
+    private boolean isTerminal(String status) {
+        return List.of("SUCCESS", "FAILED", "TIMEOUT", "CANCELLED", "DEAD", "SKIPPED")
+                .contains(status);
     }
 
     private long backoffSeconds(int retry) {
