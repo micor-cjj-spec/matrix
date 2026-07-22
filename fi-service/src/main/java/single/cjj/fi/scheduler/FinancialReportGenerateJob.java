@@ -25,7 +25,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 @Component
 @MatrixJobHandler(value = "financial-report-generate", name = "财务报表生成")
@@ -89,6 +88,7 @@ public class FinancialReportGenerateJob implements MatrixJob {
         result.put("reportType", reportType);
         result.put("period", period.toString());
         result.put("bookId", bookId);
+        result.put("scope", StringUtils.hasText(bookId) ? "BOOK" : "ALL_BOOKS");
         result.put("voucherCount", voucherIds.size());
         result.put("entryCount", entries.size());
         result.put("accountCount", rows.size());
