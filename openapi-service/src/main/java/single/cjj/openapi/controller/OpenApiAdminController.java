@@ -18,6 +18,7 @@ import single.cjj.openapi.exception.OpenApiCallException;
 import single.cjj.openapi.mapper.OpenApiAppMapper;
 import single.cjj.openapi.mapper.OpenApiDefinitionMapper;
 import single.cjj.openapi.mapper.OpenApiGrantMapper;
+import single.cjj.openapi.service.OpenApiCallbackUrlValidator;
 import single.cjj.openapi.service.OpenApiSecretService;
 
 import java.time.LocalDateTime;
@@ -39,15 +40,18 @@ public class OpenApiAdminController {
     private final OpenApiDefinitionMapper definitionMapper;
     private final OpenApiGrantMapper grantMapper;
     private final OpenApiSecretService secretService;
+    private final OpenApiCallbackUrlValidator callbackUrlValidator;
 
     public OpenApiAdminController(OpenApiAppMapper appMapper,
                                   OpenApiDefinitionMapper definitionMapper,
                                   OpenApiGrantMapper grantMapper,
-                                  OpenApiSecretService secretService) {
+                                  OpenApiSecretService secretService,
+                                  OpenApiCallbackUrlValidator callbackUrlValidator) {
         this.appMapper = appMapper;
         this.definitionMapper = definitionMapper;
         this.grantMapper = grantMapper;
         this.secretService = secretService;
+        this.callbackUrlValidator = callbackUrlValidator;
     }
 
     @PostMapping("/apps")
@@ -55,6 +59,12 @@ public class OpenApiAdminController {
         if (request == null || !StringUtils.hasText(request.appName())) {
             throw new OpenApiCallException("OPENAPI_40001", "应用名称不能为空", 400);
         }
+        String callbackUrl = callbackUrlValidator.validateAndNormalize(request.callbackUrl());
+        boolean callbackEnabled = Boolean.TRUE.equals(request.callbackEnabled());
+        if (callbackEnabled && !StringUtils.hasText(callbackUrl)) {
+            throw new OpenApiCallException("OPENAPI_CALLBACK_40001", "启用回调时必须配置回调地址", 400);
+        }
+
         OpenApiSecretService.GeneratedCredential credential = secretService.generateCredential();
         LocalDateTime now = LocalDateTime.now();
 
@@ -70,16 +80,14 @@ public class OpenApiAdminController {
         app.setIpWhitelist(request.ipWhitelist());
         app.setQpsLimit(normalizePositive(request.qpsLimit(), 10, 10000));
         app.setMaxPageSize(normalizePositive(request.maxPageSize(), 200, 500));
+        app.setCallbackEnabled(callbackEnabled);
+        app.setCallbackUrl(callbackUrl);
         app.setCreatedAt(now);
         app.setUpdatedAt(now);
         appMapper.insert(app);
 
         return ApiResponse.success(new CreateAppResponse(
-                app.getId(),
-                app.getAppId(),
-                app.getAppName(),
-                app.getAppKey(),
-                credential.appSecret()
+                app.getId(), app.getAppId(), app.getAppName(), app.getAppKey(), credential.appSecret()
         ));
     }
 
@@ -179,7 +187,9 @@ public class OpenApiAdminController {
             LocalDateTime validTo,
             String ipWhitelist,
             Integer qpsLimit,
-            Integer maxPageSize) {
+            Integer maxPageSize,
+            Boolean callbackEnabled,
+            String callbackUrl) {
     }
 
     public record CreateAppResponse(
@@ -212,24 +222,17 @@ public class OpenApiAdminController {
             String ipWhitelist,
             Integer qpsLimit,
             Integer maxPageSize,
+            Boolean callbackEnabled,
+            String callbackUrl,
             LocalDateTime createdAt,
             LocalDateTime updatedAt) {
 
         private static AppView from(OpenApiApp app) {
             return new AppView(
-                    app.getId(),
-                    app.getAppId(),
-                    app.getAppName(),
-                    app.getAppKey(),
-                    app.getTenantId(),
-                    app.getStatus(),
-                    app.getValidFrom(),
-                    app.getValidTo(),
-                    app.getIpWhitelist(),
-                    app.getQpsLimit(),
-                    app.getMaxPageSize(),
-                    app.getCreatedAt(),
-                    app.getUpdatedAt()
+                    app.getId(), app.getAppId(), app.getAppName(), app.getAppKey(), app.getTenantId(),
+                    app.getStatus(), app.getValidFrom(), app.getValidTo(), app.getIpWhitelist(),
+                    app.getQpsLimit(), app.getMaxPageSize(), Boolean.TRUE.equals(app.getCallbackEnabled()),
+                    app.getCallbackUrl(), app.getCreatedAt(), app.getUpdatedAt()
             );
         }
     }
