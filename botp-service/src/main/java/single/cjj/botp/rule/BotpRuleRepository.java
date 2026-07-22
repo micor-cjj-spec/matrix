@@ -12,4 +12,10 @@ public interface BotpRuleRepository {
     Optional<RuleDefinition> findByCode(String ruleCode);
 
     Optional<RuleDefinition> findPublishedByCode(String ruleCode);
+
+    RuleDefinition saveDraft(RuleSaveRequest request);
+
+    RuleDefinition publish(String ruleCode);
+
+    List<RuleDefinition> findVersions(String ruleCode);
 }
