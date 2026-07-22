@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -98,7 +99,7 @@ public final class BotpContracts {
     ) {
         public DocumentData {
             header = immutableMap(header);
-            entries = immutable(entries);
+            entries = immutableMaps(entries);
         }
     }
 
@@ -110,7 +111,7 @@ public final class BotpContracts {
     ) {
         public TargetDraft {
             header = immutableMap(header);
-            entries = immutable(entries);
+            entries = immutableMaps(entries);
         }
     }
 
@@ -179,7 +180,19 @@ public final class BotpContracts {
         return values == null ? List.of() : List.copyOf(values);
     }
 
+    private static List<Map<String, Object>> immutableMaps(List<Map<String, Object>> values) {
+        if (values == null) {
+            return List.of();
+        }
+        return values.stream()
+                .map(BotpContracts::immutableMap)
+                .toList();
+    }
+
     private static Map<String, Object> immutableMap(Map<String, Object> values) {
-        return values == null ? Collections.emptyMap() : Map.copyOf(values);
+        if (values == null || values.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return Collections.unmodifiableMap(new LinkedHashMap<>(values));
     }
 }
