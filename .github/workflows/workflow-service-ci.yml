@@ -45,7 +45,7 @@ jobs:
           set +e
           mvn -B -pl share-service -am test > share-test.log 2>&1
           exit_code=$?
-          tail -n 240 share-test.log > share-test-tail.log
+          tail -n 300 share-test.log > share-test-tail.log
           cat share-test-tail.log
           echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
           exit 0
