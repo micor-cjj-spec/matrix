@@ -1,6 +1,7 @@
 package single.cjj.share.persistence;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -25,12 +26,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Persists the current shared-operation task aggregate as durable JSON snapshots.
+ * Durable transition layer for the existing shared-operation aggregate model.
  *
- * <p>The existing task domain model is intentionally kept intact while the service
- * migrates away from process-only storage. Every mutation becomes durable no later
- * than the configured flush interval, and the database snapshot is restored before
- * the service starts accepting normal traffic.</p>
+ * <p>The task domain remains in memory for the current service version, while a
+ * MySQL snapshot is restored at startup and refreshed after mutations within the
+ * configured flush interval. This removes restart data loss without changing the
+ * public task API.</p>
  */
 @Component
 public class TaskSnapshotPersistence {
@@ -53,15 +54,19 @@ public class TaskSnapshotPersistence {
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final ObjectMapper snapshotReader;
     private final TaskService taskService;
     private final AtomicBoolean flushing = new AtomicBoolean(false);
     private volatile boolean initialized;
+    private volatile boolean persistenceAvailable = true;
 
     public TaskSnapshotPersistence(JdbcTemplate jdbcTemplate,
                                    ObjectMapper objectMapper,
                                    TaskService taskService) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+        this.snapshotReader = objectMapper.copy()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         this.taskService = taskService;
     }
 
@@ -69,7 +74,7 @@ public class TaskSnapshotPersistence {
     public void restoreAfterStartup() {
         try {
             List<Task> persisted = jdbcTemplate.query(SELECT_SQL, (rs, rowNum) ->
-                    objectMapper.readValue(rs.getString("payload_json"), Task.class));
+                    snapshotReader.readValue(rs.getString("payload_json"), Task.class));
             Map<String, Task> tasks = taskMap();
             if (!persisted.isEmpty()) {
                 tasks.clear();
@@ -77,12 +82,14 @@ public class TaskSnapshotPersistence {
                 restoreSequences();
                 log.info("Restored {} shared-operation tasks from MySQL", persisted.size());
             } else {
+                initialized = true;
                 flushNow();
                 log.info("Initialized shared-operation task snapshots from seed data");
             }
             initialized = true;
         } catch (DataAccessException ex) {
             initialized = true;
+            persistenceAvailable = false;
             log.error("Shared task persistence is unavailable. Apply shared_task_snapshot_v1.sql before production use.", ex);
         } catch (Exception ex) {
             throw new IllegalStateException("Unable to restore shared-operation tasks", ex);
@@ -91,7 +98,7 @@ public class TaskSnapshotPersistence {
 
     @Scheduled(fixedDelayString = "${share.persistence.flush-ms:1000}")
     public void scheduledFlush() {
-        if (!initialized) {
+        if (!initialized || !persistenceAvailable) {
             return;
         }
         flushNow();
@@ -99,13 +106,13 @@ public class TaskSnapshotPersistence {
 
     @PreDestroy
     public void flushBeforeShutdown() {
-        if (initialized) {
+        if (initialized && persistenceAvailable) {
             flushNow();
         }
     }
 
     public void flushNow() {
-        if (!flushing.compareAndSet(false, true)) {
+        if (!persistenceAvailable || !flushing.compareAndSet(false, true)) {
             return;
         }
         try {
@@ -120,7 +127,8 @@ public class TaskSnapshotPersistence {
                 );
             }
         } catch (DataAccessException ex) {
-            log.error("Failed to flush shared-operation task snapshots", ex);
+            persistenceAvailable = false;
+            log.error("Failed to flush shared-operation task snapshots; scheduled persistence has been disabled", ex);
         } finally {
             flushing.set(false);
         }
@@ -134,10 +142,10 @@ public class TaskSnapshotPersistence {
         }
         ReflectionUtils.makeAccessible(field);
         Object value = ReflectionUtils.getField(field, taskService);
-        if (!(value instanceof Map<?, ?> map)) {
+        if (!(value instanceof Map<?, ?>)) {
             throw new IllegalStateException("TaskService.tasks is not a Map");
         }
-        return (Map<String, Task>) map;
+        return (Map<String, Task>) value;
     }
 
     private void restoreSequences() {
