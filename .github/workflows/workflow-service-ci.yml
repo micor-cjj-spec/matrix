@@ -1,19 +1,25 @@
-name: Workflow Service CI
+name: Workflow and Share Services CI
 
 on:
   pull_request:
+    branches:
+      - dev
     paths:
       - 'workflow-service/**'
+      - 'share-service/**'
       - 'common/**'
       - 'pom.xml'
       - '.github/workflows/workflow-service-ci.yml'
   push:
     branches:
       - agent/workflow-mvp
+      - 'feature/shared-operations-*'
     paths:
       - 'workflow-service/**'
+      - 'share-service/**'
       - 'common/**'
       - 'pom.xml'
+      - '.github/workflows/workflow-service-ci.yml'
 
 jobs:
   test:
@@ -31,3 +37,6 @@ jobs:
 
       - name: Test workflow service
         run: mvn -B -pl workflow-service -am test
+
+      - name: Test share service
+        run: mvn -B -pl share-service -am test
