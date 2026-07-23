@@ -1,19 +1,25 @@
-name: Workflow Service CI
+name: Workflow and Share Services CI
 
 on:
   pull_request:
+    branches:
+      - dev
     paths:
       - 'workflow-service/**'
+      - 'share-service/**'
       - 'common/**'
       - 'pom.xml'
       - '.github/workflows/workflow-service-ci.yml'
   push:
     branches:
       - agent/workflow-mvp
+      - 'feature/shared-operations-*'
     paths:
       - 'workflow-service/**'
+      - 'share-service/**'
       - 'common/**'
       - 'pom.xml'
+      - '.github/workflows/workflow-service-ci.yml'
 
 jobs:
   test:
@@ -31,3 +37,27 @@ jobs:
 
       - name: Test workflow service
         run: mvn -B -pl workflow-service -am test
+
+      - name: Test share service
+        id: share-test
+        shell: bash
+        run: |
+          set +e
+          mvn -B -pl share-service -am test > share-test.log 2>&1
+          exit_code=$?
+          tail -n 300 share-test.log > share-test-tail.log
+          cat share-test-tail.log
+          echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload share-service test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: share-service-test-log
+          path: share-test-tail.log
+          if-no-files-found: error
+
+      - name: Fail when share service tests fail
+        if: steps.share-test.outputs.exit_code != '0'
+        run: exit 1
