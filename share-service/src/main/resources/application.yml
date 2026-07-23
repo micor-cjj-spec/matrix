@@ -20,6 +20,10 @@ spring:
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
 
+share:
+  persistence:
+    flush-ms: ${SHARE_PERSISTENCE_FLUSH_MS:1000}
+
 management:
   endpoints:
     web:
@@ -28,4 +32,3 @@ management:
   endpoint:
     health:
       show-details: always
-
