@@ -73,8 +73,13 @@ public class TaskSnapshotPersistence {
     @EventListener(ApplicationReadyEvent.class)
     public void restoreAfterStartup() {
         try {
-            List<Task> persisted = jdbcTemplate.query(SELECT_SQL, (rs, rowNum) ->
-                    snapshotReader.readValue(rs.getString("payload_json"), Task.class));
+            List<Task> persisted = jdbcTemplate.query(SELECT_SQL, (rs, rowNum) -> {
+                try {
+                    return snapshotReader.readValue(rs.getString("payload_json"), Task.class);
+                } catch (JsonProcessingException ex) {
+                    throw new IllegalStateException("Invalid shared task snapshot at row " + rowNum, ex);
+                }
+            });
             Map<String, Task> tasks = taskMap();
             if (!persisted.isEmpty()) {
                 tasks.clear();
