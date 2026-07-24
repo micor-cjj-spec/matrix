@@ -10,7 +10,7 @@ import single.cjj.fi.dashboard.service.BizfiFiDashboardService;
 import single.cjj.fi.dashboard.vo.FinanceDashboardOverviewVO;
 
 @RestController
-@RequestMapping("/finance-dashboard")
+@RequestMapping({"/finance-dashboard", "/voucher/dashboard"})
 public class BizfiFiDashboardController {
 
     @Autowired
