@@ -1,5 +1,6 @@
 package single.cjj.fi.dashboard.service.impl;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import single.cjj.bizfi.exception.BizException;
@@ -15,10 +16,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class BizfiFiDashboardServiceImpl implements BizfiFiDashboardService {
 
@@ -73,7 +75,8 @@ public class BizfiFiDashboardServiceImpl implements BizfiFiDashboardService {
                 summary.getWarnings().forEach(warning -> addWarning(result, warning));
             }
         } catch (Exception exception) {
-            addWarning(result, "凭证汇总加载失败: " + safeMessage(exception));
+            log.warn("finance dashboard voucher summary failed, period={}", yearMonth, exception);
+            addWarning(result, "凭证汇总加载失败");
         }
     }
 
@@ -108,7 +111,8 @@ public class BizfiFiDashboardServiceImpl implements BizfiFiDashboardService {
                 workbench.getWarnings().forEach(warning -> addWarning(result, warning));
             }
         } catch (Exception exception) {
-            addWarning(result, "月结数据加载失败: " + safeMessage(exception));
+            log.warn("finance dashboard month-end data failed, forg={}, period={}", forg, period, exception);
+            addWarning(result, "月结数据加载失败");
         }
     }
 
@@ -126,22 +130,15 @@ public class BizfiFiDashboardServiceImpl implements BizfiFiDashboardService {
             List<Map<String, Object>> warnings = arapDocService.creditWarnings(docTypeRoot, asOfDate);
             return warnings == null ? 0 : warnings.size();
         } catch (Exception exception) {
-            addWarning(result, label + "加载失败: " + safeMessage(exception));
+            log.warn("finance dashboard credit warnings failed, docTypeRoot={}, asOfDate={}", docTypeRoot, asOfDate, exception);
+            addWarning(result, label + "加载失败");
             return 0;
         }
     }
 
     private void buildFocusItems(FinanceDashboardOverviewVO result) {
-        List<FinanceDashboardOverviewVO.FocusItem> focusItems = result.getFocusItems();
-        if (focusItems == null) {
-            focusItems = Collections.emptyList();
-            result.setFocusItems(focusItems);
-        }
-        if (!(focusItems instanceof java.util.ArrayList)) {
-            focusItems = new java.util.ArrayList<>(focusItems);
-            result.setFocusItems(focusItems);
-        }
-
+        List<FinanceDashboardOverviewVO.FocusItem> focusItems = new ArrayList<>();
+        result.setFocusItems(focusItems);
         addFocusItem(focusItems, "MONTH_CLOSE_BLOCKING", "月结阻塞项", result.getMonthCloseBlockingCount(), "/ledger/month-end-close-workbench");
         addFocusItem(focusItems, "VOUCHER_PENDING", "待处理凭证", result.getPendingVoucherCount(), "/ledger/voucher");
         addFocusItem(focusItems, "AR_CREDIT_WARNING", "应收信用预警", result.getReceivableWarningCount(), "/receivable/aging-credit");
@@ -183,9 +180,5 @@ public class BizfiFiDashboardServiceImpl implements BizfiFiDashboardService {
 
     private int defaultInt(Integer value) {
         return value == null ? 0 : value;
-    }
-
-    private String safeMessage(Exception exception) {
-        return exception.getMessage() == null ? exception.getClass().getSimpleName() : exception.getMessage();
     }
 }
