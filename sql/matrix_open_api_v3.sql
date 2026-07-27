@@ -3,7 +3,7 @@
 -- 前置：matrix_open_api_v1.sql、matrix_open_api_v2.sql
 
 ALTER TABLE bizfi_fi_voucher
-    ADD COLUMN source_request_id VARCHAR(64) NULL COMMENT 'OpenAPI写入来源请求' AFTER book_id,
+    ADD COLUMN source_request_id VARCHAR(128) NULL COMMENT 'OpenAPI写入来源请求' AFTER book_id,
     ADD UNIQUE KEY uk_voucher_openapi_source (tenant_id, source_request_id);
 
 CREATE TABLE matrix_open_api_write_request (
