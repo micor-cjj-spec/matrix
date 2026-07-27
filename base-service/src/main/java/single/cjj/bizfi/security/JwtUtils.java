@@ -14,21 +14,21 @@ import java.security.Key;
 @Component
 public class JwtUtils {
 
-    private final Key signingKey;
+    private static volatile Key signingKey;
 
     public JwtUtils(@Value("${security.jwt.secret}") String secret) {
-        this.signingKey = createSigningKey(secret);
+        signingKey = createSigningKey(secret);
     }
 
-    public Claims parseToken(String token) throws JwtException {
+    public static Claims parseToken(String token) throws JwtException {
         return Jwts.parserBuilder()
-                .setSigningKey(signingKey)
+                .setSigningKey(requireSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
-    private Key createSigningKey(String secret) {
+    private static Key createSigningKey(String secret) {
         if (!StringUtils.hasText(secret)) {
             throw new IllegalStateException("security.jwt.secret must not be blank");
         }
@@ -37,5 +37,13 @@ public class JwtUtils {
             throw new IllegalStateException("security.jwt.secret must contain at least 32 bytes for HS256");
         }
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    private static Key requireSigningKey() {
+        Key key = signingKey;
+        if (key == null) {
+            throw new IllegalStateException("JWT signing key has not been initialized");
+        }
+        return key;
     }
 }
