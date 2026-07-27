@@ -21,18 +21,18 @@ public class JwtUtils {
      */
     public static final long EXPIRE = 3600 * 1000;
 
-    private final Key signingKey;
+    private static volatile Key signingKey;
 
     public JwtUtils(@Value("${security.jwt.secret}") String secret) {
-        this.signingKey = createSigningKey(secret);
+        signingKey = createSigningKey(secret);
     }
 
-    public String generateToken(Long userId, Long username) {
+    public static String generateToken(Long userId, Long username) {
         return Jwts.builder()
                 .claim("id", userId)
                 .claim("username", username)
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRE))
-                .signWith(signingKey, SignatureAlgorithm.HS256)
+                .signWith(requireSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -43,15 +43,15 @@ public class JwtUtils {
      * @return Claims
      * @throws JwtException token 无效或已过期
      */
-    public Claims parseToken(String token) throws JwtException {
+    public static Claims parseToken(String token) throws JwtException {
         return Jwts.parserBuilder()
-                .setSigningKey(signingKey)
+                .setSigningKey(requireSigningKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
 
-    private Key createSigningKey(String secret) {
+    private static Key createSigningKey(String secret) {
         if (!StringUtils.hasText(secret)) {
             throw new IllegalStateException("security.jwt.secret must not be blank");
         }
@@ -60,5 +60,13 @@ public class JwtUtils {
             throw new IllegalStateException("security.jwt.secret must contain at least 32 bytes for HS256");
         }
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    private static Key requireSigningKey() {
+        Key key = signingKey;
+        if (key == null) {
+            throw new IllegalStateException("JWT signing key has not been initialized");
+        }
+        return key;
     }
 }
