@@ -28,3 +28,12 @@ jobs:
 
       - name: Check tracked artifacts and local secrets
         run: bash scripts/ci/check-repository-hygiene.sh
+
+      - name: Upload hygiene report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: repository-hygiene-report
+          path: hygiene-report.txt
+          if-no-files-found: error
+          retention-days: 7
