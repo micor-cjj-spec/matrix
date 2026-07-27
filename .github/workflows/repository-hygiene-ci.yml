@@ -27,10 +27,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check tracked artifacts and local secrets
+        env:
+          HYGIENE_REPORT_FILE: hygiene-report.txt
         run: bash scripts/ci/check-repository-hygiene.sh
 
-      - name: Upload hygiene report
-        if: always()
+      - name: Upload hygiene report on failure
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: repository-hygiene-report
