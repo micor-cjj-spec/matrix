@@ -3,7 +3,7 @@ set -euo pipefail
 
 artifact_pattern='(^|/)(target|dist|node_modules|\.idea|\.vscode)/|\.(class|jar|war|log|tmp|bak|swp)$'
 secret_file_pattern='(^|/)\.env($|\.)|(^|/)application-local\.ya?ml$|\.(pem|key|p12|jks)$|(^|/)id_rsa$'
-report_file="${HYGIENE_REPORT_FILE:-hygiene-report.txt}"
+report_file="${HYGIENE_REPORT_FILE:-${TMPDIR:-/tmp}/matrix-hygiene-report.txt}"
 
 tracked_artifacts="$(git ls-files | grep -E "${artifact_pattern}" || true)"
 tracked_secret_files="$(git ls-files | grep -E "${secret_file_pattern}" || true)"
