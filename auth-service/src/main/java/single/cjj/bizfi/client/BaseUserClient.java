@@ -9,18 +9,18 @@ import single.cjj.bizfi.entity.BizfiBaseUser;
 public interface BaseUserClient {
 
     // 查（根据账号/工号/手机号/邮箱，任选其一）
-    @GetMapping("/api/user/account/{account}")
+    @GetMapping("/user/account/{account}")
     ApiResponse<BizfiBaseUser> getByAccount(@PathVariable("account") String account);
 
     // 增
-    @PostMapping("/api/user")
+    @PostMapping("/user")
     ApiResponse<BizfiBaseUser> addUser(@RequestBody BizfiBaseUser user);
 
     // 改
-    @PutMapping("/api/user")
+    @PutMapping("/user")
     ApiResponse<BizfiBaseUser> updateUser(@RequestBody BizfiBaseUser user);
 
     // 删
-    @DeleteMapping("/api/user/{fid}")
+    @DeleteMapping("/user/{fid}")
     ApiResponse<Boolean> deleteUser(@PathVariable("fid") Long fid);
 }
