@@ -32,6 +32,19 @@ Only `SKILL.md` is required. Create the other directories only when they contain
 - `matrix-ai-development`: models, prompts, conversations, knowledge retrieval, streaming, and AI safety.
 - `matrix-code-review`: structured correctness, finance, transaction, security, database, and release review.
 
+## Deterministic validation
+
+See `.agents/VALIDATION.md` for complete usage.
+
+```bash
+python .agents/scripts/validate_skills.py
+python .agents/skills/matrix-database-change/scripts/validate_sql.py
+python .agents/skills/matrix-java-backend/scripts/check_controller_contract.py
+python .agents/skills/matrix-code-review/scripts/scan_sensitive_content.py
+```
+
+With no explicit file arguments, the change-oriented checks inspect changed and untracked files detected by Git. Use `--strict` when warnings should fail the check.
+
 ## Maintenance rules
 
 - Keep project-specific rules here; keep generic personal skills such as Superpowers in the user's global skills directory.
