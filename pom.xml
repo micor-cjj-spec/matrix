@@ -16,6 +16,7 @@
         <module>gateway</module>
         <module>auth-service</module>
         <module>fi-service</module>
+        <module>ai-service</module>
         <module>share-service</module>
         <module>common</module>
         <module>infra</module>
@@ -25,7 +26,6 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- BOM们 -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -33,7 +33,6 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -41,7 +40,6 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-
             <dependency>
                 <groupId>com.alibaba.cloud</groupId>
                 <artifactId>spring-cloud-alibaba-dependencies</artifactId>
@@ -49,74 +47,16 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-
-            <!-- ✅ 补充非 BOM 管理的依赖 -->
-
-            <!-- MyBatis-Plus -->
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-boot-starter</artifactId>
                 <version>${mybatis.plus.version}</version>
             </dependency>
-
-            <!-- MyBatis-Plus Generator -->
-            <dependency>
-                <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-generator</artifactId>
-                <version>${mybatis.plus.version}</version>
-            </dependency>
-
-            <!-- MyBatis-Plus Extension -->
-            <dependency>
-                <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-extension</artifactId>
-                <version>${mybatis.plus.version}</version>
-            </dependency>
-
-            <!-- Hutool -->
-            <dependency>
-                <groupId>cn.hutool</groupId>
-                <artifactId>hutool-all</artifactId>
-                <version>${hutool.version}</version>
-            </dependency>
-
-            <!-- easy-captcha -->
-            <dependency>
-                <groupId>com.github.whvcse</groupId>
-                <artifactId>easy-captcha</artifactId>
-                <version>${easy.captcha.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.mybatis</groupId>
-                <artifactId>mybatis-spring</artifactId>
-                <version>3.0.3</version>
-            </dependency>
-            <dependency>
-                <groupId>com.alibaba.nacos</groupId>
-                <artifactId>nacos-client</artifactId>
-                <version>2.3.0</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
-
     <build>
         <plugins>
-            <!-- ✅ Spring Boot 打包插件 -->
-<!--            <plugin>-->
-<!--                <groupId>org.springframework.boot</groupId>-->
-<!--                <artifactId>spring-boot-maven-plugin</artifactId>-->
-<!--                <version>${spring.boot.version}</version>-->
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <goals>-->
-<!--                            <goal>repackage</goal>-->
-<!--                        </goals>-->
-<!--                    </execution>-->
-<!--                </executions>-->
-<!--            </plugin>-->
-
-            <!-- 编译插件 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -129,7 +69,6 @@
         </plugins>
     </build>
 
-
     <properties>
         <java.version>17</java.version>
         <spring.boot.version>3.2.5</spring.boot.version>
@@ -139,13 +78,7 @@
         <mysql.version>8.0.33</mysql.version>
         <jjwt.version>0.11.5</jjwt.version>
         <lombok.version>1.18.30</lombok.version>
-        <slf4j.version>2.0.16</slf4j.version>
-        <logback.version>1.4.14</logback.version>
-        <easy.captcha.version>1.6.2</easy.captcha.version>
-        <hutool.version>5.8.26</hutool.version>
-        <datav.plugin.version>1.7.0</datav.plugin.version>
         <maven.compiler.plugin.version>3.12.0</maven.compiler.plugin.version>
-        <spring.cloud.openfeign.version>4.0.4</spring.cloud.openfeign.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 </project>
