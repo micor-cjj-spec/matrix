@@ -1,0 +1,15 @@
+server:
+  port: 10008
+
+spring:
+  application:
+    name: ai-service
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER:localhost:8848}
+
+ai:
+  model:
+    default: deepseek
