@@ -1,10 +1,36 @@
-# Maven/Java build outputs
+# Java / Maven build outputs
 **/target/
+*.class
+*.jar
+*.war
+
+# Frontend build outputs
+**/node_modules/
+**/dist/
 
 # IDE files
 .idea/
 *.iml
 .vscode/
 
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# Local environment and secret-bearing files
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.yaml
+*.pem
+*.key
+id_rsa
+*.p12
+*.jks
+
 # OS files
 .DS_Store
+Thumbs.db
