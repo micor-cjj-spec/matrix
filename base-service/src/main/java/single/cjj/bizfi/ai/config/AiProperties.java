@@ -7,6 +7,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "bizfi.ai")
 public class AiProperties {
 
+    /**
+     * 模型适配器：prompt-http、legacy-http、spring-ai。
+     */
+    private String modelAdapter = "prompt-http";
+
     private Boolean enabled = true;
     private Boolean knowledgeEnabled = true;
     private Boolean fallbackEnabled = true;

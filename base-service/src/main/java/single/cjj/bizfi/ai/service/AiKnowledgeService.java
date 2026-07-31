@@ -7,4 +7,13 @@ import java.util.List;
 public interface AiKnowledgeService {
 
     List<AiCitationResponse> retrieve(String question, List<String> kbIds);
+
+    /**
+     * 带召回数量限制的知识检索。
+     *
+     * <p>旧实现可以继续使用两参数方法；支持 Top-K 的实现应覆盖该方法。</p>
+     */
+    default List<AiCitationResponse> retrieve(String question, List<String> kbIds, Integer topK) {
+        return retrieve(question, kbIds);
+    }
 }
