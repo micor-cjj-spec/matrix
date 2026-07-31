@@ -1,15 +1,18 @@
 package single.cjj.fi.ai.tool.audit;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,7 +56,7 @@ class FinanceAiAuditControllerTest {
                 eq(FinanceAiAuditAccessLogService.SUCCESS),
                 eq(1L),
                 anyLong(),
-                eq(null)
+                isNull()
         );
     }
 
@@ -95,7 +98,41 @@ class FinanceAiAuditControllerTest {
                 eq(FinanceAiAuditAccessLogService.SUCCESS),
                 eq(1L),
                 anyLong(),
-                eq(null)
+                isNull()
+        );
+    }
+
+    @Test
+    void shouldAuditInvalidQueryAfterOperatorAuthorization() {
+        FinanceAiAuditOperator operator = viewer();
+        when(operatorGuard.requireViewer("token", "7", "AI_TOOL_AUDIT_VIEW", "audit_request_invalid"))
+                .thenReturn(operator);
+
+        assertThrows(ResponseStatusException.class, () -> controller.executions(
+                "token",
+                "7",
+                "AI_TOOL_AUDIT_VIEW",
+                "audit_request_invalid",
+                null,
+                null,
+                "2026-13",
+                null,
+                null,
+                null,
+                null,
+                null,
+                1,
+                20
+        ));
+
+        verify(accessLogService).recordRequired(
+                eq(operator),
+                eq(FinanceAiAuditAccessLogService.SEARCH),
+                any(String.class),
+                eq(FinanceAiAuditAccessLogService.FAILED),
+                eq(0L),
+                anyLong(),
+                any(ResponseStatusException.class)
         );
     }
 
