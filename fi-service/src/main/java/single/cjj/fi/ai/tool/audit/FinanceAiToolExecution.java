@@ -14,6 +14,9 @@ public class FinanceAiToolExecution {
     private Long fid;
 
     private String frequestid;
+    private String fconversationid;
+    private String fmodelname;
+    private String fmodeltraceid;
     private String ftoolname;
     private Long fuserid;
     private Long forganizationid;
