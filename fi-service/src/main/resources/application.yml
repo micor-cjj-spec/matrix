@@ -23,6 +23,10 @@ spring:
 matrix:
   openapi:
     internal-token: ${MATRIX_INTERNAL_OPENAPI_TOKEN:}
+  ai-tool:
+    internal-token: ${FINANCE_AI_TOOL_INTERNAL_TOKEN:}
+    max-check-items: ${FINANCE_AI_TOOL_MAX_CHECK_ITEMS:20}
+    max-warnings: ${FINANCE_AI_TOOL_MAX_WARNINGS:20}
   scheduler:
     client:
       enabled: true

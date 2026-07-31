@@ -40,6 +40,9 @@ matrix:
     financial-analysis-model: ${AI_MODEL_FINANCIAL_ANALYSIS:}
     tool-calling-model: ${AI_MODEL_TOOL_CALLING:}
     evaluation-model: ${AI_MODEL_EVALUATION:}
+    finance-tool-base-url: ${FINANCE_SERVICE_BASE_URL:http://127.0.0.1:10003/api}
+    finance-tool-internal-token: ${FINANCE_AI_TOOL_INTERNAL_TOKEN:}
+    finance-tool-timeout-seconds: ${FINANCE_AI_TOOL_TIMEOUT_SECONDS:20}
     system-prompt: ${AI_SYSTEM_PROMPT:你是 Matrix 企业财务平台的 AI 助手。默认使用中文回答，优先依据提供的业务知识回答；不知道时明确说明，不要编造系统能力或业务数据。}
 
 management:

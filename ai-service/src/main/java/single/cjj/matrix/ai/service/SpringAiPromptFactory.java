@@ -49,6 +49,12 @@ public class SpringAiPromptFactory {
         if (StringUtils.hasText(knowledgeContext)) {
             messages.add(new SystemMessage(knowledgeContext));
         }
+        if (request.toolContext() != null) {
+            messages.add(new SystemMessage(
+                    "当前请求已获得只读财务工具授权。必须先调用可用工具获取真实月结数据，再依据工具结果回答。"
+                            + " 不得编造余额、凭证数量、期间状态或检查结论；不得声称已经过账、审批、结账或修改任何业务数据。"
+            ));
+        }
         messages.add(new UserMessage(request.userMessage().trim()));
 
         ChatOptions options = ChatOptions.builder()

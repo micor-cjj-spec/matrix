@@ -68,7 +68,7 @@ public class RoutingAiModelFacade implements AiModelFacade {
         try {
             return delegate.chat(request);
         } catch (RuntimeException failure) {
-            if (!shouldFallback(delegate)) {
+            if (!shouldFallback(delegate, request)) {
                 throw failure;
             }
             metrics.recordFallback("chat");
@@ -79,7 +79,7 @@ public class RoutingAiModelFacade implements AiModelFacade {
     @Override
     public AiModelResult stream(AiModelRequest request, Consumer<String> deltaConsumer) {
         AiModelFacade delegate = resolveDelegate();
-        if (!shouldFallback(delegate)) {
+        if (!shouldFallback(delegate, request)) {
             return delegate.stream(request, deltaConsumer);
         }
 
@@ -120,7 +120,13 @@ public class RoutingAiModelFacade implements AiModelFacade {
         };
     }
 
-    private boolean shouldFallback(AiModelFacade delegate) {
-        return delegate == springAiModelFacade && Boolean.TRUE.equals(aiProperties.getFallbackEnabled());
+    private boolean shouldFallback(AiModelFacade delegate, AiModelRequest request) {
+        return delegate == springAiModelFacade
+                && Boolean.TRUE.equals(aiProperties.getFallbackEnabled())
+                && !isToolRequest(request);
+    }
+
+    private boolean isToolRequest(AiModelRequest request) {
+        return request != null && request.getToolContext() != null;
     }
 }

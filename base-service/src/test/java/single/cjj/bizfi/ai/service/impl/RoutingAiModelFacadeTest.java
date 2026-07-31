@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import single.cjj.bizfi.ai.config.AiProperties;
 import single.cjj.bizfi.ai.dto.AiModelRequest;
 import single.cjj.bizfi.ai.dto.AiModelResult;
+import single.cjj.bizfi.ai.dto.AiToolContext;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -93,6 +94,17 @@ class RoutingAiModelFacadeTest {
     }
 
     @Test
+    void shouldNeverFallbackToolChatWithoutVerifiedData() {
+        aiProperties.setModelAdapter(RoutingAiModelFacade.ADAPTER_SPRING_AI);
+        aiProperties.setFallbackEnabled(true);
+        AiModelRequest request = toolRequest();
+        when(springAiFacade.chat(request)).thenThrow(new IllegalStateException("finance tool down"));
+
+        assertThrows(IllegalStateException.class, () -> routingFacade.chat(request));
+        verify(promptDrivenFacade, never()).chat(any());
+    }
+
+    @Test
     void shouldFallbackStreamingOnlyBeforeAnyDeltaWasEmitted() {
         aiProperties.setModelAdapter(RoutingAiModelFacade.ADAPTER_SPRING_AI);
         aiProperties.setFallbackEnabled(true);
@@ -105,6 +117,20 @@ class RoutingAiModelFacadeTest {
         when(promptDrivenFacade.stream(same(request), same(consumer))).thenReturn(fallback);
 
         assertSame(fallback, routingFacade.stream(request, consumer));
+    }
+
+    @Test
+    void shouldNeverFallbackToolStreamBeforeOutput() {
+        aiProperties.setModelAdapter(RoutingAiModelFacade.ADAPTER_SPRING_AI);
+        aiProperties.setFallbackEnabled(true);
+        AiModelRequest request = toolRequest();
+        @SuppressWarnings("unchecked")
+        Consumer<String> consumer = mock(Consumer.class);
+        doThrow(new IllegalStateException("finance tool down"))
+                .when(springAiFacade).stream(same(request), any());
+
+        assertThrows(IllegalStateException.class, () -> routingFacade.stream(request, consumer));
+        verify(promptDrivenFacade, never()).stream(any(), any());
     }
 
     @Test
@@ -128,6 +154,16 @@ class RoutingAiModelFacadeTest {
 
     private AiModelRequest request() {
         return new AiModelRequest("question", List.of(), List.of());
+    }
+
+    private AiModelRequest toolRequest() {
+        return new AiModelRequest(
+                "check month end",
+                List.of(),
+                List.of(),
+                "tool-calling",
+                new AiToolContext("month-end-close-check", 7L, 10L, "2026-07", "tool_request")
+        );
     }
 
     private AiModelResult result(String answer) {

@@ -6,20 +6,29 @@ on:
       - 'ai-service/**'
       - 'base-service/pom.xml'
       - 'base-service/src/main/java/single/cjj/bizfi/ai/**'
+      - 'base-service/src/main/java/single/cjj/bizfi/controller/AiAssistantStreamController.java'
       - 'base-service/src/test/java/single/cjj/bizfi/ai/**'
       - 'base-service/src/main/resources/application.yml'
+      - 'fi-service/src/main/java/single/cjj/fi/ai/**'
+      - 'fi-service/src/test/java/single/cjj/fi/ai/**'
+      - 'fi-service/src/main/resources/application.yml'
       - 'pom.xml'
       - '.github/workflows/spring-ai-service-ci.yml'
   push:
     branches:
       - 'agent/add-ai-*'
       - 'agent/add-spring-ai-*'
+      - 'agent/add-month-end-*'
     paths:
       - 'ai-service/**'
       - 'base-service/pom.xml'
       - 'base-service/src/main/java/single/cjj/bizfi/ai/**'
+      - 'base-service/src/main/java/single/cjj/bizfi/controller/AiAssistantStreamController.java'
       - 'base-service/src/test/java/single/cjj/bizfi/ai/**'
       - 'base-service/src/main/resources/application.yml'
+      - 'fi-service/src/main/java/single/cjj/fi/ai/**'
+      - 'fi-service/src/test/java/single/cjj/fi/ai/**'
+      - 'fi-service/src/main/resources/application.yml'
       - 'pom.xml'
       - '.github/workflows/spring-ai-service-ci.yml'
 
@@ -55,3 +64,19 @@ jobs:
 
       - name: Compile and test base-service adapter
         run: mvn -B -Dstyle.color=never -pl base-service -am test
+
+  test-finance-tool:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Compile and test finance AI tool
+        run: mvn -B -Dstyle.color=never -pl fi-service -am test

@@ -2,6 +2,7 @@ package single.cjj.bizfi.controller;
 
 import jakarta.annotation.PreDestroy;
 import org.springframework.http.MediaType;
+import org.springframework.security.concurrent.DelegatingSecurityContextExecutorService;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,7 +32,9 @@ public class AiAssistantStreamController {
     private final AiCurrentUserService currentUserService;
     private final AiChatService aiChatService;
     private final AiProperties aiProperties;
-    private final ExecutorService aiStreamExecutor = Executors.newCachedThreadPool();
+    private final ExecutorService aiStreamExecutor = new DelegatingSecurityContextExecutorService(
+            Executors.newCachedThreadPool()
+    );
 
     public AiAssistantStreamController(
             AiCurrentUserService currentUserService,

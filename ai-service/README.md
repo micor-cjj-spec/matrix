@@ -11,6 +11,7 @@
 - knowledge retrieval and citations
 - public `/ai/**` API compatibility
 - ai-service endpoint selection, retries, circuit state, and adapter fallback
+- AI tool feature flags and organization-scope authorization
 
 `ai-service` owns:
 
@@ -18,10 +19,12 @@
 - provider-neutral Prompt construction
 - task-aware model selection
 - synchronous and streaming model generation
-- model response metadata and token usage
-- model metrics and Prometheus export
+- controlled Spring AI tool registration and execution
+- model and tool metrics with Prometheus export
 - internal model API authentication
 - optional Nacos service registration
+
+`fi-service` owns finance rules and the read-only month-end workbench used by the first AI tool.
 
 ## Required environment variables
 
@@ -60,7 +63,7 @@ AI_MODEL_EVALUATION=
 
 Blank task-specific values fall back to `AI_CHAT_MODEL`. Routing currently changes the model name within the configured OpenAI-compatible provider; it does not create multiple provider clients.
 
-Example public request:
+Example analytical request:
 
 ```json
 {
@@ -68,6 +71,68 @@ Example public request:
   "taskType": "financial-analysis"
 }
 ```
+
+## Controlled month-end close tool
+
+The first business tool is:
+
+```text
+month-end-close-check
+```
+
+It reuses the existing `fi-service` month-end workbench and is strictly read-only. It can return period status, readiness score, aggregate voucher counts, blocking checks, warnings, and recommended actions. It cannot post vouchers, approve documents, close or reopen periods, or update finance data.
+
+Public request example:
+
+```json
+{
+  "userMessage": "检查 2026 年 7 月月结阻塞项，并给出处理顺序",
+  "taskType": "tool-calling",
+  "toolName": "month-end-close-check",
+  "organizationId": 10,
+  "accountingPeriod": "2026-07"
+}
+```
+
+`base-service` validates the feature flag, tool allow-list, accounting period, and organization scope. It then creates a server-controlled tool context containing the user ID, organization ID, period, and request ID. These values are not model-generated tool arguments.
+
+Enable the feature in `base-service`:
+
+```text
+AI_MODEL_ADAPTER=spring-ai
+AI_TOOL_CALLING_ENABLED=true
+AI_TOOL_ALLOW_ALL_ORGANIZATIONS=false
+AI_TOOL_ALLOWED_USER_ORG_PAIRS=7:10
+```
+
+`AI_TOOL_ALLOWED_USER_ORG_PAIRS` is a migration-only fallback using `userId:organizationId` entries. Production environments should prefer security authorities or a dedicated permission service. `AI_TOOL_ALLOW_ALL_ORGANIZATIONS` should only be enabled in a controlled development environment.
+
+Configure the internal finance client in `ai-service`:
+
+```text
+FINANCE_SERVICE_BASE_URL=http://127.0.0.1:10003/api
+FINANCE_AI_TOOL_INTERNAL_TOKEN=use-a-separate-long-random-secret
+FINANCE_AI_TOOL_TIMEOUT_SECONDS=20
+```
+
+Configure the same tool token in `fi-service`:
+
+```text
+FINANCE_AI_TOOL_INTERNAL_TOKEN=use-the-same-separate-secret
+FINANCE_AI_TOOL_MAX_CHECK_ITEMS=20
+FINANCE_AI_TOOL_MAX_WARNINGS=20
+```
+
+Internal finance endpoint:
+
+```text
+POST /api/internal/ai/tools/month-end-close-check
+X-Matrix-AI-Tool-Token: <FINANCE_AI_TOOL_INTERNAL_TOKEN>
+```
+
+The internal result is bounded and deliberately excludes voucher details. It always includes `readOnly=true`; the AI client rejects a result that is not explicitly marked read-only.
+
+Tool requests require `AI_MODEL_ADAPTER=spring-ai`. If the tool or finance service fails, the request returns an error and never falls back to a normal chat model without verified finance data.
 
 ## Run
 
@@ -79,9 +144,9 @@ mvn -pl ai-service spring-boot:run
 
 The service listens on port `10020` by default with context path `/api`.
 
-## Internal endpoints
+## Internal model endpoints
 
-All endpoints require:
+All model endpoints require:
 
 ```text
 X-Matrix-Internal-Token: <AI_INTERNAL_TOKEN>
@@ -152,7 +217,7 @@ AI_FALLBACK_ENABLED=true
 
 Retryable failures include connection failures, timeouts, HTTP 408, HTTP 429, and HTTP 5xx responses. HTTP 4xx responses other than 408 and 429 are not retried.
 
-When the selected adapter is `spring-ai`, the existing `prompt-http` adapter is used as the final fallback when enabled. Streaming requests only retry or fall back before the first delta has been emitted; after partial output, the error is returned instead of mixing two model responses.
+For ordinary chat requests, the existing `prompt-http` adapter is the final fallback when enabled. Streaming chat only retries or falls back before the first delta has been emitted. Controlled tool requests never use this fallback because an unverified generated answer must not replace real finance data.
 
 ## Metrics
 
@@ -163,7 +228,7 @@ Both `ai-service` and `base-service` expose:
 /api/actuator/prometheus
 ```
 
-Important model-runtime metrics:
+Model-runtime metrics:
 
 ```text
 matrix.ai.model.requests
@@ -172,7 +237,7 @@ matrix.ai.model.errors
 matrix.ai.model.tokens
 ```
 
-Important remote-client metrics:
+Remote-client metrics:
 
 ```text
 matrix.ai.remote.requests
@@ -184,7 +249,14 @@ matrix.ai.remote.circuit.rejections
 matrix.ai.remote.fallbacks
 ```
 
-Metric tags never contain user prompts, full exception messages, document content, or full URLs.
+Controlled tool metrics:
+
+```text
+matrix.ai.tools.calls
+matrix.ai.tools.duration
+```
+
+Metric tags never contain prompts, retrieved document content, user IDs, organization IDs, accounting periods, request IDs, full exception messages, or full URLs.
 
 ## Current limitations
 
@@ -193,4 +265,6 @@ Metric tags never contain user prompts, full exception messages, document conten
 - Nacos registration is optional and disabled by default
 - RAG still runs in `base-service`
 - model routing currently uses one configured OpenAI-compatible provider
-- tools and human confirmation are not yet enabled
+- organization tool authorization should eventually use a dedicated organization-permission service
+- the finance tool client uses a static service URL in this phase
+- persistent tool execution audit records and human-confirmed write tools are not yet implemented
