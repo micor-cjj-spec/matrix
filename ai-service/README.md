@@ -102,10 +102,10 @@ Enable the feature in `base-service`:
 AI_MODEL_ADAPTER=spring-ai
 AI_TOOL_CALLING_ENABLED=true
 AI_TOOL_ALLOW_ALL_ORGANIZATIONS=false
-AI_TOOL_ALLOWED_ORGANIZATION_IDS=10
+AI_TOOL_ALLOWED_USER_ORG_PAIRS=7:10
 ```
 
-`AI_TOOL_ALLOW_ALL_ORGANIZATIONS` should only be used in a controlled development environment. Production environments should authorize organizations through security authorities or a dedicated permission service.
+`AI_TOOL_ALLOWED_USER_ORG_PAIRS` is a migration-only fallback using `userId:organizationId` entries. Production environments should prefer security authorities or a dedicated permission service. `AI_TOOL_ALLOW_ALL_ORGANIZATIONS` should only be enabled in a controlled development environment.
 
 Configure the internal finance client in `ai-service`:
 
@@ -131,6 +131,8 @@ X-Matrix-AI-Tool-Token: <FINANCE_AI_TOOL_INTERNAL_TOKEN>
 ```
 
 The internal result is bounded and deliberately excludes voucher details. It always includes `readOnly=true`; the AI client rejects a result that is not explicitly marked read-only.
+
+Tool requests require `AI_MODEL_ADAPTER=spring-ai`. If the tool or finance service fails, the request returns an error and never falls back to a normal chat model without verified finance data.
 
 ## Run
 
@@ -215,7 +217,7 @@ AI_FALLBACK_ENABLED=true
 
 Retryable failures include connection failures, timeouts, HTTP 408, HTTP 429, and HTTP 5xx responses. HTTP 4xx responses other than 408 and 429 are not retried.
 
-When the selected adapter is `spring-ai`, the existing `prompt-http` adapter is used as the final fallback when enabled. Streaming requests only retry or fall back before the first delta has been emitted; after partial output, the error is returned instead of mixing two model responses.
+For ordinary chat requests, the existing `prompt-http` adapter is the final fallback when enabled. Streaming chat only retries or falls back before the first delta has been emitted. Controlled tool requests never use this fallback because an unverified generated answer must not replace real finance data.
 
 ## Metrics
 
