@@ -1,12 +1,18 @@
 package single.cjj.fi.ai.tool;
 
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import single.cjj.fi.ai.tool.audit.FinanceAiToolAuditService;
+import single.cjj.fi.ai.tool.audit.FinanceAiToolExecutionResponse;
 import single.cjj.fi.gl.service.BizfiFiPeriodProcessService;
 import single.cjj.fi.gl.vo.MonthEndWorkbenchResultVO;
 
@@ -65,6 +71,20 @@ public class FinanceAiToolController {
             );
             throw failure;
         }
+    }
+
+    @GetMapping("/executions/{requestId}")
+    public FinanceAiToolExecutionResponse execution(
+            @RequestHeader(value = FinanceAiToolTokenGuard.HEADER_NAME, required = false) String internalToken,
+            @PathVariable("requestId") String requestId
+    ) {
+        tokenGuard.verify(internalToken);
+        if (!StringUtils.hasText(requestId) || requestId.length() > 64) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "requestId 无效");
+        }
+        return auditService.findByRequestId(requestId)
+                .map(FinanceAiToolExecutionResponse::from)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "tool execution 不存在"));
     }
 
     private long elapsedMillis(long startedAtNanos) {
