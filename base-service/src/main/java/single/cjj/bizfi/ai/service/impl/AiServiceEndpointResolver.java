@@ -36,10 +36,11 @@ public class AiServiceEndpointResolver {
 
     public List<URI> resolveCandidates() {
         Map<String, URI> candidates = new LinkedHashMap<>();
-        if (Boolean.TRUE.equals(properties.getSpringAiDiscoveryEnabled())) {
+        boolean discoveryEnabled = Boolean.TRUE.equals(properties.getSpringAiDiscoveryEnabled());
+        if (discoveryEnabled) {
             addDiscoveredCandidates(candidates);
         }
-        if (Boolean.TRUE.equals(properties.getSpringAiStaticFallbackEnabled()) || candidates.isEmpty()) {
+        if (!discoveryEnabled || Boolean.TRUE.equals(properties.getSpringAiStaticFallbackEnabled())) {
             addStaticCandidate(candidates);
         }
         if (candidates.isEmpty()) {
