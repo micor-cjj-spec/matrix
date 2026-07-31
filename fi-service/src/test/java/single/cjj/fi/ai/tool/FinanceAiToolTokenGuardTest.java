@@ -1,8 +1,11 @@
 package single.cjj.fi.ai.tool;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class FinanceAiToolTokenGuardTest {
@@ -14,13 +17,21 @@ class FinanceAiToolTokenGuardTest {
         FinanceAiToolTokenGuard guard = new FinanceAiToolTokenGuard(properties);
 
         assertDoesNotThrow(() -> guard.verify("secret"));
-        assertThrows(SecurityException.class, () -> guard.verify("wrong"));
+        ResponseStatusException failure = assertThrows(
+                ResponseStatusException.class,
+                () -> guard.verify("wrong")
+        );
+        assertEquals(HttpStatus.UNAUTHORIZED, failure.getStatusCode());
     }
 
     @Test
     void shouldFailClosedWhenTokenIsNotConfigured() {
         FinanceAiToolTokenGuard guard = new FinanceAiToolTokenGuard(new FinanceAiToolProperties());
 
-        assertThrows(IllegalStateException.class, () -> guard.verify("anything"));
+        ResponseStatusException failure = assertThrows(
+                ResponseStatusException.class,
+                () -> guard.verify("anything")
+        );
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, failure.getStatusCode());
     }
 }
