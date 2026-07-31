@@ -34,6 +34,7 @@ public class SecurityConfig {
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/ai/admin/**").authenticated()
                         .requestMatchers(
                                 "/user/account/**",
                                 "/user",
