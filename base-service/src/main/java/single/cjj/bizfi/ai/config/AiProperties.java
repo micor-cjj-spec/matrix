@@ -18,4 +18,14 @@ public class AiProperties {
     private Integer maxHistoryMessages = 20;
     private Integer maxKnowledgeChunks = 5;
     private Integer requestTimeoutSeconds = 60;
+
+    /**
+     * 独立 ai-service 的内部 API 根地址，包含应用 context path。
+     */
+    private String springAiBaseUrl = "http://127.0.0.1:10020/api";
+
+    /**
+     * base-service 调用 ai-service 时使用的内部令牌。
+     */
+    private String internalToken;
 }

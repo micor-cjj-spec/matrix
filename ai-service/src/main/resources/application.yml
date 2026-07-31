@@ -1,0 +1,33 @@
+server:
+  port: ${AI_SERVICE_PORT:10020}
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: ai-service
+  ai:
+    model:
+      chat: openai
+    openai:
+      api-key: ${AI_API_KEY}
+      base-url: ${AI_BASE_URL:https://api.openai.com}
+      chat:
+        completions-path: ${AI_COMPLETIONS_PATH:/v1/chat/completions}
+        options:
+          model: ${AI_CHAT_MODEL:gpt-4o-mini}
+
+matrix:
+  ai:
+    internal-token: ${AI_INTERNAL_TOKEN}
+    model-name: ${AI_CHAT_MODEL:gpt-4o-mini}
+    system-prompt: ${AI_SYSTEM_PROMPT:你是 Matrix 企业财务平台的 AI 助手。默认使用中文回答，优先依据提供的业务知识回答；不知道时明确说明，不要编造系统能力或业务数据。}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
