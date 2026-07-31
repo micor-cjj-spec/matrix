@@ -10,6 +10,7 @@ import single.cjj.bizfi.ai.dto.AiConfigStatusResponse;
 import single.cjj.bizfi.ai.dto.AiMessageResponse;
 import single.cjj.bizfi.ai.dto.AiModelRequest;
 import single.cjj.bizfi.ai.dto.AiModelResult;
+import single.cjj.bizfi.ai.dto.AiToolContext;
 import single.cjj.bizfi.ai.dto.AiUsageResponse;
 import single.cjj.bizfi.ai.entity.BizfiAiConversation;
 import single.cjj.bizfi.ai.entity.BizfiAiMessage;
@@ -18,6 +19,7 @@ import single.cjj.bizfi.ai.service.AiChatStreamObserver;
 import single.cjj.bizfi.ai.service.AiConversationService;
 import single.cjj.bizfi.ai.service.AiKnowledgeService;
 import single.cjj.bizfi.ai.service.AiModelFacade;
+import single.cjj.bizfi.ai.service.AiToolPolicyService;
 import single.cjj.bizfi.exception.BizException;
 
 import java.util.ArrayList;
@@ -31,17 +33,20 @@ public class AiChatServiceImpl implements AiChatService {
     private final AiKnowledgeService knowledgeService;
     private final AiModelFacade modelFacade;
     private final AiProperties aiProperties;
+    private final AiToolPolicyService toolPolicyService;
 
     public AiChatServiceImpl(
             AiConversationService conversationService,
             AiKnowledgeService knowledgeService,
             AiModelFacade modelFacade,
-            AiProperties aiProperties
+            AiProperties aiProperties,
+            AiToolPolicyService toolPolicyService
     ) {
         this.conversationService = conversationService;
         this.knowledgeService = knowledgeService;
         this.modelFacade = modelFacade;
         this.aiProperties = aiProperties;
+        this.toolPolicyService = toolPolicyService;
     }
 
     @Override
@@ -78,6 +83,7 @@ public class AiChatServiceImpl implements AiChatService {
 
         String userMessage = request.getUserMessage().trim();
         String conversationId = resolveConversationId(userId, request.getConversationId());
+        AiToolContext toolContext = toolPolicyService.prepareContext(userId, request);
 
         conversationService.saveUserMessage(conversationId, userMessage);
         List<AiMessageResponse> historyMessages = loadHistoryMessages(userId, conversationId, userMessage);
@@ -94,7 +100,8 @@ public class AiChatServiceImpl implements AiChatService {
                         userMessage,
                         historyMessages,
                         knowledgeSnippets,
-                        normalizeTaskType(request.getTaskType())
+                        normalizeTaskType(request.getTaskType()),
+                        toolContext
                 )
         );
     }
@@ -128,8 +135,6 @@ public class AiChatServiceImpl implements AiChatService {
                 .map(item -> new AiMessageResponse(item.getFrole(), item.getFcontent()))
                 .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
 
-        // 用户消息已在本次调用开始时落库；模型请求末尾还会追加当前问题，
-        // 因此需要从历史中移除刚保存的最后一条，避免同一句问题重复发送。
         if (!history.isEmpty()) {
             AiMessageResponse last = history.get(history.size() - 1);
             if ("user".equals(last.getRole()) && currentQuestion.equals(last.getContent())) {

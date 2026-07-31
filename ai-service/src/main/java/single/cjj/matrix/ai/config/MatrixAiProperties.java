@@ -19,6 +19,10 @@ public class MatrixAiProperties {
     private String toolCallingModel;
     private String evaluationModel;
 
+    private String financeToolBaseUrl = "http://127.0.0.1:10003/api";
+    private String financeToolInternalToken;
+    private Integer financeToolTimeoutSeconds = 20;
+
     public String getInternalToken() {
         return internalToken;
     }
@@ -73,5 +77,29 @@ public class MatrixAiProperties {
 
     public void setEvaluationModel(String evaluationModel) {
         this.evaluationModel = evaluationModel;
+    }
+
+    public String getFinanceToolBaseUrl() {
+        return financeToolBaseUrl;
+    }
+
+    public void setFinanceToolBaseUrl(String financeToolBaseUrl) {
+        this.financeToolBaseUrl = financeToolBaseUrl;
+    }
+
+    public String getFinanceToolInternalToken() {
+        return financeToolInternalToken;
+    }
+
+    public void setFinanceToolInternalToken(String financeToolInternalToken) {
+        this.financeToolInternalToken = financeToolInternalToken;
+    }
+
+    public Integer getFinanceToolTimeoutSeconds() {
+        return financeToolTimeoutSeconds;
+    }
+
+    public void setFinanceToolTimeoutSeconds(Integer financeToolTimeoutSeconds) {
+        this.financeToolTimeoutSeconds = financeToolTimeoutSeconds;
     }
 }

@@ -37,6 +37,9 @@ bizfi:
     spring-ai-circuit-failure-threshold: ${AI_SERVICE_CIRCUIT_FAILURE_THRESHOLD:3}
     spring-ai-circuit-open-seconds: ${AI_SERVICE_CIRCUIT_OPEN_SECONDS:30}
     internal-token: ${AI_INTERNAL_TOKEN:}
+    tool-calling-enabled: ${AI_TOOL_CALLING_ENABLED:false}
+    tool-allow-all-organizations: ${AI_TOOL_ALLOW_ALL_ORGANIZATIONS:false}
+    tool-allowed-user-organization-pairs: ${AI_TOOL_ALLOWED_USER_ORG_PAIRS:}
 
 matrix:
   scheduler:

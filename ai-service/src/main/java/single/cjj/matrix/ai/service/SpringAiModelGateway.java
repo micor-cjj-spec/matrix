@@ -10,7 +10,10 @@ import reactor.core.publisher.Flux;
 import single.cjj.matrix.ai.api.ModelContracts;
 import single.cjj.matrix.ai.config.MatrixAiProperties;
 import single.cjj.matrix.ai.observability.AiModelMetrics;
+import single.cjj.matrix.ai.tool.finance.FinanceMonthEndCloseTool;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -21,19 +24,22 @@ public class SpringAiModelGateway {
     private final MatrixAiProperties properties;
     private final AiTaskRouter taskRouter;
     private final AiModelMetrics metrics;
+    private final FinanceMonthEndCloseTool financeMonthEndCloseTool;
 
     public SpringAiModelGateway(
             ChatClient.Builder chatClientBuilder,
             SpringAiPromptFactory promptFactory,
             MatrixAiProperties properties,
             AiTaskRouter taskRouter,
-            AiModelMetrics metrics
+            AiModelMetrics metrics,
+            FinanceMonthEndCloseTool financeMonthEndCloseTool
     ) {
         this.chatClient = chatClientBuilder.build();
         this.promptFactory = promptFactory;
         this.properties = properties;
         this.taskRouter = taskRouter;
         this.metrics = metrics;
+        this.financeMonthEndCloseTool = financeMonthEndCloseTool;
     }
 
     public ModelContracts.ChatResponse chat(ModelContracts.ChatRequest request) {
@@ -41,7 +47,13 @@ public class SpringAiModelGateway {
         long startedAt = metrics.start();
         try {
             Prompt prompt = promptFactory.create(request, route.model());
-            ChatResponse response = chatClient.prompt(prompt).call().chatResponse();
+            var requestSpec = chatClient.prompt(prompt);
+            if (toolEnabled(request, route)) {
+                requestSpec = requestSpec
+                        .tools(financeMonthEndCloseTool)
+                        .toolContext(toolContextMap(request.toolContext()));
+            }
+            ChatResponse response = requestSpec.call().chatResponse();
             if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
                 throw new IllegalStateException("Spring AI 模型返回为空");
             }
@@ -84,7 +96,13 @@ public class SpringAiModelGateway {
         return Flux.defer(() -> {
             long startedAt = metrics.start();
             Prompt prompt = promptFactory.create(request, route.model());
-            return chatClient.prompt(prompt)
+            var requestSpec = chatClient.prompt(prompt);
+            if (toolEnabled(request, route)) {
+                requestSpec = requestSpec
+                        .tools(financeMonthEndCloseTool)
+                        .toolContext(toolContextMap(request.toolContext()));
+            }
+            return requestSpec
                     .stream()
                     .content()
                     .filter(StringUtils::hasLength)
@@ -108,6 +126,38 @@ public class SpringAiModelGateway {
 
     public String newTraceId() {
         return "trace_" + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private boolean toolEnabled(ModelContracts.ChatRequest request, AiTaskRouter.ModelRoute route) {
+        if (!AiTaskRouter.TOOL_CALLING.equals(route.taskType())) {
+            if (request != null && request.toolContext() != null) {
+                throw new IllegalStateException("非 tool-calling 请求不能携带 toolContext");
+            }
+            return false;
+        }
+        if (request == null || request.toolContext() == null) {
+            throw new IllegalStateException("tool-calling 请求缺少服务端 toolContext");
+        }
+        if (!FinanceMonthEndCloseTool.CONTEXT_TOOL_NAME.equals(request.toolContext().toolName())) {
+            throw new IllegalStateException("不支持的 AI 工具: " + request.toolContext().toolName());
+        }
+        return true;
+    }
+
+    private Map<String, Object> toolContextMap(ModelContracts.ToolContext context) {
+        if (context.requestedByUserId() == null
+                || context.organizationId() == null
+                || !StringUtils.hasText(context.period())
+                || !StringUtils.hasText(context.requestId())) {
+            throw new IllegalStateException("服务端 toolContext 不完整");
+        }
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("toolName", context.toolName());
+        values.put("requestedByUserId", context.requestedByUserId());
+        values.put("organizationId", context.organizationId());
+        values.put("period", context.period());
+        values.put("requestId", context.requestId());
+        return Map.copyOf(values);
     }
 
     private Integer normalizeTokenCount(Integer value) {

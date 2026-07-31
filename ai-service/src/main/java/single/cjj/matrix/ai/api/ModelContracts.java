@@ -16,18 +16,37 @@ public final class ModelContracts {
     ) {
     }
 
+    public record ToolContext(
+            String toolName,
+            Long requestedByUserId,
+            Long organizationId,
+            String period,
+            String requestId
+    ) {
+    }
+
     public record ChatRequest(
             @NotBlank String userMessage,
             List<@Valid Message> historyMessages,
             List<String> knowledgeSnippets,
-            String taskType
+            String taskType,
+            ToolContext toolContext
     ) {
         public ChatRequest(
                 String userMessage,
                 List<Message> historyMessages,
                 List<String> knowledgeSnippets
         ) {
-            this(userMessage, historyMessages, knowledgeSnippets, null);
+            this(userMessage, historyMessages, knowledgeSnippets, null, null);
+        }
+
+        public ChatRequest(
+                String userMessage,
+                List<Message> historyMessages,
+                List<String> knowledgeSnippets,
+                String taskType
+        ) {
+            this(userMessage, historyMessages, knowledgeSnippets, taskType, null);
         }
     }
 
