@@ -44,13 +44,16 @@ public class SpringAiCircuitBreaker {
         openUntilMillis.set(0L);
     }
 
-    public void recordFailure() {
+    public boolean recordFailure() {
         int failures = consecutiveFailures.incrementAndGet();
         int threshold = positive(properties.getSpringAiCircuitFailureThreshold(), 3);
-        if (failures >= threshold) {
-            long waitMillis = positive(properties.getSpringAiCircuitOpenSeconds(), 30) * 1000L;
-            openUntilMillis.set(currentTimeMillis.getAsLong() + waitMillis);
+        if (failures < threshold) {
+            return false;
         }
+        long waitMillis = positive(properties.getSpringAiCircuitOpenSeconds(), 30) * 1000L;
+        long openUntil = currentTimeMillis.getAsLong() + waitMillis;
+        long previous = openUntilMillis.getAndSet(openUntil);
+        return previous <= currentTimeMillis.getAsLong();
     }
 
     int consecutiveFailures() {
