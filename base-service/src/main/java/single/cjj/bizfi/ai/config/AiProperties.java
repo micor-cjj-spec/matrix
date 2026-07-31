@@ -70,7 +70,8 @@ public class AiProperties {
     private Boolean toolAllowAllOrganizations = false;
 
     /**
-     * 逗号分隔的组织 ID 白名单，用于尚未把组织范围写入 JWT authority 的环境。
+     * 迁移期用户组织授权，格式为 userId:organizationId，多个值使用逗号分隔。
+     * 生产环境应改用统一权限服务或 JWT 组织权限声明。
      */
-    private String toolAllowedOrganizationIds = "";
+    private String toolAllowedUserOrganizationPairs = "";
 }
