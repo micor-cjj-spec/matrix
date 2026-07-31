@@ -6,6 +6,20 @@ server:
 spring:
   application:
     name: ai-service
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${AI_DISCOVERY_ENABLED:false}
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: ${NACOS_GROUP:DEV_GROUP}
+        register-enabled: ${AI_DISCOVERY_ENABLED:false}
+        health-indicator:
+          enabled: ${AI_DISCOVERY_HEALTH_ENABLED:false}
+        metadata:
+          management.context-path: /api/actuator
+          matrix.runtime: spring-ai
+          matrix.api-version: v1
   ai:
     model:
       chat: openai
