@@ -36,13 +36,20 @@ matrix:
   ai:
     internal-token: ${AI_INTERNAL_TOKEN}
     model-name: ${AI_CHAT_MODEL:gpt-4o-mini}
+    knowledge-qa-model: ${AI_MODEL_KNOWLEDGE_QA:}
+    financial-analysis-model: ${AI_MODEL_FINANCIAL_ANALYSIS:}
+    tool-calling-model: ${AI_MODEL_TOOL_CALLING:}
+    evaluation-model: ${AI_MODEL_EVALUATION:}
     system-prompt: ${AI_SYSTEM_PROMPT:你是 Matrix 企业财务平台的 AI 助手。默认使用中文回答，优先依据提供的业务知识回答；不知道时明确说明，不要编造系统能力或业务数据。}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,prometheus
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
