@@ -2,6 +2,9 @@ package single.cjj.fi.ai.tool.audit;
 
 public record FinanceAiToolExecutionResponse(
         String requestId,
+        String conversationId,
+        String modelName,
+        String modelTraceId,
         String toolName,
         Long userId,
         Long organizationId,
@@ -21,6 +24,9 @@ public record FinanceAiToolExecutionResponse(
     public static FinanceAiToolExecutionResponse from(FinanceAiToolExecution entity) {
         return new FinanceAiToolExecutionResponse(
                 entity.getFrequestid(),
+                entity.getFconversationid(),
+                entity.getFmodelname(),
+                entity.getFmodeltraceid(),
                 entity.getFtoolname(),
                 entity.getFuserid(),
                 entity.getForganizationid(),
