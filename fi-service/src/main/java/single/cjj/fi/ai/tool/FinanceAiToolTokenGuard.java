@@ -1,7 +1,9 @@
 package single.cjj.fi.ai.tool;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -20,14 +22,17 @@ public class FinanceAiToolTokenGuard {
     public void verify(String providedToken) {
         String configuredToken = properties.getInternalToken();
         if (!StringUtils.hasText(configuredToken)) {
-            throw new IllegalStateException("FINANCE_AI_TOOL_INTERNAL_TOKEN 未配置");
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "FINANCE_AI_TOOL_INTERNAL_TOKEN 未配置"
+            );
         }
         if (!StringUtils.hasText(providedToken)
                 || !MessageDigest.isEqual(
                 configuredToken.getBytes(StandardCharsets.UTF_8),
                 providedToken.getBytes(StandardCharsets.UTF_8)
         )) {
-            throw new SecurityException("finance AI tool token 无效");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "finance AI tool token 无效");
         }
     }
 }
