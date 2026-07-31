@@ -11,9 +11,10 @@ Authenticated user
   -> base-service /ai/chat or /ai/chat/stream
   -> DefaultAiToolPolicyService
        - tool feature flag
+       - Spring AI adapter requirement
        - tool allow-list
        - accounting period validation
-       - organization-scope authorization
+       - user/organization authorization
        - server-generated request ID
   -> ai-service internal model API
   -> Spring AI ChatClient
@@ -43,14 +44,16 @@ Tool calling is disabled by default:
 ```text
 AI_TOOL_CALLING_ENABLED=false
 AI_TOOL_ALLOW_ALL_ORGANIZATIONS=false
-AI_TOOL_ALLOWED_ORGANIZATION_IDS=
+AI_TOOL_ALLOWED_USER_ORG_PAIRS=
 ```
 
-An organization is allowed when one of the following is true:
+A user/organization request is allowed when one of the following is true:
 
-1. a matching authority is present, such as `ORG:10` or `organization_10`;
-2. the organization ID is in `AI_TOOL_ALLOWED_ORGANIZATION_IDS`;
+1. the authenticated user has a matching authority such as `ORG:10` or `organization_10`;
+2. the exact `userId:organizationId` pair is in `AI_TOOL_ALLOWED_USER_ORG_PAIRS` as a migration-only fallback;
 3. `AI_TOOL_ALLOW_ALL_ORGANIZATIONS=true` is explicitly enabled for a controlled development environment.
+
+Tool requests require `AI_MODEL_ADAPTER=spring-ai`. If the Spring AI service or finance tool fails, the request returns an error and never falls back to ordinary prompt-based chat without verified finance data.
 
 ## Supported tool
 
@@ -128,7 +131,7 @@ The response contains readiness, close status, aggregate voucher counts, bounded
 ```text
 AI_MODEL_ADAPTER=spring-ai
 AI_TOOL_CALLING_ENABLED=true
-AI_TOOL_ALLOWED_ORGANIZATION_IDS=10
+AI_TOOL_ALLOWED_USER_ORG_PAIRS=7:10
 ```
 
 `ai-service`:
@@ -160,7 +163,7 @@ Tags are limited to the bounded tool name and outcome. User IDs, organization ID
 
 ## Known limitations
 
-- Organization authorization currently relies on security authorities or a configured organization allow-list; a dedicated organization-permission service should replace the configuration fallback.
+- Organization authorization currently relies on security authorities or a configured user/organization pair; a dedicated organization-permission service should replace the configuration fallback.
 - The finance tool client uses a static base URL in this phase.
 - Tool execution audit persistence is not yet implemented; only request IDs and metrics are available.
 - Streaming tool calls depend on provider support for tool calling in streamed ChatClient interactions.
