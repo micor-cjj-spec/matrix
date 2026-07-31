@@ -29,6 +29,8 @@ bizfi:
     max-history-messages: ${AI_MAX_HISTORY_MESSAGES:20}
     max-knowledge-chunks: ${AI_MAX_KNOWLEDGE_CHUNKS:5}
     request-timeout-seconds: ${AI_REQUEST_TIMEOUT_SECONDS:60}
+    spring-ai-base-url: ${AI_SERVICE_BASE_URL:http://127.0.0.1:10020/api}
+    internal-token: ${AI_INTERNAL_TOKEN:}
 
 matrix:
   scheduler:

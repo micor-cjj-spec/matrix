@@ -1,0 +1,41 @@
+package single.cjj.matrix.ai.config;
+
+import jakarta.validation.constraints.NotBlank;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
+
+@Validated
+@ConfigurationProperties(prefix = "matrix.ai")
+public class MatrixAiProperties {
+
+    @NotBlank
+    private String internalToken;
+
+    private String systemPrompt = "你是 Matrix 企业财务平台的 AI 助手。默认使用中文回答，优先依据提供的业务知识回答；不知道时明确说明，不要编造系统能力或业务数据。";
+
+    private String modelName = "gpt-4o-mini";
+
+    public String getInternalToken() {
+        return internalToken;
+    }
+
+    public void setInternalToken(String internalToken) {
+        this.internalToken = internalToken;
+    }
+
+    public String getSystemPrompt() {
+        return systemPrompt;
+    }
+
+    public void setSystemPrompt(String systemPrompt) {
+        this.systemPrompt = systemPrompt;
+    }
+
+    public String getModelName() {
+        return modelName;
+    }
+
+    public void setModelName(String modelName) {
+        this.modelName = modelName;
+    }
+}
