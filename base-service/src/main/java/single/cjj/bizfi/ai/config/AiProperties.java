@@ -58,4 +58,19 @@ public class AiProperties {
      * base-service 调用 ai-service 时使用的内部令牌。
      */
     private String internalToken;
+
+    /**
+     * 高风险能力默认关闭，启用后仍需通过工具白名单和组织范围校验。
+     */
+    private Boolean toolCallingEnabled = false;
+
+    /**
+     * 仅供受控开发环境使用。生产环境应保持 false。
+     */
+    private Boolean toolAllowAllOrganizations = false;
+
+    /**
+     * 逗号分隔的组织 ID 白名单，用于尚未把组织范围写入 JWT authority 的环境。
+     */
+    private String toolAllowedOrganizationIds = "";
 }
