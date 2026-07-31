@@ -1,0 +1,58 @@
+server:
+  port: ${AI_SERVICE_PORT:10020}
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: ai-service
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${AI_DISCOVERY_ENABLED:false}
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        group: ${NACOS_GROUP:DEV_GROUP}
+        register-enabled: ${AI_DISCOVERY_ENABLED:false}
+        health-indicator:
+          enabled: ${AI_DISCOVERY_HEALTH_ENABLED:false}
+        metadata:
+          matrix.context-path: /api
+          management.context-path: /api/actuator
+          matrix.runtime: spring-ai
+          matrix.api-version: v1
+  ai:
+    model:
+      chat: openai
+    openai:
+      api-key: ${AI_API_KEY}
+      base-url: ${AI_BASE_URL:https://api.openai.com}
+      chat:
+        completions-path: ${AI_COMPLETIONS_PATH:/v1/chat/completions}
+        options:
+          model: ${AI_CHAT_MODEL:gpt-4o-mini}
+
+matrix:
+  ai:
+    internal-token: ${AI_INTERNAL_TOKEN}
+    model-name: ${AI_CHAT_MODEL:gpt-4o-mini}
+    knowledge-qa-model: ${AI_MODEL_KNOWLEDGE_QA:}
+    financial-analysis-model: ${AI_MODEL_FINANCIAL_ANALYSIS:}
+    tool-calling-model: ${AI_MODEL_TOOL_CALLING:}
+    evaluation-model: ${AI_MODEL_EVALUATION:}
+    finance-tool-base-url: ${FINANCE_SERVICE_BASE_URL:http://127.0.0.1:10003/api}
+    finance-tool-internal-token: ${FINANCE_AI_TOOL_INTERNAL_TOKEN:}
+    finance-tool-timeout-seconds: ${FINANCE_AI_TOOL_TIMEOUT_SECONDS:20}
+    system-prompt: ${AI_SYSTEM_PROMPT:你是 Matrix 企业财务平台的 AI 助手。默认使用中文回答，优先依据提供的业务知识回答；不知道时明确说明，不要编造系统能力或业务数据。}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}

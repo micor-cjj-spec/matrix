@@ -8,5 +8,7 @@ public interface AiChatService {
 
     AiChatResponse chat(Long userId, AiChatRequest request);
 
+    AiChatResponse stream(Long userId, AiChatRequest request, AiChatStreamObserver observer);
+
     AiConfigStatusResponse configStatus();
 }

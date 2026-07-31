@@ -20,6 +20,27 @@ spring:
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
 
+bizfi:
+  ai:
+    model-adapter: ${AI_MODEL_ADAPTER:prompt-http}
+    enabled: ${AI_ENABLED:true}
+    knowledge-enabled: ${AI_KNOWLEDGE_ENABLED:true}
+    fallback-enabled: ${AI_FALLBACK_ENABLED:true}
+    max-history-messages: ${AI_MAX_HISTORY_MESSAGES:20}
+    max-knowledge-chunks: ${AI_MAX_KNOWLEDGE_CHUNKS:5}
+    request-timeout-seconds: ${AI_REQUEST_TIMEOUT_SECONDS:60}
+    spring-ai-base-url: ${AI_SERVICE_BASE_URL:http://127.0.0.1:10020/api}
+    spring-ai-service-id: ${AI_SERVICE_ID:ai-service}
+    spring-ai-discovery-enabled: ${AI_SERVICE_DISCOVERY_ENABLED:false}
+    spring-ai-static-fallback-enabled: ${AI_SERVICE_STATIC_FALLBACK_ENABLED:true}
+    spring-ai-max-attempts: ${AI_SERVICE_MAX_ATTEMPTS:2}
+    spring-ai-circuit-failure-threshold: ${AI_SERVICE_CIRCUIT_FAILURE_THRESHOLD:3}
+    spring-ai-circuit-open-seconds: ${AI_SERVICE_CIRCUIT_OPEN_SECONDS:30}
+    internal-token: ${AI_INTERNAL_TOKEN:}
+    tool-calling-enabled: ${AI_TOOL_CALLING_ENABLED:false}
+    tool-allow-all-organizations: ${AI_TOOL_ALLOW_ALL_ORGANIZATIONS:false}
+    tool-allowed-user-organization-pairs: ${AI_TOOL_ALLOWED_USER_ORG_PAIRS:}
+
 matrix:
   scheduler:
     client:
@@ -37,7 +58,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}

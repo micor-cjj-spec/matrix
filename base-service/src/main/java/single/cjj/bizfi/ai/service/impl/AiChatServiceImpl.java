@@ -1,35 +1,79 @@
 package single.cjj.bizfi.ai.service.impl;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import single.cjj.bizfi.ai.dto.*;
+import single.cjj.bizfi.ai.config.AiProperties;
+import single.cjj.bizfi.ai.dto.AiChatRequest;
+import single.cjj.bizfi.ai.dto.AiChatResponse;
+import single.cjj.bizfi.ai.dto.AiCitationResponse;
+import single.cjj.bizfi.ai.dto.AiConfigStatusResponse;
+import single.cjj.bizfi.ai.dto.AiMessageResponse;
+import single.cjj.bizfi.ai.dto.AiModelRequest;
+import single.cjj.bizfi.ai.dto.AiModelResult;
+import single.cjj.bizfi.ai.dto.AiToolContext;
+import single.cjj.bizfi.ai.dto.AiUsageResponse;
 import single.cjj.bizfi.ai.entity.BizfiAiConversation;
 import single.cjj.bizfi.ai.entity.BizfiAiMessage;
 import single.cjj.bizfi.ai.service.AiChatService;
+import single.cjj.bizfi.ai.service.AiChatStreamObserver;
 import single.cjj.bizfi.ai.service.AiConversationService;
 import single.cjj.bizfi.ai.service.AiKnowledgeService;
 import single.cjj.bizfi.ai.service.AiModelFacade;
+import single.cjj.bizfi.ai.service.AiToolPolicyService;
 import single.cjj.bizfi.exception.BizException;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Objects;
 
 @Service
 public class AiChatServiceImpl implements AiChatService {
 
-    @Autowired
-    private AiConversationService conversationService;
+    private final AiConversationService conversationService;
+    private final AiKnowledgeService knowledgeService;
+    private final AiModelFacade modelFacade;
+    private final AiProperties aiProperties;
+    private final AiToolPolicyService toolPolicyService;
 
-    @Autowired
-    private AiKnowledgeService knowledgeService;
-
-    @Autowired
-    private AiModelFacade modelFacade;
+    public AiChatServiceImpl(
+            AiConversationService conversationService,
+            AiKnowledgeService knowledgeService,
+            AiModelFacade modelFacade,
+            AiProperties aiProperties,
+            AiToolPolicyService toolPolicyService
+    ) {
+        this.conversationService = conversationService;
+        this.knowledgeService = knowledgeService;
+        this.modelFacade = modelFacade;
+        this.aiProperties = aiProperties;
+        this.toolPolicyService = toolPolicyService;
+    }
 
     @Override
     public AiChatResponse chat(Long userId, AiChatRequest request) {
+        PreparedChat prepared = prepareChat(userId, request);
+        AiModelResult modelResult = modelFacade.chat(prepared.modelRequest());
+        return completeChat(prepared, modelResult);
+    }
+
+    @Override
+    public AiChatResponse stream(Long userId, AiChatRequest request, AiChatStreamObserver observer) {
+        Objects.requireNonNull(observer, "stream observer 不能为空");
+        PreparedChat prepared = prepareChat(userId, request);
+        observer.onStart(prepared.conversationId(), prepared.citations(), modelFacade.configStatus());
+        AiModelResult modelResult = modelFacade.stream(prepared.modelRequest(), observer::onDelta);
+        return completeChat(prepared, modelResult);
+    }
+
+    @Override
+    public AiConfigStatusResponse configStatus() {
+        return modelFacade.configStatus();
+    }
+
+    private PreparedChat prepareChat(Long userId, AiChatRequest request) {
+        if (Boolean.FALSE.equals(aiProperties.getEnabled())) {
+            throw new BizException("AI 能力当前未启用");
+        }
         if (userId == null) {
             throw new BizException("用户ID不能为空");
         }
@@ -37,35 +81,90 @@ public class AiChatServiceImpl implements AiChatService {
             throw new BizException("userMessage 不能为空");
         }
 
-        String conversationId = request.getConversationId();
-        if (!StringUtils.hasText(conversationId)) {
-            BizfiAiConversation conversation = conversationService.createConversation(userId, "快速提问", "quick_chat");
-            conversationId = conversation.getFconversationid();
-        } else {
-            conversationService.getOwnedConversation(userId, conversationId.trim());
-            conversationId = conversationId.trim();
-        }
+        String userMessage = request.getUserMessage().trim();
+        String conversationId = resolveConversationId(userId, request.getConversationId());
+        AiToolContext toolContext = toolPolicyService.prepareContext(userId, request);
 
-        conversationService.saveUserMessage(conversationId, request.getUserMessage().trim());
-        List<BizfiAiMessage> dbMessages = conversationService.listMessages(userId, conversationId);
-        List<AiMessageResponse> historyMessages = dbMessages.stream()
-                .map(item -> new AiMessageResponse(item.getFrole(), item.getFcontent()))
-                .collect(Collectors.toCollection(ArrayList::new));
-
-        List<AiCitationResponse> citations = knowledgeService.retrieve(request.getUserMessage().trim(), request.getKbIds());
+        conversationService.saveUserMessage(conversationId, userMessage);
+        List<AiMessageResponse> historyMessages = loadHistoryMessages(userId, conversationId, userMessage);
+        List<AiCitationResponse> citations = retrieveKnowledge(userMessage, request.getKbIds());
         List<String> knowledgeSnippets = citations.stream()
                 .map(AiCitationResponse::getSnippet)
                 .filter(StringUtils::hasText)
                 .toList();
 
-        AiModelResult modelResult = modelFacade.chat(new AiModelRequest(
-                request.getUserMessage().trim(),
-                historyMessages,
-                knowledgeSnippets
-        ));
+        return new PreparedChat(
+                conversationId,
+                citations,
+                new AiModelRequest(
+                        userMessage,
+                        historyMessages,
+                        knowledgeSnippets,
+                        normalizeTaskType(request.getTaskType()),
+                        toolContext
+                )
+        );
+    }
+
+    private String resolveConversationId(Long userId, String requestedConversationId) {
+        if (!StringUtils.hasText(requestedConversationId)) {
+            BizfiAiConversation conversation = conversationService.createConversation(
+                    userId,
+                    "快速提问",
+                    "quick_chat"
+            );
+            return conversation.getFconversationid();
+        }
+
+        String conversationId = requestedConversationId.trim();
+        conversationService.getOwnedConversation(userId, conversationId);
+        return conversationId;
+    }
+
+    private List<AiMessageResponse> loadHistoryMessages(
+            Long userId,
+            String conversationId,
+            String currentQuestion
+    ) {
+        List<BizfiAiMessage> dbMessages = conversationService.listMessages(userId, conversationId);
+        if (dbMessages == null || dbMessages.isEmpty()) {
+            return List.of();
+        }
+
+        List<AiMessageResponse> history = dbMessages.stream()
+                .map(item -> new AiMessageResponse(item.getFrole(), item.getFcontent()))
+                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+
+        if (!history.isEmpty()) {
+            AiMessageResponse last = history.get(history.size() - 1);
+            if ("user".equals(last.getRole()) && currentQuestion.equals(last.getContent())) {
+                history.remove(history.size() - 1);
+            }
+        }
+
+        int maxHistory = normalizePositive(aiProperties.getMaxHistoryMessages(), 20);
+        if (history.size() <= maxHistory) {
+            return history;
+        }
+        return new ArrayList<>(history.subList(history.size() - maxHistory, history.size()));
+    }
+
+    private List<AiCitationResponse> retrieveKnowledge(String question, List<String> kbIds) {
+        if (Boolean.FALSE.equals(aiProperties.getKnowledgeEnabled())) {
+            return List.of();
+        }
+        int topK = normalizePositive(aiProperties.getMaxKnowledgeChunks(), 5);
+        List<AiCitationResponse> citations = knowledgeService.retrieve(question, kbIds, topK);
+        return citations == null ? List.of() : citations;
+    }
+
+    private AiChatResponse completeChat(PreparedChat prepared, AiModelResult modelResult) {
+        if (modelResult == null || !StringUtils.hasText(modelResult.getAnswer())) {
+            throw new BizException("AI 模型返回为空");
+        }
 
         conversationService.saveAssistantMessage(
-                conversationId,
+                prepared.conversationId(),
                 modelResult.getAnswer(),
                 modelResult.getModel(),
                 modelResult.getMode(),
@@ -82,9 +181,9 @@ public class AiChatServiceImpl implements AiChatService {
                 modelResult.getEstimatedCost()
         );
         return new AiChatResponse(
-                conversationId,
+                prepared.conversationId(),
                 modelResult.getAnswer(),
-                citations,
+                prepared.citations(),
                 usage,
                 modelResult.getTraceId(),
                 modelResult.getMode(),
@@ -92,8 +191,18 @@ public class AiChatServiceImpl implements AiChatService {
         );
     }
 
-    @Override
-    public AiConfigStatusResponse configStatus() {
-        return modelFacade.configStatus();
+    private String normalizeTaskType(String taskType) {
+        return StringUtils.hasText(taskType) ? taskType.trim() : null;
+    }
+
+    private int normalizePositive(Integer configured, int defaultValue) {
+        return configured != null && configured > 0 ? configured : defaultValue;
+    }
+
+    private record PreparedChat(
+            String conversationId,
+            List<AiCitationResponse> citations,
+            AiModelRequest modelRequest
+    ) {
     }
 }
