@@ -1,68 +1,64 @@
 package single.cjj.bizfi.ai.service.impl;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import single.cjj.bizfi.ai.config.AiProperties;
 import single.cjj.bizfi.ai.dto.AiChatRequest;
 import single.cjj.bizfi.ai.dto.AiToolContext;
+import single.cjj.bizfi.ai.service.AiOrganizationPermissionService;
 import single.cjj.bizfi.exception.BizException;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class DefaultAiToolPolicyServiceTest {
 
-    @AfterEach
-    void clearContext() {
-        SecurityContextHolder.clearContext();
-    }
-
     @Test
     void shouldIgnoreToolPolicyForNormalChat() {
-        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(new AiProperties());
+        AiOrganizationPermissionService permissionService = mock(AiOrganizationPermissionService.class);
+        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(new AiProperties(), permissionService);
         AiChatRequest request = new AiChatRequest();
         request.setTaskType("general");
 
         assertNull(service.prepareContext(7L, request));
+        verify(permissionService, never()).assertCanAccess(7L, 10L);
     }
 
     @Test
     void shouldDenyToolsByDefault() {
-        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(new AiProperties());
-        AiChatRequest request = validRequest();
+        AiOrganizationPermissionService permissionService = mock(AiOrganizationPermissionService.class);
+        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(new AiProperties(), permissionService);
 
-        assertThrows(BizException.class, () -> service.prepareContext(7L, request));
+        assertThrows(BizException.class, () -> service.prepareContext(7L, validRequest()));
+        verify(permissionService, never()).assertCanAccess(7L, 10L);
     }
 
     @Test
     void shouldRequireSpringAiAdapter() {
         AiProperties properties = enabledProperties();
         properties.setModelAdapter(RoutingAiModelFacade.ADAPTER_PROMPT_HTTP);
-        properties.setToolAllowAllOrganizations(true);
-        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
+        AiOrganizationPermissionService permissionService = mock(AiOrganizationPermissionService.class);
+        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties, permissionService);
 
         assertThrows(BizException.class, () -> service.prepareContext(7L, validRequest()));
+        verify(permissionService, never()).assertCanAccess(7L, 10L);
     }
 
     @Test
-    void shouldAuthorizeOrganizationFromSecurityAuthority() {
-        AiProperties properties = enabledProperties();
-        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
-        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
-                "7",
-                "n/a",
-                List.of(new SimpleGrantedAuthority("ORG:10"))
-        ));
+    void shouldDelegateOrganizationAuthorizationAndCreateContext() {
+        AiOrganizationPermissionService permissionService = mock(AiOrganizationPermissionService.class);
+        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(
+                enabledProperties(),
+                permissionService
+        );
 
         AiToolContext context = service.prepareContext(7L, validRequest());
 
+        verify(permissionService).assertCanAccess(7L, 10L);
         assertEquals(7L, context.getRequestedByUserId());
         assertEquals(10L, context.getOrganizationId());
         assertEquals("2026-07", context.getPeriod());
@@ -70,34 +66,17 @@ class DefaultAiToolPolicyServiceTest {
     }
 
     @Test
-    void shouldAuthorizeConfiguredUserOrganizationPair() {
-        AiProperties properties = enabledProperties();
-        properties.setToolAllowedUserOrganizationPairs("8:10, 7:10,invalid");
-        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
-
-        AiToolContext context = service.prepareContext(7L, validRequest());
-
-        assertEquals(10L, context.getOrganizationId());
-    }
-
-    @Test
-    void shouldRejectPairBelongingToAnotherUser() {
-        AiProperties properties = enabledProperties();
-        properties.setToolAllowedUserOrganizationPairs("8:10");
-        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
-
-        assertThrows(BizException.class, () -> service.prepareContext(7L, validRequest()));
-    }
-
-    @Test
-    void shouldRejectInvalidPeriod() {
-        AiProperties properties = enabledProperties();
-        properties.setToolAllowAllOrganizations(true);
-        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
+    void shouldRejectInvalidPeriodBeforePermissionLookup() {
+        AiOrganizationPermissionService permissionService = mock(AiOrganizationPermissionService.class);
+        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(
+                enabledProperties(),
+                permissionService
+        );
         AiChatRequest request = validRequest();
         request.setAccountingPeriod("2026-13");
 
         assertThrows(BizException.class, () -> service.prepareContext(7L, request));
+        verify(permissionService, never()).assertCanAccess(7L, 10L);
     }
 
     private AiProperties enabledProperties() {
