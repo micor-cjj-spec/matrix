@@ -53,8 +53,11 @@ public class FinanceMonthEndCloseTool {
                 toolName,
                 longValue(values.get("requestedByUserId"), "requestedByUserId"),
                 longValue(values.get("organizationId"), "organizationId"),
-                stringValue(values.get("period")),
-                stringValue(values.get("requestId"))
+                requiredString(values.get("period"), "period"),
+                requiredString(values.get("requestId"), "requestId"),
+                requiredString(values.get("conversationId"), "conversationId"),
+                requiredString(values.get("modelName"), "modelName"),
+                requiredString(values.get("modelTraceId"), "modelTraceId")
         );
     }
 
@@ -70,6 +73,14 @@ public class FinanceMonthEndCloseTool {
             }
         }
         throw new IllegalStateException(field + " 无效");
+    }
+
+    private String requiredString(Object value, String field) {
+        String text = stringValue(value);
+        if (!StringUtils.hasText(text)) {
+            throw new IllegalStateException(field + " 无效");
+        }
+        return text;
     }
 
     private String stringValue(Object value) {
