@@ -9,6 +9,7 @@ import org.springframework.util.StringUtils;
 import single.cjj.fi.ai.tool.FinanceMonthEndCloseToolRequest;
 import single.cjj.fi.ai.tool.FinanceMonthEndCloseToolResponse;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
@@ -19,7 +20,12 @@ import java.util.Set;
 public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultFinanceAiToolAuditService.class);
-    private static final Set<String> ALLOWED_STATUSES = Set.of("STARTED", "SUCCEEDED", "FAILED");
+    private static final Set<String> ALLOWED_STATUSES = Set.of(
+            "STARTED",
+            "SUCCEEDED",
+            "FAILED",
+            "TIMED_OUT"
+    );
 
     private final FinanceAiToolExecutionMapper mapper;
 
@@ -63,6 +69,7 @@ public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditServi
                     null,
                     new UpdateWrapper<FinanceAiToolExecution>()
                             .eq("frequestid", request.requestId())
+                            .eq("fstatus", "STARTED")
                             .set("ftoolname", toolName)
                             .set("fstatus", "SUCCEEDED")
                             .set("freadinessscore", response.readinessScore())
@@ -91,6 +98,7 @@ public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditServi
                     null,
                     new UpdateWrapper<FinanceAiToolExecution>()
                             .eq("frequestid", request.requestId())
+                            .eq("fstatus", "STARTED")
                             .set("ftoolname", toolName)
                             .set("fstatus", "FAILED")
                             .set("fdurationms", normalizeDuration(durationMillis))
@@ -142,6 +150,46 @@ public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditServi
                 total,
                 records
         );
+    }
+
+    @Override
+    public FinanceAiToolReconciliationResult reconcileStaleStarted(
+            LocalDateTime cutoff,
+            int batchSize,
+            LocalDateTime reconciledAt
+    ) {
+        if (cutoff == null || reconciledAt == null) {
+            throw new IllegalArgumentException("cutoff 和 reconciledAt 不能为空");
+        }
+        int normalizedBatchSize = Math.max(1, Math.min(batchSize, 1000));
+        List<FinanceAiToolExecution> candidates = mapper.selectList(
+                new QueryWrapper<FinanceAiToolExecution>()
+                        .eq("fstatus", "STARTED")
+                        .lt("fstarttime", cutoff)
+                        .orderByAsc("fstarttime")
+                        .orderByAsc("fid")
+                        .last("LIMIT " + normalizedBatchSize)
+        );
+        int timedOutCount = 0;
+        for (FinanceAiToolExecution candidate : candidates) {
+            long durationMillis = durationMillis(candidate.getFstarttime(), reconciledAt);
+            int updated = mapper.update(
+                    null,
+                    new UpdateWrapper<FinanceAiToolExecution>()
+                            .eq("fid", candidate.getFid())
+                            .eq("fstatus", "STARTED")
+                            .set("fstatus", "TIMED_OUT")
+                            .set("fdurationms", durationMillis)
+                            .set("ferrorcode", "EXECUTION_TIMEOUT")
+                            .set("ferrormessage", "AI tool execution exceeded the configured STARTED timeout")
+                            .set("fendtime", reconciledAt)
+                            .set("fmodifytime", reconciledAt)
+            );
+            if (updated > 0) {
+                timedOutCount++;
+            }
+        }
+        return new FinanceAiToolReconciliationResult(cutoff, candidates.size(), timedOutCount);
     }
 
     private QueryWrapper<FinanceAiToolExecution> buildQueryWrapper(FinanceAiToolExecutionQuery query) {
@@ -221,13 +269,20 @@ public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditServi
         }
         normalized = normalized.toUpperCase(Locale.ROOT);
         if (!ALLOWED_STATUSES.contains(normalized)) {
-            throw new IllegalArgumentException("status 仅支持 STARTED、SUCCEEDED、FAILED");
+            throw new IllegalArgumentException("status 仅支持 STARTED、SUCCEEDED、FAILED、TIMED_OUT");
         }
         return normalized;
     }
 
     private String trimToNull(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private long durationMillis(LocalDateTime startedAt, LocalDateTime endedAt) {
+        if (startedAt == null || endedAt.isBefore(startedAt)) {
+            return 0L;
+        }
+        return Math.max(0L, Duration.between(startedAt, endedAt).toMillis());
     }
 
     private long normalizeDuration(long value) {
