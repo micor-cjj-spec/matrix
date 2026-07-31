@@ -1,5 +1,6 @@
 package single.cjj.bizfi.ai.service.impl;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import single.cjj.bizfi.ai.config.AiProperties;
 
@@ -18,6 +19,7 @@ public class SpringAiCircuitBreaker {
     private final AtomicInteger consecutiveFailures = new AtomicInteger();
     private final AtomicLong openUntilMillis = new AtomicLong();
 
+    @Autowired
     public SpringAiCircuitBreaker(AiProperties properties) {
         this(properties, System::currentTimeMillis);
     }
