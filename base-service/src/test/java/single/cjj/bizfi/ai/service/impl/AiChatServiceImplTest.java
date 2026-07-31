@@ -145,6 +145,7 @@ class AiChatServiceImplTest {
         ArgumentCaptor<AiModelRequest> captor = ArgumentCaptor.forClass(AiModelRequest.class);
         verify(modelFacade).chat(captor.capture());
         assertSame(context, captor.getValue().getToolContext());
+        assertEquals("c_tool", context.getConversationId());
         assertEquals("tool-calling", captor.getValue().getTaskType());
     }
 
