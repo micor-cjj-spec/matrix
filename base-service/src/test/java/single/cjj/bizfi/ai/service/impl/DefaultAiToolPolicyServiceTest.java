@@ -42,9 +42,18 @@ class DefaultAiToolPolicyServiceTest {
     }
 
     @Test
+    void shouldRequireSpringAiAdapter() {
+        AiProperties properties = enabledProperties();
+        properties.setModelAdapter(RoutingAiModelFacade.ADAPTER_PROMPT_HTTP);
+        properties.setToolAllowAllOrganizations(true);
+        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
+
+        assertThrows(BizException.class, () -> service.prepareContext(7L, validRequest()));
+    }
+
+    @Test
     void shouldAuthorizeOrganizationFromSecurityAuthority() {
-        AiProperties properties = new AiProperties();
-        properties.setToolCallingEnabled(true);
+        AiProperties properties = enabledProperties();
         DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
                 "7",
@@ -62,8 +71,7 @@ class DefaultAiToolPolicyServiceTest {
 
     @Test
     void shouldAuthorizeConfiguredOrganization() {
-        AiProperties properties = new AiProperties();
-        properties.setToolCallingEnabled(true);
+        AiProperties properties = enabledProperties();
         properties.setToolAllowedOrganizationIds("8, 10,invalid");
         DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
 
@@ -74,14 +82,20 @@ class DefaultAiToolPolicyServiceTest {
 
     @Test
     void shouldRejectInvalidPeriod() {
-        AiProperties properties = new AiProperties();
-        properties.setToolCallingEnabled(true);
+        AiProperties properties = enabledProperties();
         properties.setToolAllowAllOrganizations(true);
         DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
         AiChatRequest request = validRequest();
         request.setAccountingPeriod("2026-13");
 
         assertThrows(BizException.class, () -> service.prepareContext(7L, request));
+    }
+
+    private AiProperties enabledProperties() {
+        AiProperties properties = new AiProperties();
+        properties.setToolCallingEnabled(true);
+        properties.setModelAdapter(RoutingAiModelFacade.ADAPTER_SPRING_AI);
+        return properties;
     }
 
     private AiChatRequest validRequest() {
