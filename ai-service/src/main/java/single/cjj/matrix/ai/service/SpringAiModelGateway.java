@@ -51,9 +51,9 @@ public class SpringAiModelGateway {
                 model,
                 "spring-ai",
                 newTraceId(),
-                toInteger(usage == null ? null : usage.getPromptTokens()),
-                toInteger(usage == null ? null : usage.getGenerationTokens()),
-                toInteger(usage == null ? null : usage.getTotalTokens()),
+                normalizeTokenCount(usage == null ? null : usage.getPromptTokens()),
+                normalizeTokenCount(usage == null ? null : usage.getCompletionTokens()),
+                normalizeTokenCount(usage == null ? null : usage.getTotalTokens()),
                 0.0
         );
     }
@@ -74,10 +74,7 @@ public class SpringAiModelGateway {
         return "trace_" + UUID.randomUUID().toString().replace("-", "");
     }
 
-    private Integer toInteger(Long value) {
-        if (value == null || value <= 0) {
-            return 0;
-        }
-        return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : value.intValue();
+    private Integer normalizeTokenCount(Integer value) {
+        return value == null || value < 0 ? 0 : value;
     }
 }
