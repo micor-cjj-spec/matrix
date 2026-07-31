@@ -30,6 +30,12 @@ bizfi:
     max-knowledge-chunks: ${AI_MAX_KNOWLEDGE_CHUNKS:5}
     request-timeout-seconds: ${AI_REQUEST_TIMEOUT_SECONDS:60}
     spring-ai-base-url: ${AI_SERVICE_BASE_URL:http://127.0.0.1:10020/api}
+    spring-ai-service-id: ${AI_SERVICE_ID:ai-service}
+    spring-ai-discovery-enabled: ${AI_SERVICE_DISCOVERY_ENABLED:false}
+    spring-ai-static-fallback-enabled: ${AI_SERVICE_STATIC_FALLBACK_ENABLED:true}
+    spring-ai-max-attempts: ${AI_SERVICE_MAX_ATTEMPTS:2}
+    spring-ai-circuit-failure-threshold: ${AI_SERVICE_CIRCUIT_FAILURE_THRESHOLD:3}
+    spring-ai-circuit-open-seconds: ${AI_SERVICE_CIRCUIT_OPEN_SECONDS:30}
     internal-token: ${AI_INTERNAL_TOKEN:}
 
 matrix:
