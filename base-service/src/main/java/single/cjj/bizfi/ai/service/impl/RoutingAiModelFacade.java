@@ -10,6 +10,7 @@ import single.cjj.bizfi.ai.dto.AiModelResult;
 import single.cjj.bizfi.ai.service.AiModelFacade;
 
 import java.util.Locale;
+import java.util.function.Consumer;
 
 /**
  * AI 模型适配器统一路由入口。
@@ -46,6 +47,11 @@ public class RoutingAiModelFacade implements AiModelFacade {
     @Override
     public AiModelResult chat(AiModelRequest request) {
         return resolveDelegate().chat(request);
+    }
+
+    @Override
+    public AiModelResult stream(AiModelRequest request, Consumer<String> deltaConsumer) {
+        return resolveDelegate().stream(request, deltaConsumer);
     }
 
     @Override
