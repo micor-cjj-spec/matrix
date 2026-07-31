@@ -21,8 +21,31 @@ public final class ModelContracts {
             Long requestedByUserId,
             Long organizationId,
             String period,
-            String requestId
+            String requestId,
+            String conversationId,
+            String modelName,
+            String modelTraceId
     ) {
+        public ToolContext(
+                String toolName,
+                Long requestedByUserId,
+                Long organizationId,
+                String period,
+                String requestId
+        ) {
+            this(toolName, requestedByUserId, organizationId, period, requestId, null, null, null);
+        }
+
+        public ToolContext(
+                String toolName,
+                Long requestedByUserId,
+                Long organizationId,
+                String period,
+                String requestId,
+                String conversationId
+        ) {
+            this(toolName, requestedByUserId, organizationId, period, requestId, conversationId, null, null);
+        }
     }
 
     public record ChatRequest(

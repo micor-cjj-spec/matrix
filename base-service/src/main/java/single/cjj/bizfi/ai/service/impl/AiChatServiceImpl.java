@@ -84,6 +84,9 @@ public class AiChatServiceImpl implements AiChatService {
         String userMessage = request.getUserMessage().trim();
         String conversationId = resolveConversationId(userId, request.getConversationId());
         AiToolContext toolContext = toolPolicyService.prepareContext(userId, request);
+        if (toolContext != null) {
+            toolContext.setConversationId(conversationId);
+        }
 
         conversationService.saveUserMessage(conversationId, userMessage);
         List<AiMessageResponse> historyMessages = loadHistoryMessages(userId, conversationId, userMessage);

@@ -44,6 +44,7 @@ public class SpringAiModelGateway {
 
     public ModelContracts.ChatResponse chat(ModelContracts.ChatRequest request) {
         AiTaskRouter.ModelRoute route = route(request);
+        String traceId = newTraceId();
         long startedAt = metrics.start();
         try {
             Prompt prompt = promptFactory.create(request, route.model());
@@ -51,7 +52,7 @@ public class SpringAiModelGateway {
             if (toolEnabled(request, route)) {
                 requestSpec = requestSpec
                         .tools(financeMonthEndCloseTool)
-                        .toolContext(toolContextMap(request.toolContext()));
+                        .toolContext(toolContextMap(request.toolContext(), route.model(), traceId));
             }
             ChatResponse response = requestSpec.call().chatResponse();
             if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
@@ -76,7 +77,7 @@ public class SpringAiModelGateway {
                     answer,
                     model,
                     "spring-ai",
-                    newTraceId(),
+                    traceId,
                     promptTokens,
                     completionTokens,
                     totalTokens,
@@ -89,10 +90,19 @@ public class SpringAiModelGateway {
     }
 
     public Flux<String> stream(ModelContracts.ChatRequest request) {
-        return stream(request, route(request));
+        AiTaskRouter.ModelRoute route = route(request);
+        return stream(request, route, newTraceId());
     }
 
     public Flux<String> stream(ModelContracts.ChatRequest request, AiTaskRouter.ModelRoute route) {
+        return stream(request, route, newTraceId());
+    }
+
+    public Flux<String> stream(
+            ModelContracts.ChatRequest request,
+            AiTaskRouter.ModelRoute route,
+            String traceId
+    ) {
         return Flux.defer(() -> {
             long startedAt = metrics.start();
             Prompt prompt = promptFactory.create(request, route.model());
@@ -100,7 +110,7 @@ public class SpringAiModelGateway {
             if (toolEnabled(request, route)) {
                 requestSpec = requestSpec
                         .tools(financeMonthEndCloseTool)
-                        .toolContext(toolContextMap(request.toolContext()));
+                        .toolContext(toolContextMap(request.toolContext(), route.model(), traceId));
             }
             return requestSpec
                     .stream()
@@ -144,11 +154,18 @@ public class SpringAiModelGateway {
         return true;
     }
 
-    private Map<String, Object> toolContextMap(ModelContracts.ToolContext context) {
+    private Map<String, Object> toolContextMap(
+            ModelContracts.ToolContext context,
+            String modelName,
+            String traceId
+    ) {
         if (context.requestedByUserId() == null
                 || context.organizationId() == null
                 || !StringUtils.hasText(context.period())
-                || !StringUtils.hasText(context.requestId())) {
+                || !StringUtils.hasText(context.requestId())
+                || !StringUtils.hasText(context.conversationId())
+                || !StringUtils.hasText(modelName)
+                || !StringUtils.hasText(traceId)) {
             throw new IllegalStateException("服务端 toolContext 不完整");
         }
         Map<String, Object> values = new LinkedHashMap<>();
@@ -157,6 +174,9 @@ public class SpringAiModelGateway {
         values.put("organizationId", context.organizationId());
         values.put("period", context.period());
         values.put("requestId", context.requestId());
+        values.put("conversationId", context.conversationId());
+        values.put("modelName", modelName);
+        values.put("modelTraceId", traceId);
         return Map.copyOf(values);
     }
 

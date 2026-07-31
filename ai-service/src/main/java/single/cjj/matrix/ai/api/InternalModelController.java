@@ -57,7 +57,7 @@ public class InternalModelController {
         Flux<ServerSentEvent<ModelContracts.StreamEvent>> start = Flux.just(
                 event("start", ModelContracts.StreamEvent.start())
         );
-        Flux<ServerSentEvent<ModelContracts.StreamEvent>> deltas = modelGateway.stream(request, route)
+        Flux<ServerSentEvent<ModelContracts.StreamEvent>> deltas = modelGateway.stream(request, route, traceId)
                 .doOnNext(answer::append)
                 .map(delta -> event("delta", ModelContracts.StreamEvent.delta(delta)));
         Flux<ServerSentEvent<ModelContracts.StreamEvent>> done = Flux.defer(() -> Flux.just(

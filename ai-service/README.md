@@ -24,7 +24,7 @@
 - internal model API authentication
 - optional Nacos service registration
 
-`fi-service` owns finance rules and the read-only month-end workbench used by the first AI tool.
+`fi-service` owns finance rules, the read-only month-end workbench, and persistent finance-tool execution audit.
 
 ## Required environment variables
 
@@ -94,7 +94,7 @@ Public request example:
 }
 ```
 
-`base-service` validates the feature flag, tool allow-list, accounting period, and organization scope. It then creates a server-controlled tool context containing the user ID, organization ID, period, and request ID. These values are not model-generated tool arguments.
+`base-service` validates the feature flag, tool allow-list, accounting period, and organization scope. It then creates a server-controlled tool context containing the user ID, organization ID, period, request ID, and conversation ID. `ai-service` adds the selected model and a model trace ID before the tool executes. These values are not model-generated tool arguments.
 
 Enable the feature in `base-service`:
 
@@ -133,6 +133,60 @@ X-Matrix-AI-Tool-Token: <FINANCE_AI_TOOL_INTERNAL_TOKEN>
 The internal result is bounded and deliberately excludes voucher details. It always includes `readOnly=true`; the AI client rejects a result that is not explicitly marked read-only.
 
 Tool requests require `AI_MODEL_ADAPTER=spring-ai`. If the tool or finance service fails, the request returns an error and never falls back to a normal chat model without verified finance data.
+
+## Correlated tool audit
+
+Each real finance-tool execution is correlated by:
+
+```text
+requestId
+conversationId
+modelName
+modelTraceId
+userId
+organizationId
+period
+```
+
+The same model trace ID is supplied to Spring AI ToolContext and returned in the final synchronous response or streaming `done` event.
+
+Apply the audit migrations in order:
+
+```text
+sql/bizfi_ai_tool_audit_v1.sql
+sql/bizfi_ai_tool_audit_v2.sql
+```
+
+Lookup one execution:
+
+```text
+GET /api/internal/ai/tools/executions/{requestId}
+X-Matrix-AI-Tool-Token: <FINANCE_AI_TOOL_INTERNAL_TOKEN>
+```
+
+Search execution audit:
+
+```text
+GET /api/internal/ai/tools/executions
+X-Matrix-AI-Tool-Token: <FINANCE_AI_TOOL_INTERNAL_TOKEN>
+```
+
+Supported exact filters:
+
+```text
+userId
+organizationId
+period
+status
+conversationId
+modelTraceId
+createdFrom
+createdTo
+page
+size
+```
+
+Results are ordered newest first. Page numbering starts at 1, the default size is 20, and the maximum size is 100. The audit table and query API do not expose prompts, chat content, knowledge chunks, voucher details, or complete finance results.
 
 ## Run
 
@@ -265,6 +319,8 @@ Metric tags never contain prompts, retrieved document content, user IDs, organiz
 - Nacos registration is optional and disabled by default
 - RAG still runs in `base-service`
 - model routing currently uses one configured OpenAI-compatible provider
-- organization tool authorization should eventually use a dedicated organization-permission service
-- the finance tool client uses a static service URL in this phase
-- persistent tool execution audit records and human-confirmed write tools are not yet implemented
+- configured user/organization pairs remain migration-only
+- the finance tool client uses a static service URL
+- audit search is internal-token protected and does not yet use named operator roles
+- retention, archival, and stale-STARTED reconciliation are not yet implemented
+- human-confirmed finance write tools are not implemented
