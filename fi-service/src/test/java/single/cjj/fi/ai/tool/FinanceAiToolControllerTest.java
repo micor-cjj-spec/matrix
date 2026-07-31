@@ -3,15 +3,19 @@ package single.cjj.fi.ai.tool;
 import org.junit.jupiter.api.Test;
 import single.cjj.fi.ai.tool.audit.FinanceAiToolAuditService;
 import single.cjj.fi.ai.tool.audit.FinanceAiToolExecution;
+import single.cjj.fi.ai.tool.audit.FinanceAiToolExecutionPageResponse;
+import single.cjj.fi.ai.tool.audit.FinanceAiToolExecutionQuery;
 import single.cjj.fi.ai.tool.audit.FinanceAiToolExecutionResponse;
 import single.cjj.fi.gl.service.BizfiFiPeriodProcessService;
 import single.cjj.fi.gl.vo.MonthEndWorkbenchResultVO;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -73,20 +77,67 @@ class FinanceAiToolControllerTest {
 
     @Test
     void shouldReturnProtectedExecutionSummary() {
-        FinanceAiToolExecution execution = new FinanceAiToolExecution();
-        execution.setFrequestid("tool_request_1");
-        execution.setFstatus("SUCCEEDED");
+        FinanceAiToolExecution execution = execution();
         when(auditService.findByRequestId("tool_request_1")).thenReturn(Optional.of(execution));
 
         FinanceAiToolExecutionResponse response = controller.execution("secret", "tool_request_1");
 
         assertEquals("tool_request_1", response.requestId());
+        assertEquals("c_tool", response.conversationId());
+        assertEquals("trace_tool", response.modelTraceId());
         assertEquals("SUCCEEDED", response.status());
         verify(tokenGuard).verify("secret");
     }
 
+    @Test
+    void shouldReturnProtectedFilteredExecutionPage() {
+        FinanceAiToolExecutionPageResponse expected = FinanceAiToolExecutionPageResponse.of(
+                1,
+                20,
+                1,
+                List.of(execution())
+        );
+        when(auditService.query(any(FinanceAiToolExecutionQuery.class))).thenReturn(expected);
+
+        FinanceAiToolExecutionPageResponse actual = controller.executions(
+                "secret",
+                7L,
+                10L,
+                "2026-07",
+                "SUCCEEDED",
+                "c_tool",
+                "trace_tool",
+                LocalDateTime.of(2026, 7, 1, 0, 0),
+                LocalDateTime.of(2026, 7, 31, 23, 59),
+                1,
+                20
+        );
+
+        assertEquals(expected, actual);
+        verify(tokenGuard).verify("secret");
+        verify(auditService).query(any(FinanceAiToolExecutionQuery.class));
+    }
+
     private FinanceMonthEndCloseToolRequest request() {
-        return new FinanceMonthEndCloseToolRequest(7L, 10L, "2026-07", "tool_request_1");
+        return new FinanceMonthEndCloseToolRequest(
+                7L,
+                10L,
+                "2026-07",
+                "tool_request_1",
+                "c_tool",
+                "gpt-tool-model",
+                "trace_tool"
+        );
+    }
+
+    private FinanceAiToolExecution execution() {
+        FinanceAiToolExecution execution = new FinanceAiToolExecution();
+        execution.setFrequestid("tool_request_1");
+        execution.setFconversationid("c_tool");
+        execution.setFmodelname("gpt-tool-model");
+        execution.setFmodeltraceid("trace_tool");
+        execution.setFstatus("SUCCEEDED");
+        return execution;
     }
 
     private FinanceMonthEndCloseToolResponse response() {
