@@ -1,5 +1,6 @@
 package single.cjj.fi.ai.tool.audit;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +10,7 @@ import single.cjj.fi.ai.tool.FinanceMonthEndCloseToolRequest;
 import single.cjj.fi.ai.tool.FinanceMonthEndCloseToolResponse;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Service
 public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditService {
@@ -93,6 +95,18 @@ public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditServi
         } catch (RuntimeException auditFailure) {
             log.warn("Failed to persist AI tool failure audit, requestId={}", safeRequestId(request), auditFailure);
         }
+    }
+
+    @Override
+    public Optional<FinanceAiToolExecution> findByRequestId(String requestId) {
+        if (!StringUtils.hasText(requestId)) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(mapper.selectOne(
+                new LambdaQueryWrapper<FinanceAiToolExecution>()
+                        .eq(FinanceAiToolExecution::getFrequestid, requestId.trim())
+                        .last("LIMIT 1")
+        ));
     }
 
     private long normalizeDuration(long value) {
