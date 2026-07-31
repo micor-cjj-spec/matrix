@@ -1,0 +1,54 @@
+name: Spring AI Service CI
+
+on:
+  pull_request:
+    paths:
+      - 'ai-service/**'
+      - 'base-service/src/main/java/single/cjj/bizfi/ai/config/AiProperties.java'
+      - 'base-service/src/main/java/single/cjj/bizfi/ai/service/impl/SpringAiModelFacade.java'
+      - 'base-service/src/main/resources/application.yml'
+      - 'pom.xml'
+      - '.github/workflows/spring-ai-service-ci.yml'
+  push:
+    branches:
+      - 'agent/add-spring-ai-*'
+    paths:
+      - 'ai-service/**'
+      - 'base-service/src/main/java/single/cjj/bizfi/ai/config/AiProperties.java'
+      - 'base-service/src/main/java/single/cjj/bizfi/ai/service/impl/SpringAiModelFacade.java'
+      - 'base-service/src/main/resources/application.yml'
+      - 'pom.xml'
+      - '.github/workflows/spring-ai-service-ci.yml'
+
+jobs:
+  test-ai-service:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Compile and test ai-service
+        run: mvn -B -Dstyle.color=never -pl ai-service test
+
+  test-base-adapter:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Compile and test base-service adapter
+        run: mvn -B -Dstyle.color=never -pl base-service -am test
