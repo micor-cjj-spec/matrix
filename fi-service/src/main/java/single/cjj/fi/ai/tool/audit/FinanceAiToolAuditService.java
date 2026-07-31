@@ -3,6 +3,7 @@ package single.cjj.fi.ai.tool.audit;
 import single.cjj.fi.ai.tool.FinanceMonthEndCloseToolRequest;
 import single.cjj.fi.ai.tool.FinanceMonthEndCloseToolResponse;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface FinanceAiToolAuditService {
@@ -26,4 +27,10 @@ public interface FinanceAiToolAuditService {
     Optional<FinanceAiToolExecution> findByRequestId(String requestId);
 
     FinanceAiToolExecutionPageResponse query(FinanceAiToolExecutionQuery query);
+
+    FinanceAiToolReconciliationResult reconcileStaleStarted(
+            LocalDateTime cutoff,
+            int batchSize,
+            LocalDateTime reconciledAt
+    );
 }
