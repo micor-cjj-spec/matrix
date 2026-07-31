@@ -20,6 +20,16 @@ spring:
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
 
+bizfi:
+  ai:
+    model-adapter: ${AI_MODEL_ADAPTER:prompt-http}
+    enabled: ${AI_ENABLED:true}
+    knowledge-enabled: ${AI_KNOWLEDGE_ENABLED:true}
+    fallback-enabled: ${AI_FALLBACK_ENABLED:true}
+    max-history-messages: ${AI_MAX_HISTORY_MESSAGES:20}
+    max-knowledge-chunks: ${AI_MAX_KNOWLEDGE_CHUNKS:5}
+    request-timeout-seconds: ${AI_REQUEST_TIMEOUT_SECONDS:60}
+
 matrix:
   scheduler:
     client:
