@@ -65,7 +65,7 @@ public class DefaultAiToolPolicyService implements AiToolPolicyService {
         }
 
         String period = normalizePeriod(request.getAccountingPeriod());
-        authorizeOrganization(organizationId);
+        authorizeOrganization(userId, organizationId);
 
         return new AiToolContext(
                 MONTH_END_CLOSE_CHECK,
@@ -76,11 +76,11 @@ public class DefaultAiToolPolicyService implements AiToolPolicyService {
         );
     }
 
-    private void authorizeOrganization(Long organizationId) {
+    private void authorizeOrganization(Long userId, Long organizationId) {
         if (Boolean.TRUE.equals(properties.getToolAllowAllOrganizations())) {
             return;
         }
-        if (configuredOrganizations().contains(organizationId)) {
+        if (configuredUserOrganizationPairs().contains(userId + ":" + organizationId)) {
             return;
         }
 
@@ -105,24 +105,26 @@ public class DefaultAiToolPolicyService implements AiToolPolicyService {
         throw new BizException("当前用户无权通过 AI 查询组织 " + organizationId + " 的月结数据");
     }
 
-    private Set<Long> configuredOrganizations() {
-        String configured = properties.getToolAllowedOrganizationIds();
+    private Set<String> configuredUserOrganizationPairs() {
+        String configured = properties.getToolAllowedUserOrganizationPairs();
         if (!StringUtils.hasText(configured)) {
             return Set.of();
         }
         return Arrays.stream(configured.split(","))
                 .map(String::trim)
-                .filter(StringUtils::hasText)
-                .map(this::parseLongQuietly)
-                .filter(value -> value != null && value > 0)
+                .filter(this::isValidUserOrganizationPair)
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    private Long parseLongQuietly(String value) {
+    private boolean isValidUserOrganizationPair(String value) {
+        String[] parts = value.split(":", -1);
+        if (parts.length != 2) {
+            return false;
+        }
         try {
-            return Long.valueOf(value);
+            return Long.parseLong(parts[0].trim()) > 0 && Long.parseLong(parts[1].trim()) > 0;
         } catch (NumberFormatException ignored) {
-            return null;
+            return false;
         }
     }
 
