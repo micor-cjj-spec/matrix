@@ -4,18 +4,21 @@ on:
   pull_request:
     paths:
       - 'ai-service/**'
-      - 'base-service/src/main/java/single/cjj/bizfi/ai/config/AiProperties.java'
-      - 'base-service/src/main/java/single/cjj/bizfi/ai/service/impl/SpringAiModelFacade.java'
+      - 'base-service/src/main/java/single/cjj/bizfi/ai/config/**'
+      - 'base-service/src/main/java/single/cjj/bizfi/ai/service/impl/**'
+      - 'base-service/src/test/java/single/cjj/bizfi/ai/service/impl/**'
       - 'base-service/src/main/resources/application.yml'
       - 'pom.xml'
       - '.github/workflows/spring-ai-service-ci.yml'
   push:
     branches:
       - 'agent/add-spring-ai-*'
+      - 'agent/add-ai-service-*'
     paths:
       - 'ai-service/**'
-      - 'base-service/src/main/java/single/cjj/bizfi/ai/config/AiProperties.java'
-      - 'base-service/src/main/java/single/cjj/bizfi/ai/service/impl/SpringAiModelFacade.java'
+      - 'base-service/src/main/java/single/cjj/bizfi/ai/config/**'
+      - 'base-service/src/main/java/single/cjj/bizfi/ai/service/impl/**'
+      - 'base-service/src/test/java/single/cjj/bizfi/ai/service/impl/**'
       - 'base-service/src/main/resources/application.yml'
       - 'pom.xml'
       - '.github/workflows/spring-ai-service-ci.yml'

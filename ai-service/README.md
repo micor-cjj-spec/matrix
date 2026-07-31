@@ -10,6 +10,7 @@
 - conversation and message persistence
 - knowledge retrieval and citations
 - public `/ai/**` API compatibility
+- ai-service endpoint selection, retries, circuit state, and adapter fallback
 
 `ai-service` owns:
 
@@ -19,6 +20,7 @@
 - streaming model generation
 - model response metadata and token usage
 - internal model API authentication
+- optional Nacos service registration
 
 ## Required environment variables
 
@@ -62,28 +64,66 @@ The streaming endpoint uses named SSE events:
 
 ```text
 start
-
 delta
-
 done
-
 error
 ```
 
-## Enable from base-service
+## Static-address mode
+
+Static mode remains the default and does not require Nacos:
 
 ```text
 AI_MODEL_ADAPTER=spring-ai
 AI_SERVICE_BASE_URL=http://127.0.0.1:10020/api
+AI_SERVICE_DISCOVERY_ENABLED=false
 AI_INTERNAL_TOKEN=the-same-shared-secret
 ```
 
-The public API remains in `base-service`; only model execution is delegated to `ai-service`.
+## Nacos discovery mode
+
+`ai-service` uses the Spring Boot 3.5-compatible Spring Cloud 2025.0.x and Spring Cloud Alibaba 2025.0.x line.
+
+Registration is disabled by default. Enable it only after the target Nacos environment is compatible:
+
+```text
+AI_DISCOVERY_ENABLED=true
+NACOS_ADDR=127.0.0.1:8848
+NACOS_NAMESPACE=public
+NACOS_GROUP=DEV_GROUP
+```
+
+When using the `public` or empty namespace with Spring Cloud Alibaba 2025.0.x, use Nacos Server 3.x.
+
+Enable discovery from `base-service`:
+
+```text
+AI_SERVICE_DISCOVERY_ENABLED=true
+AI_SERVICE_ID=ai-service
+AI_SERVICE_STATIC_FALLBACK_ENABLED=true
+AI_SERVICE_BASE_URL=http://127.0.0.1:10020/api
+```
+
+Discovered instances publish `matrix.context-path=/api`. The client rotates candidate order between requests and appends the static endpoint only when static fallback is enabled.
+
+## Retry and circuit settings
+
+```text
+AI_SERVICE_MAX_ATTEMPTS=2
+AI_SERVICE_CIRCUIT_FAILURE_THRESHOLD=3
+AI_SERVICE_CIRCUIT_OPEN_SECONDS=30
+AI_FALLBACK_ENABLED=true
+```
+
+Retryable failures include connection failures, timeouts, HTTP 408, HTTP 429, and HTTP 5xx responses. HTTP 4xx responses other than 408 and 429 are not retried.
+
+When the selected adapter is `spring-ai`, the existing `prompt-http` adapter is used as the final fallback when enabled. Streaming requests only retry or fall back before the first delta has been emitted; after partial output, the error is returned instead of mixing two model responses.
 
 ## Current limitations
 
 - streaming token usage is not yet aggregated
-- provider fallback and circuit breaking are not yet implemented
-- service discovery is not yet wired
+- circuit state is local to each `base-service` process
+- Nacos registration is optional and disabled by default
 - RAG still runs in `base-service`
+- provider routing inside `ai-service` still uses one configured OpenAI-compatible provider
 - tools and human confirmation are not yet enabled
