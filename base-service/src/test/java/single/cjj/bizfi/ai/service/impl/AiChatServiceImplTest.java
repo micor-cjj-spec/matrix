@@ -14,18 +14,21 @@ import single.cjj.bizfi.ai.dto.AiConfigStatusResponse;
 import single.cjj.bizfi.ai.dto.AiMessageResponse;
 import single.cjj.bizfi.ai.dto.AiModelRequest;
 import single.cjj.bizfi.ai.dto.AiModelResult;
+import single.cjj.bizfi.ai.dto.AiToolContext;
 import single.cjj.bizfi.ai.entity.BizfiAiConversation;
 import single.cjj.bizfi.ai.entity.BizfiAiMessage;
 import single.cjj.bizfi.ai.service.AiChatStreamObserver;
 import single.cjj.bizfi.ai.service.AiConversationService;
 import single.cjj.bizfi.ai.service.AiKnowledgeService;
 import single.cjj.bizfi.ai.service.AiModelFacade;
+import single.cjj.bizfi.ai.service.AiToolPolicyService;
 
 import java.util.List;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -44,6 +47,9 @@ class AiChatServiceImplTest {
     @Mock
     private AiModelFacade modelFacade;
 
+    @Mock
+    private AiToolPolicyService toolPolicyService;
+
     private AiProperties aiProperties;
     private AiChatServiceImpl chatService;
 
@@ -54,7 +60,8 @@ class AiChatServiceImplTest {
                 conversationService,
                 knowledgeService,
                 modelFacade,
-                aiProperties
+                aiProperties,
+                toolPolicyService
         );
     }
 
@@ -108,6 +115,37 @@ class AiChatServiceImplTest {
                 5,
                 15
         );
+    }
+
+    @Test
+    void shouldPropagateAuthorizedToolContext() {
+        aiProperties.setKnowledgeEnabled(false);
+        AiChatRequest request = new AiChatRequest();
+        request.setConversationId("c_tool");
+        request.setUserMessage("检查本月关账阻塞项");
+        request.setTaskType("tool-calling");
+        request.setToolName("month-end-close-check");
+        request.setOrganizationId(10L);
+        request.setAccountingPeriod("2026-07");
+
+        AiToolContext context = new AiToolContext(
+                "month-end-close-check",
+                7L,
+                10L,
+                "2026-07",
+                "tool_request"
+        );
+        when(toolPolicyService.prepareContext(7L, request)).thenReturn(context);
+        when(conversationService.listMessages(7L, "c_tool"))
+                .thenReturn(List.of(message("user", request.getUserMessage())));
+        when(modelFacade.chat(any(AiModelRequest.class))).thenReturn(modelResult("检查完成"));
+
+        chatService.chat(7L, request);
+
+        ArgumentCaptor<AiModelRequest> captor = ArgumentCaptor.forClass(AiModelRequest.class);
+        verify(modelFacade).chat(captor.capture());
+        assertSame(context, captor.getValue().getToolContext());
+        assertEquals("tool-calling", captor.getValue().getTaskType());
     }
 
     @Test
