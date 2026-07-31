@@ -36,7 +36,10 @@ public class FinanceToolClient {
                     context.requestedByUserId(),
                     context.organizationId(),
                     context.period(),
-                    context.requestId()
+                    context.requestId(),
+                    context.conversationId(),
+                    context.modelName(),
+                    context.modelTraceId()
             );
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(normalizeBaseUrl(properties.getFinanceToolBaseUrl())
@@ -84,6 +87,11 @@ public class FinanceToolClient {
         if (!StringUtils.hasText(context.period())) {
             throw new IllegalArgumentException("period 不能为空");
         }
+        if (!StringUtils.hasText(context.conversationId())
+                || !StringUtils.hasText(context.modelName())
+                || !StringUtils.hasText(context.modelTraceId())) {
+            throw new IllegalArgumentException("tool correlation context 不完整");
+        }
         if (!StringUtils.hasText(properties.getFinanceToolBaseUrl())) {
             throw new IllegalStateException("FINANCE_SERVICE_BASE_URL 未配置");
         }
@@ -124,7 +132,10 @@ public class FinanceToolClient {
             Long requestedByUserId,
             Long organizationId,
             String period,
-            String requestId
+            String requestId,
+            String conversationId,
+            String modelName,
+            String modelTraceId
     ) {
     }
 }

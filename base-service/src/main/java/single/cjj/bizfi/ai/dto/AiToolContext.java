@@ -13,4 +13,15 @@ public class AiToolContext {
     private Long organizationId;
     private String period;
     private String requestId;
+    private String conversationId;
+
+    public AiToolContext(
+            String toolName,
+            Long requestedByUserId,
+            Long organizationId,
+            String period,
+            String requestId
+    ) {
+        this(toolName, requestedByUserId, organizationId, period, requestId, null);
+    }
 }

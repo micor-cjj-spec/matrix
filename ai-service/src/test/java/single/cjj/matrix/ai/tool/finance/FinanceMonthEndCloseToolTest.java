@@ -53,7 +53,10 @@ class FinanceMonthEndCloseToolTest {
                 "requestedByUserId", 7L,
                 "organizationId", 10L,
                 "period", "2026-07",
-                "requestId", "tool_request"
+                "requestId", "tool_request",
+                "conversationId", "c_tool",
+                "modelName", "gpt-tool-model",
+                "modelTraceId", "trace_tool"
         )));
 
         assertEquals(expected, actual);
@@ -61,8 +64,12 @@ class FinanceMonthEndCloseToolTest {
                 ModelContracts.ToolContext.class
         );
         verify(client).monthEndCloseCheck(captor.capture());
-        assertEquals(7L, captor.getValue().requestedByUserId());
-        assertEquals(10L, captor.getValue().organizationId());
-        assertEquals("2026-07", captor.getValue().period());
+        ModelContracts.ToolContext context = captor.getValue();
+        assertEquals(7L, context.requestedByUserId());
+        assertEquals(10L, context.organizationId());
+        assertEquals("2026-07", context.period());
+        assertEquals("c_tool", context.conversationId());
+        assertEquals("gpt-tool-model", context.modelName());
+        assertEquals("trace_tool", context.modelTraceId());
     }
 }

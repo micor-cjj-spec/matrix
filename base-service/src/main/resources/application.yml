@@ -40,6 +40,10 @@ bizfi:
     tool-calling-enabled: ${AI_TOOL_CALLING_ENABLED:false}
     tool-allow-all-organizations: ${AI_TOOL_ALLOW_ALL_ORGANIZATIONS:false}
     tool-allowed-user-organization-pairs: ${AI_TOOL_ALLOWED_USER_ORG_PAIRS:}
+    finance-audit-base-url: ${FINANCE_AI_AUDIT_BASE_URL:http://127.0.0.1:10003/api}
+    finance-audit-internal-token: ${FINANCE_AI_AUDIT_INTERNAL_TOKEN:}
+    audit-viewer-user-ids: ${AI_AUDIT_VIEWER_USER_IDS:}
+    audit-reconciler-user-ids: ${AI_AUDIT_RECONCILER_USER_IDS:}
 
 matrix:
   scheduler:

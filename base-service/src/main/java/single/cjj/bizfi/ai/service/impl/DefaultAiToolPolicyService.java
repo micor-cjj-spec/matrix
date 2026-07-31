@@ -1,23 +1,19 @@
 package single.cjj.bizfi.ai.service.impl;
 
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import single.cjj.bizfi.ai.config.AiProperties;
 import single.cjj.bizfi.ai.dto.AiChatRequest;
 import single.cjj.bizfi.ai.dto.AiToolContext;
+import single.cjj.bizfi.ai.service.AiOrganizationPermissionService;
 import single.cjj.bizfi.ai.service.AiToolPolicyService;
 import single.cjj.bizfi.exception.BizException;
 
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
-import java.util.Arrays;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class DefaultAiToolPolicyService implements AiToolPolicyService {
@@ -25,9 +21,14 @@ public class DefaultAiToolPolicyService implements AiToolPolicyService {
     public static final String MONTH_END_CLOSE_CHECK = "month-end-close-check";
 
     private final AiProperties properties;
+    private final AiOrganizationPermissionService organizationPermissionService;
 
-    public DefaultAiToolPolicyService(AiProperties properties) {
+    public DefaultAiToolPolicyService(
+            AiProperties properties,
+            AiOrganizationPermissionService organizationPermissionService
+    ) {
         this.properties = properties;
+        this.organizationPermissionService = organizationPermissionService;
     }
 
     @Override
@@ -65,7 +66,7 @@ public class DefaultAiToolPolicyService implements AiToolPolicyService {
         }
 
         String period = normalizePeriod(request.getAccountingPeriod());
-        authorizeOrganization(userId, organizationId);
+        organizationPermissionService.assertCanAccess(userId, organizationId);
 
         return new AiToolContext(
                 MONTH_END_CLOSE_CHECK,
@@ -74,58 +75,6 @@ public class DefaultAiToolPolicyService implements AiToolPolicyService {
                 period,
                 "tool_" + UUID.randomUUID().toString().replace("-", "")
         );
-    }
-
-    private void authorizeOrganization(Long userId, Long organizationId) {
-        if (Boolean.TRUE.equals(properties.getToolAllowAllOrganizations())) {
-            return;
-        }
-        if (configuredUserOrganizationPairs().contains(userId + ":" + organizationId)) {
-            return;
-        }
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getAuthorities() != null) {
-            Set<String> expected = Set.of(
-                    "org:" + organizationId,
-                    "org_" + organizationId,
-                    "organization:" + organizationId,
-                    "organization_" + organizationId
-            );
-            boolean authorized = authentication.getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority)
-                    .filter(StringUtils::hasText)
-                    .map(value -> value.trim().toLowerCase(Locale.ROOT))
-                    .anyMatch(expected::contains);
-            if (authorized) {
-                return;
-            }
-        }
-
-        throw new BizException("当前用户无权通过 AI 查询组织 " + organizationId + " 的月结数据");
-    }
-
-    private Set<String> configuredUserOrganizationPairs() {
-        String configured = properties.getToolAllowedUserOrganizationPairs();
-        if (!StringUtils.hasText(configured)) {
-            return Set.of();
-        }
-        return Arrays.stream(configured.split(","))
-                .map(String::trim)
-                .filter(this::isValidUserOrganizationPair)
-                .collect(Collectors.toUnmodifiableSet());
-    }
-
-    private boolean isValidUserOrganizationPair(String value) {
-        String[] parts = value.split(":", -1);
-        if (parts.length != 2) {
-            return false;
-        }
-        try {
-            return Long.parseLong(parts[0].trim()) > 0 && Long.parseLong(parts[1].trim()) > 0;
-        } catch (NumberFormatException ignored) {
-            return false;
-        }
     }
 
     private String normalizePeriod(String value) {

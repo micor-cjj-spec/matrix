@@ -49,7 +49,10 @@ class FinanceToolClientTest {
                 7L,
                 10L,
                 "2026-07",
-                "tool_request"
+                "tool_request",
+                "c_tool",
+                "gpt-tool-model",
+                "trace_tool"
         ));
 
         assertEquals(10L, result.organizationId());
@@ -63,6 +66,9 @@ class FinanceToolClientTest {
         String requestBody = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
         assertTrue(requestBody.contains("\"organizationId\":10"));
         assertTrue(requestBody.contains("\"requestedByUserId\":7"));
+        assertTrue(requestBody.contains("\"conversationId\":\"c_tool\""));
+        assertTrue(requestBody.contains("\"modelName\":\"gpt-tool-model\""));
+        assertTrue(requestBody.contains("\"modelTraceId\":\"trace_tool\""));
 
         String response = """
                 {
