@@ -27,7 +27,10 @@ public class FinanceAiAuditStaleExecutionScheduler {
         this.coordinator = coordinator;
     }
 
-    @Scheduled(fixedDelayString = "${matrix.ai-tool.audit-reconciliation-delay-ms:300000}")
+    @Scheduled(
+            initialDelayString = "${matrix.ai-tool.audit-reconciliation-delay-ms:300000}",
+            fixedDelayString = "${matrix.ai-tool.audit-reconciliation-delay-ms:300000}"
+    )
     public void reconcileStaleExecutions() {
         if (!Boolean.TRUE.equals(properties.getAuditReconciliationEnabled())) {
             return;
