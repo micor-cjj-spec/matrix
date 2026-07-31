@@ -90,7 +90,12 @@ public class AiChatServiceImpl implements AiChatService {
         return new PreparedChat(
                 conversationId,
                 citations,
-                new AiModelRequest(userMessage, historyMessages, knowledgeSnippets)
+                new AiModelRequest(
+                        userMessage,
+                        historyMessages,
+                        knowledgeSnippets,
+                        normalizeTaskType(request.getTaskType())
+                )
         );
     }
 
@@ -179,6 +184,10 @@ public class AiChatServiceImpl implements AiChatService {
                 modelResult.getMode(),
                 modelResult.getModel()
         );
+    }
+
+    private String normalizeTaskType(String taskType) {
+        return StringUtils.hasText(taskType) ? taskType.trim() : null;
     }
 
     private int normalizePositive(Integer configured, int defaultValue) {
