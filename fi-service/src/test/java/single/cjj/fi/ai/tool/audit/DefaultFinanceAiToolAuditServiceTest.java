@@ -82,7 +82,7 @@ class DefaultFinanceAiToolAuditServiceTest {
                 7L,
                 10L,
                 "2026-07",
-                "succeeded",
+                "timed_out",
                 "c_tool",
                 "trace_tool",
                 LocalDateTime.of(2026, 7, 1, 0, 0),
@@ -99,6 +99,26 @@ class DefaultFinanceAiToolAuditServiceTest {
         assertEquals("c_tool", page.items().get(0).conversationId());
         assertEquals("gpt-tool-model", page.items().get(0).modelName());
         assertEquals("trace_tool", page.items().get(0).modelTraceId());
+    }
+
+    @Test
+    void shouldConditionallyMarkStaleStartedExecutionsTimedOut() {
+        FinanceAiToolExecution candidate = execution();
+        candidate.setFid(1L);
+        candidate.setFstatus("STARTED");
+        candidate.setFstarttime(LocalDateTime.of(2026, 7, 31, 9, 0));
+        when(mapper.selectList(any())).thenReturn(List.of(candidate));
+        when(mapper.update(any(), any())).thenReturn(1);
+
+        FinanceAiToolReconciliationResult result = service.reconcileStaleStarted(
+                LocalDateTime.of(2026, 7, 31, 9, 45),
+                100,
+                LocalDateTime.of(2026, 7, 31, 10, 0)
+        );
+
+        assertEquals(1, result.scannedCount());
+        assertEquals(1, result.timedOutCount());
+        verify(mapper).update(any(), any());
     }
 
     @Test
@@ -134,6 +154,7 @@ class DefaultFinanceAiToolAuditServiceTest {
 
     private FinanceAiToolExecution execution() {
         FinanceAiToolExecution execution = new FinanceAiToolExecution();
+        execution.setFid(1L);
         execution.setFrequestid("tool_request_1");
         execution.setFconversationid("c_tool");
         execution.setFmodelname("gpt-tool-model");
@@ -142,7 +163,7 @@ class DefaultFinanceAiToolAuditServiceTest {
         execution.setFuserid(7L);
         execution.setForganizationid(10L);
         execution.setFperiod("2026-07");
-        execution.setFstatus("SUCCEEDED");
+        execution.setFstatus("TIMED_OUT");
         execution.setFcreatetime(LocalDateTime.of(2026, 7, 31, 10, 0));
         return execution;
     }
