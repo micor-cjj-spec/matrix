@@ -27,6 +27,11 @@ matrix:
     internal-token: ${FINANCE_AI_TOOL_INTERNAL_TOKEN:}
     max-check-items: ${FINANCE_AI_TOOL_MAX_CHECK_ITEMS:20}
     max-warnings: ${FINANCE_AI_TOOL_MAX_WARNINGS:20}
+    audit-internal-token: ${FINANCE_AI_AUDIT_INTERNAL_TOKEN:}
+    audit-reconciliation-enabled: ${FINANCE_AI_AUDIT_RECONCILIATION_ENABLED:true}
+    audit-started-timeout-minutes: ${FINANCE_AI_AUDIT_STARTED_TIMEOUT_MINUTES:15}
+    audit-reconciliation-delay-ms: ${FINANCE_AI_AUDIT_RECONCILIATION_DELAY_MS:300000}
+    audit-reconciliation-batch-size: ${FINANCE_AI_AUDIT_RECONCILIATION_BATCH_SIZE:100}
   scheduler:
     client:
       enabled: true
