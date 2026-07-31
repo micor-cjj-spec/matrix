@@ -10,12 +10,16 @@ import single.cjj.fi.ai.tool.FinanceMonthEndCloseToolRequest;
 import single.cjj.fi.ai.tool.FinanceMonthEndCloseToolResponse;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditService {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultFinanceAiToolAuditService.class);
+    private static final Set<String> ALLOWED_STATUSES = Set.of("STARTED", "SUCCEEDED", "FAILED");
 
     private final FinanceAiToolExecutionMapper mapper;
 
@@ -29,6 +33,9 @@ public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditServi
             LocalDateTime now = LocalDateTime.now();
             FinanceAiToolExecution execution = new FinanceAiToolExecution();
             execution.setFrequestid(request.requestId());
+            execution.setFconversationid(request.conversationId());
+            execution.setFmodelname(request.modelName());
+            execution.setFmodeltraceid(request.modelTraceId());
             execution.setFtoolname(toolName);
             execution.setFuserid(request.requestedByUserId());
             execution.setForganizationid(request.organizationId());
@@ -107,6 +114,120 @@ public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditServi
                         .eq("frequestid", requestId.trim())
                         .last("LIMIT 1")
         ));
+    }
+
+    @Override
+    public FinanceAiToolExecutionPageResponse query(FinanceAiToolExecutionQuery query) {
+        FinanceAiToolExecutionQuery normalized = normalizeQuery(query);
+        QueryWrapper<FinanceAiToolExecution> countWrapper = buildQueryWrapper(normalized);
+        long total = Optional.ofNullable(mapper.selectCount(countWrapper)).orElse(0L);
+        if (total == 0) {
+            return FinanceAiToolExecutionPageResponse.of(
+                    normalized.page(),
+                    normalized.size(),
+                    0,
+                    List.of()
+            );
+        }
+
+        long offset = (long) (normalized.page() - 1) * normalized.size();
+        QueryWrapper<FinanceAiToolExecution> pageWrapper = buildQueryWrapper(normalized)
+                .orderByDesc("fcreatetime")
+                .orderByDesc("fid")
+                .last("LIMIT " + normalized.size() + " OFFSET " + offset);
+        List<FinanceAiToolExecution> records = mapper.selectList(pageWrapper);
+        return FinanceAiToolExecutionPageResponse.of(
+                normalized.page(),
+                normalized.size(),
+                total,
+                records
+        );
+    }
+
+    private QueryWrapper<FinanceAiToolExecution> buildQueryWrapper(FinanceAiToolExecutionQuery query) {
+        QueryWrapper<FinanceAiToolExecution> wrapper = new QueryWrapper<>();
+        if (query.userId() != null) {
+            wrapper.eq("fuserid", query.userId());
+        }
+        if (query.organizationId() != null) {
+            wrapper.eq("forganizationid", query.organizationId());
+        }
+        if (StringUtils.hasText(query.period())) {
+            wrapper.eq("fperiod", query.period());
+        }
+        if (StringUtils.hasText(query.status())) {
+            wrapper.eq("fstatus", query.status());
+        }
+        if (StringUtils.hasText(query.conversationId())) {
+            wrapper.eq("fconversationid", query.conversationId());
+        }
+        if (StringUtils.hasText(query.modelTraceId())) {
+            wrapper.eq("fmodeltraceid", query.modelTraceId());
+        }
+        if (query.createdFrom() != null) {
+            wrapper.ge("fcreatetime", query.createdFrom());
+        }
+        if (query.createdTo() != null) {
+            wrapper.le("fcreatetime", query.createdTo());
+        }
+        return wrapper;
+    }
+
+    private FinanceAiToolExecutionQuery normalizeQuery(FinanceAiToolExecutionQuery query) {
+        FinanceAiToolExecutionQuery source = query == null
+                ? new FinanceAiToolExecutionQuery(null, null, null, null, null, null, null, null, 1, 20)
+                : query;
+        int page = source.page() > 0 ? source.page() : 1;
+        int size = source.size() > 0 ? Math.min(source.size(), 100) : 20;
+        Long userId = normalizePositiveId(source.userId(), "userId");
+        Long organizationId = normalizePositiveId(source.organizationId(), "organizationId");
+        String status = normalizeStatus(source.status());
+        String period = trimToNull(source.period());
+        String conversationId = trimToNull(source.conversationId());
+        String modelTraceId = trimToNull(source.modelTraceId());
+        if (source.createdFrom() != null
+                && source.createdTo() != null
+                && source.createdFrom().isAfter(source.createdTo())) {
+            throw new IllegalArgumentException("createdFrom 不能晚于 createdTo");
+        }
+        return new FinanceAiToolExecutionQuery(
+                userId,
+                organizationId,
+                period,
+                status,
+                conversationId,
+                modelTraceId,
+                source.createdFrom(),
+                source.createdTo(),
+                page,
+                size
+        );
+    }
+
+    private Long normalizePositiveId(Long value, String field) {
+        if (value == null) {
+            return null;
+        }
+        if (value <= 0) {
+            throw new IllegalArgumentException(field + " 必须为正数");
+        }
+        return value;
+    }
+
+    private String normalizeStatus(String value) {
+        String normalized = trimToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        normalized = normalized.toUpperCase(Locale.ROOT);
+        if (!ALLOWED_STATUSES.contains(normalized)) {
+            throw new IllegalArgumentException("status 仅支持 STARTED、SUCCEEDED、FAILED");
+        }
+        return normalized;
+    }
+
+    private String trimToNull(String value) {
+        return StringUtils.hasText(value) ? value.trim() : null;
     }
 
     private long normalizeDuration(long value) {
