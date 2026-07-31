@@ -24,4 +24,6 @@ public interface FinanceAiToolAuditService {
     );
 
     Optional<FinanceAiToolExecution> findByRequestId(String requestId);
+
+    FinanceAiToolExecutionPageResponse query(FinanceAiToolExecutionQuery query);
 }
