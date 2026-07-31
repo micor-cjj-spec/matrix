@@ -1,7 +1,7 @@
 package single.cjj.fi.ai.tool.audit;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -54,17 +54,17 @@ public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditServi
             LocalDateTime now = LocalDateTime.now();
             mapper.update(
                     null,
-                    new LambdaUpdateWrapper<FinanceAiToolExecution>()
-                            .eq(FinanceAiToolExecution::getFrequestid, request.requestId())
-                            .set(FinanceAiToolExecution::getFtoolname, toolName)
-                            .set(FinanceAiToolExecution::getFstatus, "SUCCEEDED")
-                            .set(FinanceAiToolExecution::getFreadinessscore, response.readinessScore())
-                            .set(FinanceAiToolExecution::getFblockingcount, response.blockingCount())
-                            .set(FinanceAiToolExecution::getFwarningcount, response.warningCount())
-                            .set(FinanceAiToolExecution::getFclosestatus, response.closeStatus())
-                            .set(FinanceAiToolExecution::getFdurationms, normalizeDuration(durationMillis))
-                            .set(FinanceAiToolExecution::getFendtime, now)
-                            .set(FinanceAiToolExecution::getFmodifytime, now)
+                    new UpdateWrapper<FinanceAiToolExecution>()
+                            .eq("frequestid", request.requestId())
+                            .set("ftoolname", toolName)
+                            .set("fstatus", "SUCCEEDED")
+                            .set("freadinessscore", response.readinessScore())
+                            .set("fblockingcount", response.blockingCount())
+                            .set("fwarningcount", response.warningCount())
+                            .set("fclosestatus", response.closeStatus())
+                            .set("fdurationms", normalizeDuration(durationMillis))
+                            .set("fendtime", now)
+                            .set("fmodifytime", now)
             );
         } catch (RuntimeException auditFailure) {
             log.warn("Failed to persist AI tool success audit, requestId={}", safeRequestId(request), auditFailure);
@@ -82,15 +82,15 @@ public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditServi
             LocalDateTime now = LocalDateTime.now();
             mapper.update(
                     null,
-                    new LambdaUpdateWrapper<FinanceAiToolExecution>()
-                            .eq(FinanceAiToolExecution::getFrequestid, request.requestId())
-                            .set(FinanceAiToolExecution::getFtoolname, toolName)
-                            .set(FinanceAiToolExecution::getFstatus, "FAILED")
-                            .set(FinanceAiToolExecution::getFdurationms, normalizeDuration(durationMillis))
-                            .set(FinanceAiToolExecution::getFerrorcode, errorCode(failure))
-                            .set(FinanceAiToolExecution::getFerrormessage, safeErrorMessage(failure))
-                            .set(FinanceAiToolExecution::getFendtime, now)
-                            .set(FinanceAiToolExecution::getFmodifytime, now)
+                    new UpdateWrapper<FinanceAiToolExecution>()
+                            .eq("frequestid", request.requestId())
+                            .set("ftoolname", toolName)
+                            .set("fstatus", "FAILED")
+                            .set("fdurationms", normalizeDuration(durationMillis))
+                            .set("ferrorcode", errorCode(failure))
+                            .set("ferrormessage", safeErrorMessage(failure))
+                            .set("fendtime", now)
+                            .set("fmodifytime", now)
             );
         } catch (RuntimeException auditFailure) {
             log.warn("Failed to persist AI tool failure audit, requestId={}", safeRequestId(request), auditFailure);
@@ -103,8 +103,8 @@ public class DefaultFinanceAiToolAuditService implements FinanceAiToolAuditServi
             return Optional.empty();
         }
         return Optional.ofNullable(mapper.selectOne(
-                new LambdaQueryWrapper<FinanceAiToolExecution>()
-                        .eq(FinanceAiToolExecution::getFrequestid, requestId.trim())
+                new QueryWrapper<FinanceAiToolExecution>()
+                        .eq("frequestid", requestId.trim())
                         .last("LIMIT 1")
         ));
     }
