@@ -67,6 +67,7 @@ class AiChatServiceImplTest {
         request.setConversationId("c_1");
         request.setUserMessage("当前问题");
         request.setKbIds(List.of("finance"));
+        request.setTaskType(" financial-analysis ");
 
         when(conversationService.listMessages(7L, "c_1")).thenReturn(List.of(
                 message("user", "较早问题"),
@@ -94,6 +95,7 @@ class AiChatServiceImplTest {
                 .map(AiMessageResponse::getContent)
                 .anyMatch("当前问题"::equals));
         assertEquals(List.of("结账前检查未过账凭证"), modelRequest.getKnowledgeSnippets());
+        assertEquals("financial-analysis", modelRequest.getTaskType());
         assertEquals("模型回答", response.getAnswer());
 
         verify(conversationService).saveAssistantMessage(
