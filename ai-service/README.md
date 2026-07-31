@@ -16,9 +16,10 @@
 
 - Spring AI `ChatClient` integration
 - provider-neutral Prompt construction
-- synchronous model generation
-- streaming model generation
+- task-aware model selection
+- synchronous and streaming model generation
 - model response metadata and token usage
+- model metrics and Prometheus export
 - internal model API authentication
 - optional Nacos service registration
 
@@ -33,6 +34,40 @@ AI_INTERNAL_TOKEN=use-a-long-random-shared-secret
 ```
 
 For an OpenAI-compatible provider, set `AI_BASE_URL`, `AI_COMPLETIONS_PATH`, and `AI_CHAT_MODEL` to the provider's compatible values.
+
+## Task-aware model routing
+
+The public chat request accepts an optional `taskType` field. Supported canonical values are:
+
+```text
+general
+knowledge-qa
+financial-analysis
+tool-calling
+evaluation
+```
+
+Aliases such as `rag`, `finance`, `agent`, and `judge` are normalized. Missing or unknown values fall back to `general`.
+
+Configure task-specific models with:
+
+```text
+AI_MODEL_KNOWLEDGE_QA=
+AI_MODEL_FINANCIAL_ANALYSIS=
+AI_MODEL_TOOL_CALLING=
+AI_MODEL_EVALUATION=
+```
+
+Blank task-specific values fall back to `AI_CHAT_MODEL`. Routing currently changes the model name within the configured OpenAI-compatible provider; it does not create multiple provider clients.
+
+Example public request:
+
+```json
+{
+  "userMessage": "分析本月管理费用增长原因",
+  "taskType": "financial-analysis"
+}
+```
 
 ## Run
 
@@ -119,11 +154,43 @@ Retryable failures include connection failures, timeouts, HTTP 408, HTTP 429, an
 
 When the selected adapter is `spring-ai`, the existing `prompt-http` adapter is used as the final fallback when enabled. Streaming requests only retry or fall back before the first delta has been emitted; after partial output, the error is returned instead of mixing two model responses.
 
+## Metrics
+
+Both `ai-service` and `base-service` expose:
+
+```text
+/api/actuator/metrics
+/api/actuator/prometheus
+```
+
+Important model-runtime metrics:
+
+```text
+matrix.ai.model.requests
+matrix.ai.model.duration
+matrix.ai.model.errors
+matrix.ai.model.tokens
+```
+
+Important remote-client metrics:
+
+```text
+matrix.ai.remote.requests
+matrix.ai.remote.duration
+matrix.ai.remote.attempts
+matrix.ai.remote.retries
+matrix.ai.remote.circuit.opens
+matrix.ai.remote.circuit.rejections
+matrix.ai.remote.fallbacks
+```
+
+Metric tags never contain user prompts, full exception messages, document content, or full URLs.
+
 ## Current limitations
 
 - streaming token usage is not yet aggregated
 - circuit state is local to each `base-service` process
 - Nacos registration is optional and disabled by default
 - RAG still runs in `base-service`
-- provider routing inside `ai-service` still uses one configured OpenAI-compatible provider
+- model routing currently uses one configured OpenAI-compatible provider
 - tools and human confirmation are not yet enabled
