@@ -70,14 +70,23 @@ class DefaultAiToolPolicyServiceTest {
     }
 
     @Test
-    void shouldAuthorizeConfiguredOrganization() {
+    void shouldAuthorizeConfiguredUserOrganizationPair() {
         AiProperties properties = enabledProperties();
-        properties.setToolAllowedOrganizationIds("8, 10,invalid");
+        properties.setToolAllowedUserOrganizationPairs("8:10, 7:10,invalid");
         DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
 
         AiToolContext context = service.prepareContext(7L, validRequest());
 
         assertEquals(10L, context.getOrganizationId());
+    }
+
+    @Test
+    void shouldRejectPairBelongingToAnotherUser() {
+        AiProperties properties = enabledProperties();
+        properties.setToolAllowedUserOrganizationPairs("8:10");
+        DefaultAiToolPolicyService service = new DefaultAiToolPolicyService(properties);
+
+        assertThrows(BizException.class, () -> service.prepareContext(7L, validRequest()));
     }
 
     @Test
