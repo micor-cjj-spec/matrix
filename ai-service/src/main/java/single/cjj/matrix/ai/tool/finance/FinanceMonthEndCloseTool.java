@@ -1,6 +1,6 @@
 package single.cjj.matrix.ai.tool.finance;
 
-import org.springframework.ai.tool.ToolContext;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
