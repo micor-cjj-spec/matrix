@@ -4,6 +4,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -24,6 +25,10 @@ public class SpringAiPromptFactory {
     }
 
     public Prompt create(ModelContracts.ChatRequest request) {
+        return create(request, properties.getModelName());
+    }
+
+    public Prompt create(ModelContracts.ChatRequest request, String model) {
         List<Message> messages = new ArrayList<>();
         if (StringUtils.hasText(properties.getSystemPrompt())) {
             messages.add(new SystemMessage(properties.getSystemPrompt().trim()));
@@ -45,7 +50,11 @@ public class SpringAiPromptFactory {
             messages.add(new SystemMessage(knowledgeContext));
         }
         messages.add(new UserMessage(request.userMessage().trim()));
-        return new Prompt(messages);
+
+        ChatOptions options = ChatOptions.builder()
+                .model(StringUtils.hasText(model) ? model.trim() : properties.getModelName())
+                .build();
+        return new Prompt(messages, options);
     }
 
     private Message toSpringMessage(ModelContracts.Message message) {

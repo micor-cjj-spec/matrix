@@ -1,5 +1,6 @@
 package single.cjj.bizfi.ai.service.impl;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -7,6 +8,7 @@ import single.cjj.bizfi.ai.config.AiProperties;
 import single.cjj.bizfi.ai.dto.AiConfigStatusResponse;
 import single.cjj.bizfi.ai.dto.AiModelRequest;
 import single.cjj.bizfi.ai.dto.AiModelResult;
+import single.cjj.bizfi.ai.observability.AiRemoteMetrics;
 import single.cjj.bizfi.ai.service.AiModelFacade;
 
 import java.util.Locale;
@@ -28,17 +30,36 @@ public class RoutingAiModelFacade implements AiModelFacade {
     private final PromptDrivenAiModelFacade promptDrivenAiModelFacade;
     private final DefaultAiModelFacade defaultAiModelFacade;
     private final SpringAiModelFacade springAiModelFacade;
+    private final AiRemoteMetrics metrics;
 
+    @Autowired
     public RoutingAiModelFacade(
             AiProperties aiProperties,
             PromptDrivenAiModelFacade promptDrivenAiModelFacade,
             DefaultAiModelFacade defaultAiModelFacade,
-            SpringAiModelFacade springAiModelFacade
+            SpringAiModelFacade springAiModelFacade,
+            AiRemoteMetrics metrics
     ) {
         this.aiProperties = aiProperties;
         this.promptDrivenAiModelFacade = promptDrivenAiModelFacade;
         this.defaultAiModelFacade = defaultAiModelFacade;
         this.springAiModelFacade = springAiModelFacade;
+        this.metrics = metrics;
+    }
+
+    RoutingAiModelFacade(
+            AiProperties aiProperties,
+            PromptDrivenAiModelFacade promptDrivenAiModelFacade,
+            DefaultAiModelFacade defaultAiModelFacade,
+            SpringAiModelFacade springAiModelFacade
+    ) {
+        this(
+                aiProperties,
+                promptDrivenAiModelFacade,
+                defaultAiModelFacade,
+                springAiModelFacade,
+                AiRemoteMetrics.isolated()
+        );
     }
 
     @Override
@@ -50,6 +71,7 @@ public class RoutingAiModelFacade implements AiModelFacade {
             if (!shouldFallback(delegate)) {
                 throw failure;
             }
+            metrics.recordFallback("chat");
             return promptDrivenAiModelFacade.chat(request);
         }
     }
@@ -71,6 +93,7 @@ public class RoutingAiModelFacade implements AiModelFacade {
             if (emitted.get()) {
                 throw failure;
             }
+            metrics.recordFallback("stream");
             return promptDrivenAiModelFacade.stream(request, deltaConsumer);
         }
     }

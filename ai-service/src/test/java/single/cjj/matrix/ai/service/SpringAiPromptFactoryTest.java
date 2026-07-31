@@ -29,7 +29,7 @@ class SpringAiPromptFactoryTest {
                         new ModelContracts.Message("assistant", "history-assistant")
                 ),
                 List.of("knowledge-one", "knowledge-two")
-        ));
+        ), "routed-model");
 
         assertEquals(5, prompt.getInstructions().size());
         assertInstanceOf(SystemMessage.class, prompt.getInstructions().get(0));
@@ -38,5 +38,6 @@ class SpringAiPromptFactoryTest {
         assertInstanceOf(SystemMessage.class, prompt.getInstructions().get(3));
         assertInstanceOf(UserMessage.class, prompt.getInstructions().get(4));
         assertEquals("current-question", prompt.getInstructions().get(4).getText());
+        assertEquals("routed-model", prompt.getOptions().getModel());
     }
 }
