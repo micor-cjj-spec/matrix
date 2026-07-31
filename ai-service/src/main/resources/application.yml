@@ -17,6 +17,7 @@ spring:
         health-indicator:
           enabled: ${AI_DISCOVERY_HEALTH_ENABLED:false}
         metadata:
+          matrix.context-path: /api
           management.context-path: /api/actuator
           matrix.runtime: spring-ai
           matrix.api-version: v1
