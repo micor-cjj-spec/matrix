@@ -48,10 +48,13 @@ AI_MODEL_ADAPTER=prompt-http
 - 数据库表结构不变。
 - 本阶段不引入 Spring AI 依赖，不改变现有 Spring Boot 版本。
 
+## 已完成的后续阶段
+
+同步与 SSE 流式模型调用已经在 [Phase 2](./runtime-refactor-phase2.md) 中统一到同一应用服务和模型网关，并清理了遗留的增强聊天服务与 Primary 路由。
+
 ## 后续阶段
 
-1. 将同步与流式模型调用统一到同一网关。
-2. 拆分独立 `ai-service`。
-3. 引入 Spring AI `ChatClient`、Advisor 与结构化输出。
-4. 将关键词 RAG 升级为 PostgreSQL 全文检索 + PGVector 混合检索。
-5. 增加财务只读工具、人工确认与 AI Run 审计模型。
+1. 拆分独立 `ai-service`。
+2. 引入 Spring AI `ChatClient`、Advisor 与结构化输出。
+3. 将关键词 RAG 升级为 PostgreSQL 全文检索 + PGVector 混合检索。
+4. 增加财务只读工具、人工确认与 AI Run 审计模型。
