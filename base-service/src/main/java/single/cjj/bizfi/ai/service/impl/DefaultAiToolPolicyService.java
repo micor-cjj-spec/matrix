@@ -50,6 +50,9 @@ public class DefaultAiToolPolicyService implements AiToolPolicyService {
         if (!Boolean.TRUE.equals(properties.getToolCallingEnabled())) {
             throw new BizException("AI 工具调用当前未启用");
         }
+        if (!RoutingAiModelFacade.ADAPTER_SPRING_AI.equals(normalizeAdapter(properties.getModelAdapter()))) {
+            throw new BizException("AI 工具调用要求 AI_MODEL_ADAPTER=spring-ai");
+        }
 
         String toolName = normalizeToolName(request.getToolName());
         if (!MONTH_END_CLOSE_CHECK.equals(toolName)) {
@@ -148,5 +151,9 @@ public class DefaultAiToolPolicyService implements AiToolPolicyService {
             return "";
         }
         return value.trim().toLowerCase(Locale.ROOT).replace('_', '-');
+    }
+
+    private String normalizeAdapter(String value) {
+        return StringUtils.hasText(value) ? value.trim().toLowerCase(Locale.ROOT) : "";
     }
 }
