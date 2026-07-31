@@ -50,13 +50,14 @@ public class FinanceAiAuditController {
             @PathVariable("requestId") String requestId
     ) {
         FinanceAiAuditOperator operator = operatorGuard.requireViewer(token, operatorId, roles, accessRequestId);
-        if (!StringUtils.hasText(requestId) || requestId.trim().length() > 64) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "requestId 无效");
-        }
-        String normalizedRequestId = requestId.trim();
         long startedAt = System.nanoTime();
+        String normalizedRequestId = trimToNull(requestId);
+        String summary = "requestId=" + (normalizedRequestId == null ? "invalid" : normalizedRequestId);
         FinanceAiToolExecutionResponse response;
         try {
+            if (normalizedRequestId == null || normalizedRequestId.length() > 64) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "requestId 无效");
+            }
             response = auditService.findByRequestId(normalizedRequestId)
                     .map(FinanceAiToolExecutionResponse::from)
                     .orElseThrow(() -> new ResponseStatusException(
@@ -67,7 +68,7 @@ public class FinanceAiAuditController {
             accessLogService.recordRequired(
                     operator,
                     FinanceAiAuditAccessLogService.DETAIL,
-                    "requestId=" + normalizedRequestId,
+                    summary,
                     FinanceAiAuditAccessLogService.FAILED,
                     0,
                     elapsedMillis(startedAt),
@@ -78,7 +79,7 @@ public class FinanceAiAuditController {
         accessLogService.recordRequired(
                 operator,
                 FinanceAiAuditAccessLogService.DETAIL,
-                "requestId=" + normalizedRequestId,
+                summary,
                 FinanceAiAuditAccessLogService.SUCCESS,
                 1,
                 elapsedMillis(startedAt),
@@ -107,7 +108,6 @@ public class FinanceAiAuditController {
             @RequestParam(value = "size", defaultValue = "20") int size
     ) {
         FinanceAiAuditOperator operator = operatorGuard.requireViewer(token, operatorId, roles, accessRequestId);
-        validateQueryText(period, conversationId, modelTraceId);
         FinanceAiToolExecutionQuery query = new FinanceAiToolExecutionQuery(
                 userId,
                 organizationId,
@@ -124,6 +124,7 @@ public class FinanceAiAuditController {
         long startedAt = System.nanoTime();
         FinanceAiToolExecutionPageResponse response;
         try {
+            validateQueryText(period, conversationId, modelTraceId);
             response = auditService.query(query);
         } catch (IllegalArgumentException failure) {
             accessLogService.recordRequired(
