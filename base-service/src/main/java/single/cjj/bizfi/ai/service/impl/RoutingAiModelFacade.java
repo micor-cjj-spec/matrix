@@ -10,14 +10,11 @@ import single.cjj.bizfi.ai.dto.AiModelResult;
 import single.cjj.bizfi.ai.service.AiModelFacade;
 
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
- * AI 模型适配器统一路由入口。
- *
- * <p>业务层只依赖 {@link AiModelFacade}，具体模型调用实现由
- * {@code bizfi.ai.model-adapter} 配置选择，避免多个 {@code @Primary}
- * Bean 和运行时删除 BeanDefinition 的隐式行为。</p>
+ * Unified routing entry for AI model adapters.
  */
 @Service
 @Primary
@@ -46,12 +43,36 @@ public class RoutingAiModelFacade implements AiModelFacade {
 
     @Override
     public AiModelResult chat(AiModelRequest request) {
-        return resolveDelegate().chat(request);
+        AiModelFacade delegate = resolveDelegate();
+        try {
+            return delegate.chat(request);
+        } catch (RuntimeException failure) {
+            if (!shouldFallback(delegate)) {
+                throw failure;
+            }
+            return promptDrivenAiModelFacade.chat(request);
+        }
     }
 
     @Override
     public AiModelResult stream(AiModelRequest request, Consumer<String> deltaConsumer) {
-        return resolveDelegate().stream(request, deltaConsumer);
+        AiModelFacade delegate = resolveDelegate();
+        if (!shouldFallback(delegate)) {
+            return delegate.stream(request, deltaConsumer);
+        }
+
+        AtomicBoolean emitted = new AtomicBoolean(false);
+        try {
+            return delegate.stream(request, delta -> {
+                emitted.set(true);
+                deltaConsumer.accept(delta);
+            });
+        } catch (RuntimeException failure) {
+            if (emitted.get()) {
+                throw failure;
+            }
+            return promptDrivenAiModelFacade.stream(request, deltaConsumer);
+        }
     }
 
     @Override
@@ -74,5 +95,9 @@ public class RoutingAiModelFacade implements AiModelFacade {
                             + "，可选值: prompt-http, legacy-http, spring-ai"
             );
         };
+    }
+
+    private boolean shouldFallback(AiModelFacade delegate) {
+        return delegate == springAiModelFacade && Boolean.TRUE.equals(aiProperties.getFallbackEnabled());
     }
 }

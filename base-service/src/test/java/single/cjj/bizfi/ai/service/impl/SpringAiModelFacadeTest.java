@@ -6,6 +6,8 @@ import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
 import single.cjj.bizfi.ai.config.AiProperties;
 import single.cjj.bizfi.ai.dto.AiModelRequest;
 import single.cjj.bizfi.ai.dto.AiModelResult;
@@ -18,6 +20,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 class SpringAiModelFacadeTest {
 
@@ -33,9 +36,19 @@ class SpringAiModelFacadeTest {
 
         AiProperties properties = new AiProperties();
         properties.setSpringAiBaseUrl("http://127.0.0.1:" + server.getAddress().getPort() + "/api");
+        properties.setSpringAiDiscoveryEnabled(false);
         properties.setInternalToken("test-token");
         properties.setRequestTimeoutSeconds(5);
-        facade = new SpringAiModelFacade(new ObjectMapper(), properties);
+        properties.setSpringAiMaxAttempts(1);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<DiscoveryClient> discoveryProvider = mock(ObjectProvider.class);
+        AiServiceEndpointResolver resolver = new AiServiceEndpointResolver(properties, discoveryProvider);
+        facade = new SpringAiModelFacade(
+                new ObjectMapper(),
+                properties,
+                resolver,
+                new SpringAiCircuitBreaker(properties)
+        );
     }
 
     @AfterEach
