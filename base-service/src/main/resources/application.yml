@@ -39,7 +39,7 @@ bizfi:
     internal-token: ${AI_INTERNAL_TOKEN:}
     tool-calling-enabled: ${AI_TOOL_CALLING_ENABLED:false}
     tool-allow-all-organizations: ${AI_TOOL_ALLOW_ALL_ORGANIZATIONS:false}
-    tool-allowed-organization-ids: ${AI_TOOL_ALLOWED_ORGANIZATION_IDS:}
+    tool-allowed-user-organization-pairs: ${AI_TOOL_ALLOWED_USER_ORG_PAIRS:}
 
 matrix:
   scheduler:
