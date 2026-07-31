@@ -335,12 +335,14 @@ public class PromptDrivenAiModelFacade implements AiModelFacade {
             return null;
         }
         StringBuilder context = new StringBuilder("以下是业务知识参考，请优先据此回答：\n");
+        boolean appended = false;
         for (String snippet : snippets) {
             if (StringUtils.hasText(snippet)) {
                 context.append("- ").append(snippet.trim()).append("\n");
+                appended = true;
             }
         }
-        return context.length() == 0 ? null : context.toString().trim();
+        return appended ? context.toString().trim() : null;
     }
 
     private String extractAssistantContent(JsonNode contentNode) {
