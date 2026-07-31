@@ -74,4 +74,26 @@ public class AiProperties {
      * 生产环境应改用统一权限服务或 JWT 组织权限声明。
      */
     private String toolAllowedUserOrganizationPairs = "";
+
+    /**
+     * fi-service 内部审计 API 根地址，包含应用 context path。
+     */
+    private String financeAuditBaseUrl = "http://127.0.0.1:10003/api";
+
+    /**
+     * 查询工具执行审计时使用的独立内部令牌，不得与工具执行令牌复用。
+     */
+    private String financeAuditInternalToken;
+
+    /**
+     * 迁移期审计查看人用户 ID，多个值使用逗号分隔。
+     * 平台 JWT 支持 Authority 后应迁移到 AI_TOOL_AUDIT_VIEW。
+     */
+    private String auditViewerUserIds = "";
+
+    /**
+     * 迁移期审计对账操作人用户 ID，多个值使用逗号分隔。
+     * 平台 JWT 支持 Authority 后应迁移到 AI_TOOL_AUDIT_RECONCILE。
+     */
+    private String auditReconcilerUserIds = "";
 }
