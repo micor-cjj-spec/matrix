@@ -19,8 +19,16 @@ public final class ModelContracts {
     public record ChatRequest(
             @NotBlank String userMessage,
             List<@Valid Message> historyMessages,
-            List<String> knowledgeSnippets
+            List<String> knowledgeSnippets,
+            String taskType
     ) {
+        public ChatRequest(
+                String userMessage,
+                List<Message> historyMessages,
+                List<String> knowledgeSnippets
+        ) {
+            this(userMessage, historyMessages, knowledgeSnippets, null);
+        }
     }
 
     public record ChatResponse(

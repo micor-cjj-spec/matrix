@@ -14,6 +14,10 @@ public class MatrixAiProperties {
     private String systemPrompt = "你是 Matrix 企业财务平台的 AI 助手。默认使用中文回答，优先依据提供的业务知识回答；不知道时明确说明，不要编造系统能力或业务数据。";
 
     private String modelName = "gpt-4o-mini";
+    private String knowledgeQaModel;
+    private String financialAnalysisModel;
+    private String toolCallingModel;
+    private String evaluationModel;
 
     public String getInternalToken() {
         return internalToken;
@@ -37,5 +41,37 @@ public class MatrixAiProperties {
 
     public void setModelName(String modelName) {
         this.modelName = modelName;
+    }
+
+    public String getKnowledgeQaModel() {
+        return knowledgeQaModel;
+    }
+
+    public void setKnowledgeQaModel(String knowledgeQaModel) {
+        this.knowledgeQaModel = knowledgeQaModel;
+    }
+
+    public String getFinancialAnalysisModel() {
+        return financialAnalysisModel;
+    }
+
+    public void setFinancialAnalysisModel(String financialAnalysisModel) {
+        this.financialAnalysisModel = financialAnalysisModel;
+    }
+
+    public String getToolCallingModel() {
+        return toolCallingModel;
+    }
+
+    public void setToolCallingModel(String toolCallingModel) {
+        this.toolCallingModel = toolCallingModel;
+    }
+
+    public String getEvaluationModel() {
+        return evaluationModel;
+    }
+
+    public void setEvaluationModel(String evaluationModel) {
+        this.evaluationModel = evaluationModel;
     }
 }

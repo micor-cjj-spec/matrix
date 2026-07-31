@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import single.cjj.matrix.ai.security.InternalTokenGuard;
+import single.cjj.matrix.ai.service.AiTaskRouter;
 import single.cjj.matrix.ai.service.SpringAiModelGateway;
 
 @RestController
@@ -51,19 +52,19 @@ public class InternalModelController {
 
         String traceId = modelGateway.newTraceId();
         StringBuilder answer = new StringBuilder();
-        ModelContracts.StatusResponse status = modelGateway.status();
+        AiTaskRouter.ModelRoute route = modelGateway.route(request);
 
         Flux<ServerSentEvent<ModelContracts.StreamEvent>> start = Flux.just(
                 event("start", ModelContracts.StreamEvent.start())
         );
-        Flux<ServerSentEvent<ModelContracts.StreamEvent>> deltas = modelGateway.stream(request)
+        Flux<ServerSentEvent<ModelContracts.StreamEvent>> deltas = modelGateway.stream(request, route)
                 .doOnNext(answer::append)
                 .map(delta -> event("delta", ModelContracts.StreamEvent.delta(delta)));
         Flux<ServerSentEvent<ModelContracts.StreamEvent>> done = Flux.defer(() -> Flux.just(
                 event("done", ModelContracts.StreamEvent.done(new ModelContracts.ChatResponse(
                         answer.toString(),
-                        status.model(),
-                        status.mode(),
+                        route.model(),
+                        "spring-ai",
                         traceId,
                         0,
                         0,
