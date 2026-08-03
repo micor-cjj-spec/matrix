@@ -54,6 +54,12 @@ bizfi:
       enabled: ${AI_KNOWLEDGE_ACL_ENABLED:false}
       admin-user-ids: ${AI_KNOWLEDGE_ACL_ADMIN_USER_IDS:}
       admin-authorities: ${AI_KNOWLEDGE_ACL_ADMIN_AUTHORITIES:ROLE_ADMIN,ROLE_SUPER_ADMIN,admin,super_admin}
+    knowledge-evaluation:
+      enabled: ${AI_KNOWLEDGE_EVALUATION_ENABLED:false}
+      poll-delay-ms: ${AI_KNOWLEDGE_EVALUATION_POLL_DELAY_MS:10000}
+      batch-size: ${AI_KNOWLEDGE_EVALUATION_BATCH_SIZE:1}
+      max-cases-per-set: ${AI_KNOWLEDGE_EVALUATION_MAX_CASES:100}
+      stale-running-minutes: ${AI_KNOWLEDGE_EVALUATION_STALE_MINUTES:30}
     vector-store:
       type: ${AI_VECTOR_STORE_TYPE:mysql-json}
       dual-write-enabled: ${AI_VECTOR_DUAL_WRITE_ENABLED:false}
