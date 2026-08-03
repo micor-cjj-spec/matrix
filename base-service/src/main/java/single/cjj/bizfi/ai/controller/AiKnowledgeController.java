@@ -43,9 +43,10 @@ public class AiKnowledgeController {
             @RequestParam(value = "size", defaultValue = "10") int size,
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "category", required = false) String category,
-            @RequestParam(value = "status", required = false) String status
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "kbId", required = false) String kbId
     ) {
-        return ApiResponse.success(knowledgeManagementService.listDocs(page, size, keyword, category, status));
+        return ApiResponse.success(knowledgeManagementService.listDocs(page, size, keyword, category, status, kbId));
     }
 
     @GetMapping("/docs/{docId}")
