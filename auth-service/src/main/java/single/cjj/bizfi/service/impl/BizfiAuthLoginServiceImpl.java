@@ -117,7 +117,7 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
         clearLoginFailCount(account);
 
         // 生成登录 Token，并写入 Redis，1 小时未操作自动过期
-        String token = JwtUtils.generateToken(user.getFid(), user.getFid());
+        String token = issueToken(user);
         redisTemplate.opsForValue()
                 .set("token:" + token, String.valueOf(user.getFid()), 1, TimeUnit.HOURS);
 
@@ -295,7 +295,7 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
             throw new BizException("用户不存在");
         }
 
-        String token = JwtUtils.generateToken(user.getFid(), user.getFid());
+        String token = issueToken(user);
         redisTemplate.opsForValue()
                 .set("token:" + token, String.valueOf(user.getFid()), 1, TimeUnit.HOURS);
 
@@ -307,6 +307,15 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
         response.setToken(token);
         response.setExpireIn(JwtUtils.EXPIRE / 1000);
         return response;
+    }
+
+    private String issueToken(BizfiBaseUser user) {
+        return JwtUtils.generateToken(
+                user.getFid(),
+                user.getFid(),
+                user.getFtid(),
+                user.getFdptid()
+        );
     }
 
     private String loginFailKey(String account) {
