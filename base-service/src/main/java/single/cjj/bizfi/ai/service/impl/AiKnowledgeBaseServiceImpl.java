@@ -10,6 +10,7 @@ import single.cjj.bizfi.ai.entity.BizfiAiKnowledgeBase;
 import single.cjj.bizfi.ai.entity.BizfiAiKnowledgeDoc;
 import single.cjj.bizfi.ai.mapper.BizfiAiKnowledgeBaseMapper;
 import single.cjj.bizfi.ai.mapper.BizfiAiKnowledgeDocMapper;
+import single.cjj.bizfi.ai.security.AiKnowledgePermission;
 import single.cjj.bizfi.ai.service.AiKnowledgeBaseService;
 import single.cjj.bizfi.exception.BizException;
 
@@ -27,18 +28,28 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
 
     private final BizfiAiKnowledgeBaseMapper knowledgeBaseMapper;
     private final BizfiAiKnowledgeDocMapper knowledgeDocMapper;
+    private final AiKnowledgeAclService aclService;
 
     public AiKnowledgeBaseServiceImpl(
             BizfiAiKnowledgeBaseMapper knowledgeBaseMapper,
-            BizfiAiKnowledgeDocMapper knowledgeDocMapper
+            BizfiAiKnowledgeDocMapper knowledgeDocMapper,
+            AiKnowledgeAclService aclService
     ) {
         this.knowledgeBaseMapper = knowledgeBaseMapper;
         this.knowledgeDocMapper = knowledgeDocMapper;
+        this.aclService = aclService;
     }
 
     @Override
     public List<AiKnowledgeBaseResponse> listBases(String status) {
+        Set<String> accessibleBaseIds = aclService.resolveAccessibleBaseIds(AiKnowledgePermission.VIEWER);
+        if (accessibleBaseIds != null && accessibleBaseIds.isEmpty()) {
+            return List.of();
+        }
         LambdaQueryWrapper<BizfiAiKnowledgeBase> wrapper = new LambdaQueryWrapper<>();
+        if (accessibleBaseIds != null) {
+            wrapper.in(BizfiAiKnowledgeBase::getFkbid, accessibleBaseIds);
+        }
         if (StringUtils.hasText(status)) {
             wrapper.eq(BizfiAiKnowledgeBase::getFstatus, normalizeStatus(status));
         }
@@ -73,6 +84,7 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
         base.setFcreatetime(now);
         base.setFmodifytime(now);
         knowledgeBaseMapper.insert(base);
+        aclService.bootstrapOwner(base.getFkbid());
         return toResponse(base);
     }
 
@@ -80,6 +92,7 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
     @Transactional(rollbackFor = Exception.class)
     public AiKnowledgeBaseResponse updateBase(String kbId, AiKnowledgeBaseRequest request) {
         BizfiAiKnowledgeBase base = requireBase(kbId);
+        aclService.assertCanAdmin(base.getFkbid());
         if (request == null) {
             throw new BizException("知识库内容不能为空");
         }
@@ -105,6 +118,7 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteBase(String kbId) {
         BizfiAiKnowledgeBase base = requireBase(kbId);
+        aclService.assertCanOwn(base.getFkbid());
         if (DEFAULT_KB_ID.equals(base.getFkbid())) {
             throw new BizException("默认知识库不能删除");
         }
@@ -112,7 +126,11 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
         if (documentCount > 0) {
             throw new BizException("知识库中仍有文档，请先迁移或删除文档");
         }
-        return knowledgeBaseMapper.deleteById(base.getFid()) > 0;
+        boolean deleted = knowledgeBaseMapper.deleteById(base.getFid()) > 0;
+        if (deleted) {
+            aclService.deleteEntries(base.getFkbid());
+        }
+        return deleted;
     }
 
     public BizfiAiKnowledgeBase requireActiveBase(String kbId) {
