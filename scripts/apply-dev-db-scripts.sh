@@ -5,8 +5,8 @@ set -euo pipefail
 #
 # Defaults are chosen for the current dev server. Override with env vars when
 # running elsewhere:
-#   MYSQL_CONTAINER=matrix-mysql MYSQL_DATABASE=matrix_open_api ./scripts/apply-dev-db-scripts.sh
-#   MYSQL_USER=matrix MYSQL_PWD=... ./scripts/apply-dev-db-scripts.sh
+#   MYSQL_CONTAINER=matrix-mysql MYSQL_DATABASE=matrix_open_api bash scripts/apply-dev-db-scripts.sh
+#   MYSQL_USER=matrix MYSQL_PWD=... bash scripts/apply-dev-db-scripts.sh
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MYSQL_CONTAINER="${MYSQL_CONTAINER:-matrix-mysql}"
