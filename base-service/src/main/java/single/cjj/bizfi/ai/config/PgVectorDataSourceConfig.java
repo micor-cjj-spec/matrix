@@ -31,6 +31,13 @@ public class PgVectorDataSourceConfig {
         return new JdbcTemplate(dataSource);
     }
 
+    @Bean(name = "transactionManager")
+    @Primary
+    @ConditionalOnMissingBean(name = "transactionManager")
+    public PlatformTransactionManager transactionManager(DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
+    }
+
     @Bean(name = "pgVectorJdbcTemplate")
     public JdbcTemplate pgVectorJdbcTemplate(AiVectorStoreProperties properties) {
         return new JdbcTemplate(pgVectorDataSource(properties));
