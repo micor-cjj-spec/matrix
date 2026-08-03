@@ -12,11 +12,8 @@ import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 @Component
 public class JwtUtils {
@@ -49,16 +46,8 @@ public class JwtUtils {
         if (organizationId != null && organizationId > 0) {
             builder.claim("organizationIds", List.of(organizationId));
         }
-
-        Set<String> authorities = new LinkedHashSet<>();
-        if (organizationId != null && organizationId > 0) {
-            authorities.add("team:" + organizationId);
-        }
         if (departmentId != null && departmentId > 0) {
-            authorities.add("department:" + departmentId);
-        }
-        if (!authorities.isEmpty()) {
-            builder.claim("authorities", new ArrayList<>(authorities));
+            builder.claim("departmentIds", List.of(departmentId));
         }
 
         return builder
