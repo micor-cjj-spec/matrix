@@ -1,20 +1,16 @@
 package single.cjj.bizfi.ai.service.impl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import single.cjj.bizfi.ai.config.AiProperties;
+import single.cjj.bizfi.ai.config.AiVectorStoreProperties;
 import single.cjj.bizfi.ai.dto.AiCitationResponse;
-import single.cjj.bizfi.ai.entity.BizfiAiKnowledgeChunk;
-import single.cjj.bizfi.ai.entity.BizfiAiKnowledgeDoc;
-import single.cjj.bizfi.ai.mapper.BizfiAiKnowledgeChunkMapper;
-import single.cjj.bizfi.ai.mapper.BizfiAiKnowledgeDocMapper;
 import single.cjj.bizfi.ai.service.AiKnowledgeService;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -33,12 +29,16 @@ class HybridAiKnowledgeServiceTest {
     private AiEmbeddingClient embeddingClient;
 
     @Mock
-    private BizfiAiKnowledgeChunkMapper chunkMapper;
+    private LegacyJsonSemanticRetriever legacyJsonRetriever;
 
     @Mock
-    private BizfiAiKnowledgeDocMapper docMapper;
+    private ObjectProvider<PgVectorSemanticRetriever> pgVectorRetrieverProvider;
+
+    @Mock
+    private PgVectorSemanticRetriever pgVectorRetriever;
 
     private AiProperties properties;
+    private AiVectorStoreProperties vectorStoreProperties;
     private HybridAiKnowledgeService service;
 
     @BeforeEach
@@ -46,52 +46,43 @@ class HybridAiKnowledgeServiceTest {
         properties = new AiProperties();
         properties.setSemanticRetrievalEnabled(true);
         properties.setSemanticFailOpen(true);
-        properties.setSemanticMinScore(0.1D);
         properties.setHybridKeywordWeight(1.0D);
         properties.setHybridSemanticWeight(2.0D);
+        vectorStoreProperties = new AiVectorStoreProperties();
         service = new HybridAiKnowledgeService(
                 keywordRetriever,
                 embeddingClient,
-                chunkMapper,
-                docMapper,
-                new ObjectMapper(),
-                properties
+                legacyJsonRetriever,
+                pgVectorRetrieverProvider,
+                properties,
+                vectorStoreProperties
         );
     }
 
     @Test
-    void shouldFuseKeywordAndSemanticResults() {
-        AiCitationResponse keyword = new AiCitationResponse(
+    void shouldFuseKeywordAndLegacySemanticResults() {
+        AiCitationResponse keyword = citation(
                 "doc_keyword",
                 "关键词文档",
                 "chunk_keyword",
                 "凭证过账规则"
         );
+        AiCitationResponse semantic = citation(
+                "doc_semantic",
+                "月结制度",
+                "chunk_semantic",
+                "期末结账前应完成凭证过账、损益结转和一致性检查。"
+        );
         when(keywordRetriever.retrieve(eq("关账前需要做什么"), eq(List.of("all")), any()))
                 .thenReturn(List.of(keyword));
         when(embeddingClient.embed(List.of("关账前需要做什么")))
-                .thenReturn(new AiEmbeddingClient.EmbeddingBatch(
-                        "embedding-test",
-                        2,
-                        List.of(List.of(1.0D, 0.0D))
-                ));
-
-        BizfiAiKnowledgeChunk semanticChunk = new BizfiAiKnowledgeChunk();
-        semanticChunk.setFid(2L);
-        semanticChunk.setFdocid("doc_semantic");
-        semanticChunk.setFchunkid("chunk_semantic");
-        semanticChunk.setFcontent("期末结账前应完成凭证过账、损益结转和一致性检查。");
-        semanticChunk.setFembedding("[1.0,0.0]");
-        semanticChunk.setFembeddingmodel("embedding-test");
-        semanticChunk.setFembeddingdimensions(2);
-        semanticChunk.setFembeddingtime(LocalDateTime.now());
-        when(chunkMapper.selectList(any())).thenReturn(List.of(semanticChunk));
-
-        BizfiAiKnowledgeDoc semanticDoc = new BizfiAiKnowledgeDoc();
-        semanticDoc.setFdocid("doc_semantic");
-        semanticDoc.setFtitle("月结制度");
-        semanticDoc.setFstatus("ACTIVE");
-        when(docMapper.selectList(any())).thenReturn(List.of(semanticDoc));
+                .thenReturn(embedding());
+        when(legacyJsonRetriever.retrieve(
+                List.of(1.0D, 0.0D),
+                "embedding-test",
+                List.of("all"),
+                8
+        )).thenReturn(List.of(semantic));
 
         List<AiCitationResponse> results = service.retrieve(
                 "关账前需要做什么",
@@ -105,8 +96,61 @@ class HybridAiKnowledgeServiceTest {
     }
 
     @Test
+    void shouldRouteSemanticSearchToPgVector() {
+        vectorStoreProperties.setType(AiVectorStoreProperties.PGVECTOR);
+        AiCitationResponse semantic = citation(
+                "doc_pg",
+                "PGVector知识",
+                "chunk_pg",
+                "PGVector召回结果"
+        );
+        when(keywordRetriever.retrieve(eq("月结规则"), eq(List.of()), any()))
+                .thenReturn(List.of());
+        when(embeddingClient.embed(List.of("月结规则"))).thenReturn(embedding());
+        when(pgVectorRetrieverProvider.getIfAvailable()).thenReturn(pgVectorRetriever);
+        when(pgVectorRetriever.retrieve(
+                List.of(1.0D, 0.0D),
+                "embedding-test",
+                List.of(),
+                20
+        )).thenReturn(List.of(semantic));
+
+        List<AiCitationResponse> results = service.retrieve("月结规则", List.of(), 5);
+
+        assertEquals(List.of(semantic), results);
+    }
+
+    @Test
+    void shouldFallBackToLegacySemanticSearchWhenPgVectorFails() {
+        vectorStoreProperties.setType(AiVectorStoreProperties.PGVECTOR);
+        vectorStoreProperties.setReadFallbackEnabled(true);
+        AiCitationResponse fallback = citation(
+                "doc_legacy",
+                "旧向量",
+                "chunk_legacy",
+                "MySQL JSON回退结果"
+        );
+        when(keywordRetriever.retrieve(eq("月结规则"), eq(List.of()), any()))
+                .thenReturn(List.of());
+        when(embeddingClient.embed(List.of("月结规则"))).thenReturn(embedding());
+        when(pgVectorRetrieverProvider.getIfAvailable()).thenReturn(pgVectorRetriever);
+        when(pgVectorRetriever.retrieve(any(), any(), any(), any(Integer.class)))
+                .thenThrow(new IllegalStateException("pgvector unavailable"));
+        when(legacyJsonRetriever.retrieve(
+                List.of(1.0D, 0.0D),
+                "embedding-test",
+                List.of(),
+                20
+        )).thenReturn(List.of(fallback));
+
+        List<AiCitationResponse> results = service.retrieve("月结规则", List.of(), 5);
+
+        assertEquals(List.of(fallback), results);
+    }
+
+    @Test
     void shouldFallBackToKeywordResultsWhenEmbeddingFails() {
-        AiCitationResponse keyword = new AiCitationResponse(
+        AiCitationResponse keyword = citation(
                 "doc_keyword",
                 "关键词文档",
                 "chunk_keyword",
@@ -120,5 +164,17 @@ class HybridAiKnowledgeServiceTest {
         List<AiCitationResponse> results = service.retrieve("月结规则", List.of(), 5);
 
         assertEquals(List.of(keyword), results);
+    }
+
+    private AiEmbeddingClient.EmbeddingBatch embedding() {
+        return new AiEmbeddingClient.EmbeddingBatch(
+                "embedding-test",
+                2,
+                List.of(List.of(1.0D, 0.0D))
+        );
+    }
+
+    private AiCitationResponse citation(String docId, String docName, String chunkId, String snippet) {
+        return new AiCitationResponse(docId, docName, chunkId, snippet);
     }
 }
