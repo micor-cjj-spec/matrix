@@ -52,7 +52,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private List<GrantedAuthority> resolveAuthorities(Claims claims) {
+    List<GrantedAuthority> resolveAuthorities(Claims claims) {
         LinkedHashSet<String> values = new LinkedHashSet<>();
         addAuthorityValues(values, claims.get("authorities"), false);
         addAuthorityValues(values, claims.get("permissions"), false);
@@ -62,6 +62,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         addOrganizationValues(values, claims.get("organizationId"));
         addOrganizationValues(values, claims.get("orgIds"));
         addOrganizationValues(values, claims.get("orgId"));
+        addPrefixedValues(values, claims.get("departmentIds"), "department:");
+        addPrefixedValues(values, claims.get("departmentId"), "department:");
         return values.stream().map(SimpleGrantedAuthority::new).map(GrantedAuthority.class::cast).toList();
     }
 
@@ -108,6 +110,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String organizationId = item.trim();
             target.add("org:" + organizationId);
             target.add("organization:" + organizationId);
+            target.add("team:" + organizationId);
+        }
+    }
+
+    private void addPrefixedValues(Set<String> target, Object raw, String prefix) {
+        if (raw == null) {
+            return;
+        }
+        if (raw instanceof Collection<?> collection) {
+            collection.forEach(item -> addPrefixedValues(target, item, prefix));
+            return;
+        }
+        String value = raw.toString();
+        if (!StringUtils.hasText(value)) {
+            return;
+        }
+        for (String item : value.split("[,\\s]+")) {
+            if (StringUtils.hasText(item)) {
+                target.add(prefix + item.trim());
+            }
         }
     }
 }
