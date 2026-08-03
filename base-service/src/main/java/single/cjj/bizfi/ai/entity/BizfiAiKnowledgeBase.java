@@ -13,8 +13,8 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("bizfi_ai_knowledge_doc")
-public class BizfiAiKnowledgeDoc implements Serializable {
+@TableName("bizfi_ai_knowledge_base")
+public class BizfiAiKnowledgeBase implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -22,12 +22,8 @@ public class BizfiAiKnowledgeDoc implements Serializable {
     private Long fid;
 
     private String fkbid;
-    private String fdocid;
-    private String ftitle;
-    private String fcategory;
-    private String fsourcepath;
-    private String fcontent;
-    private String fversion;
+    private String fname;
+    private String fdescription;
     private String fstatus;
     private LocalDateTime fcreatetime;
     private LocalDateTime fmodifytime;

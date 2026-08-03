@@ -5,23 +5,17 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class AiKnowledgeDocDetailResponse {
+public class AiKnowledgeBaseResponse {
     private Long fid;
     private String kbId;
-    private String docId;
-    private String title;
-    private String category;
-    private String sourcePath;
-    private String content;
-    private String version;
+    private String name;
+    private String description;
     private String status;
-    private Integer chunkCount;
+    private Integer documentCount;
     private LocalDateTime createTime;
     private LocalDateTime modifyTime;
-    private List<AiKnowledgeChunkResponse> chunks;
 }

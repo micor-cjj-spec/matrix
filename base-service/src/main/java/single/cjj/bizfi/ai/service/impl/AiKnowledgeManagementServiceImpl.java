@@ -3,7 +3,6 @@ package single.cjj.bizfi.ai.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -12,6 +11,7 @@ import single.cjj.bizfi.ai.dto.AiKnowledgeChunkResponse;
 import single.cjj.bizfi.ai.dto.AiKnowledgeDocDetailResponse;
 import single.cjj.bizfi.ai.dto.AiKnowledgeDocRequest;
 import single.cjj.bizfi.ai.dto.AiKnowledgeDocSummaryResponse;
+import single.cjj.bizfi.ai.entity.BizfiAiKnowledgeBase;
 import single.cjj.bizfi.ai.entity.BizfiAiKnowledgeChunk;
 import single.cjj.bizfi.ai.entity.BizfiAiKnowledgeDoc;
 import single.cjj.bizfi.ai.mapper.BizfiAiKnowledgeChunkMapper;
@@ -41,16 +41,33 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
     private static final int MAX_TOP_K = 20;
     private static final int MAX_CHUNK_LENGTH = 1200;
     private static final int CHUNK_OVERLAP = 120;
-    private static final Set<String> BUILTIN_KB_ALIASES = Set.of("default", "all", "knowledge", "bizfi");
 
-    @Autowired
-    private BizfiAiKnowledgeDocMapper knowledgeDocMapper;
+    private final BizfiAiKnowledgeDocMapper knowledgeDocMapper;
+    private final BizfiAiKnowledgeChunkMapper knowledgeChunkMapper;
+    private final AiKnowledgeBaseServiceImpl knowledgeBaseService;
+    private final AiKnowledgeScopeResolver scopeResolver;
 
-    @Autowired
-    private BizfiAiKnowledgeChunkMapper knowledgeChunkMapper;
+    public AiKnowledgeManagementServiceImpl(
+            BizfiAiKnowledgeDocMapper knowledgeDocMapper,
+            BizfiAiKnowledgeChunkMapper knowledgeChunkMapper,
+            AiKnowledgeBaseServiceImpl knowledgeBaseService,
+            AiKnowledgeScopeResolver scopeResolver
+    ) {
+        this.knowledgeDocMapper = knowledgeDocMapper;
+        this.knowledgeChunkMapper = knowledgeChunkMapper;
+        this.knowledgeBaseService = knowledgeBaseService;
+        this.scopeResolver = scopeResolver;
+    }
 
     @Override
-    public IPage<AiKnowledgeDocSummaryResponse> listDocs(int page, int size, String keyword, String category, String status) {
+    public IPage<AiKnowledgeDocSummaryResponse> listDocs(
+            int page,
+            int size,
+            String keyword,
+            String category,
+            String status,
+            String kbId
+    ) {
         LambdaQueryWrapper<BizfiAiKnowledgeDoc> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
             String kw = keyword.trim();
@@ -64,15 +81,25 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
         if (StringUtils.hasText(status)) {
             wrapper.eq(BizfiAiKnowledgeDoc::getFstatus, normalizeStatus(status));
         }
+        if (StringUtils.hasText(kbId) && !"all".equalsIgnoreCase(kbId.trim())) {
+            wrapper.eq(BizfiAiKnowledgeDoc::getFkbid, normalizeKbId(kbId));
+        }
         wrapper.orderByDesc(BizfiAiKnowledgeDoc::getFmodifytime)
                 .orderByDesc(BizfiAiKnowledgeDoc::getFid);
 
-        Page<BizfiAiKnowledgeDoc> docPage = knowledgeDocMapper.selectPage(new Page<>(page, size), wrapper);
+        Page<BizfiAiKnowledgeDoc> docPage = knowledgeDocMapper.selectPage(
+                new Page<>(Math.max(1, page), Math.max(1, Math.min(size, 100))),
+                wrapper
+        );
         List<AiKnowledgeDocSummaryResponse> records = docPage.getRecords().stream()
                 .map(this::toSummary)
                 .toList();
 
-        Page<AiKnowledgeDocSummaryResponse> result = new Page<>(docPage.getCurrent(), docPage.getSize(), docPage.getTotal());
+        Page<AiKnowledgeDocSummaryResponse> result = new Page<>(
+                docPage.getCurrent(),
+                docPage.getSize(),
+                docPage.getTotal()
+        );
         result.setRecords(records);
         return result;
     }
@@ -103,8 +130,10 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
             throw new BizException("知识文档编号已存在");
         }
 
+        BizfiAiKnowledgeBase knowledgeBase = knowledgeBaseService.requireActiveBase(request.getKbId());
         LocalDateTime now = LocalDateTime.now();
         BizfiAiKnowledgeDoc doc = new BizfiAiKnowledgeDoc();
+        doc.setFkbid(knowledgeBase.getFkbid());
         doc.setFdocid(docId);
         doc.setFtitle(request.getTitle().trim());
         doc.setFcategory(normalizeCategory(request.getCategory()));
@@ -125,6 +154,10 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
         BizfiAiKnowledgeDoc doc = requireDoc(docId);
         if (request == null) {
             throw new BizException("知识文档不能为空");
+        }
+        if (request.getKbId() != null) {
+            BizfiAiKnowledgeBase knowledgeBase = knowledgeBaseService.requireActiveBase(request.getKbId());
+            doc.setFkbid(knowledgeBase.getFkbid());
         }
         if (StringUtils.hasText(request.getTitle())) {
             doc.setFtitle(request.getTitle().trim());
@@ -162,8 +195,7 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int rebuildChunks(String docId) {
-        BizfiAiKnowledgeDoc doc = requireDoc(docId);
-        return replaceChunks(doc);
+        return replaceChunks(requireDoc(docId));
     }
 
     @Override
@@ -206,7 +238,7 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
             return List.of();
         }
 
-        Set<String> allowedDocIds = resolveAllowedDocIds(kbIds);
+        Set<String> allowedDocIds = scopeResolver.resolveAllowedDocumentIds(kbIds);
         if (allowedDocIds != null && allowedDocIds.isEmpty()) {
             return List.of();
         }
@@ -236,7 +268,11 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
         int limit = normalizeTopK(topK);
         return chunks.stream()
                 .filter(chunk -> docMap.containsKey(chunk.getFdocid()))
-                .map(chunk -> new ScoredKnowledgeChunk(chunk, docMap.get(chunk.getFdocid()), score(chunk, docMap.get(chunk.getFdocid()), keywords)))
+                .map(chunk -> new ScoredKnowledgeChunk(
+                        chunk,
+                        docMap.get(chunk.getFdocid()),
+                        score(chunk, docMap.get(chunk.getFdocid()), keywords)
+                ))
                 .filter(item -> item.score() > 0)
                 .sorted(Comparator.comparingInt(ScoredKnowledgeChunk::score).reversed()
                         .thenComparing(item -> item.chunk().getFdocid())
@@ -279,25 +315,11 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
                         .in(BizfiAiKnowledgeDoc::getFdocid, docIds)
                         .eq(BizfiAiKnowledgeDoc::getFstatus, "ACTIVE"))
                 .stream()
-                .collect(Collectors.toMap(BizfiAiKnowledgeDoc::getFdocid, Function.identity(), (left, right) -> left));
-    }
-
-    private Set<String> resolveAllowedDocIds(List<String> kbIds) {
-        if (kbIds == null || kbIds.isEmpty()) {
-            return null;
-        }
-        Set<String> normalized = kbIds.stream()
-                .filter(StringUtils::hasText)
-                .map(String::trim)
-                .filter(item -> !BUILTIN_KB_ALIASES.contains(item.toLowerCase(Locale.ROOT)))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (normalized.isEmpty()) {
-            return null;
-        }
-        return normalized.stream()
-                .map(this::normalizeDocId)
-                .filter(StringUtils::hasText)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
+                .collect(Collectors.toMap(
+                        BizfiAiKnowledgeDoc::getFdocid,
+                        Function.identity(),
+                        (left, right) -> left
+                ));
     }
 
     private int replaceChunks(BizfiAiKnowledgeDoc doc) {
@@ -534,6 +556,7 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
     private AiKnowledgeDocSummaryResponse toSummary(BizfiAiKnowledgeDoc doc) {
         return new AiKnowledgeDocSummaryResponse(
                 doc.getFid(),
+                doc.getFkbid(),
                 doc.getFdocid(),
                 doc.getFtitle(),
                 doc.getFcategory(),
@@ -551,6 +574,7 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
         List<AiKnowledgeChunkResponse> chunks = withChunks ? listChunks(doc.getFdocid()) : List.of();
         return new AiKnowledgeDocDetailResponse(
                 doc.getFid(),
+                doc.getFkbid(),
                 doc.getFdocid(),
                 doc.getFtitle(),
                 doc.getFcategory(),
@@ -608,10 +632,18 @@ public class AiKnowledgeManagementServiceImpl implements AiKnowledgeService, AiK
                 .replaceAll("[^A-Za-z0-9_-]", "_")
                 .replaceAll("_+", "_")
                 .toLowerCase(Locale.ROOT);
-        if (normalized.length() > 64) {
-            normalized = normalized.substring(0, 64);
+        return normalized.length() <= 64 ? normalized : normalized.substring(0, 64);
+    }
+
+    private String normalizeKbId(String kbId) {
+        if (!StringUtils.hasText(kbId)) {
+            return AiKnowledgeBaseServiceImpl.DEFAULT_KB_ID;
         }
-        return normalized;
+        String normalized = kbId.trim()
+                .replaceAll("[^A-Za-z0-9_-]", "_")
+                .replaceAll("_+", "_")
+                .toLowerCase(Locale.ROOT);
+        return normalized.length() <= 64 ? normalized : normalized.substring(0, 64);
     }
 
     private String generateDocId() {

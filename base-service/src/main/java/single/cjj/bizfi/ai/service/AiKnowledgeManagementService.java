@@ -10,7 +10,14 @@ import single.cjj.bizfi.ai.dto.AiKnowledgeDocSummaryResponse;
 import java.util.List;
 
 public interface AiKnowledgeManagementService {
-    IPage<AiKnowledgeDocSummaryResponse> listDocs(int page, int size, String keyword, String category, String status);
+    IPage<AiKnowledgeDocSummaryResponse> listDocs(
+            int page,
+            int size,
+            String keyword,
+            String category,
+            String status,
+            String kbId
+    );
 
     AiKnowledgeDocDetailResponse getDoc(String docId);
 

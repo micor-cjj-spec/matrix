@@ -14,9 +14,7 @@ import single.cjj.bizfi.ai.mapper.BizfiAiKnowledgeDocMapper;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -25,7 +23,6 @@ import java.util.stream.Collectors;
 @Service
 public class LegacyJsonSemanticRetriever {
 
-    private static final Set<String> BUILTIN_KB_ALIASES = Set.of("default", "all", "knowledge", "bizfi");
     private static final TypeReference<List<Double>> VECTOR_TYPE = new TypeReference<>() {
     };
 
@@ -33,17 +30,20 @@ public class LegacyJsonSemanticRetriever {
     private final BizfiAiKnowledgeDocMapper docMapper;
     private final ObjectMapper objectMapper;
     private final AiProperties properties;
+    private final AiKnowledgeScopeResolver scopeResolver;
 
     public LegacyJsonSemanticRetriever(
             BizfiAiKnowledgeChunkMapper chunkMapper,
             BizfiAiKnowledgeDocMapper docMapper,
             ObjectMapper objectMapper,
-            AiProperties properties
+            AiProperties properties,
+            AiKnowledgeScopeResolver scopeResolver
     ) {
         this.chunkMapper = chunkMapper;
         this.docMapper = docMapper;
         this.objectMapper = objectMapper;
         this.properties = properties;
+        this.scopeResolver = scopeResolver;
     }
 
     public List<AiCitationResponse> retrieve(
@@ -55,7 +55,7 @@ public class LegacyJsonSemanticRetriever {
         if (queryVector == null || queryVector.isEmpty()) {
             return List.of();
         }
-        Set<String> allowedDocIds = resolveAllowedDocIds(kbIds);
+        Set<String> allowedDocIds = scopeResolver.resolveAllowedDocumentIds(kbIds);
         if (allowedDocIds != null && allowedDocIds.isEmpty()) {
             return List.of();
         }
@@ -130,18 +130,6 @@ public class LegacyJsonSemanticRetriever {
                         Function.identity(),
                         (left, right) -> left
                 ));
-    }
-
-    private Set<String> resolveAllowedDocIds(List<String> kbIds) {
-        if (kbIds == null || kbIds.isEmpty()) {
-            return null;
-        }
-        Set<String> normalized = kbIds.stream()
-                .filter(StringUtils::hasText)
-                .map(String::trim)
-                .filter(item -> !BUILTIN_KB_ALIASES.contains(item.toLowerCase(Locale.ROOT)))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        return normalized.isEmpty() ? null : normalized;
     }
 
     private List<Double> readVector(String json) {
