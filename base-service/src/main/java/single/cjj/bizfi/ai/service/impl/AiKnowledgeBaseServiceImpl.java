@@ -84,7 +84,9 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
         base.setFcreatetime(now);
         base.setFmodifytime(now);
         knowledgeBaseMapper.insert(base);
-        aclService.bootstrapOwner(base.getFkbid());
+        if (aclService.isEnabled()) {
+            aclService.bootstrapOwner(base.getFkbid());
+        }
         return toResponse(base);
     }
 
@@ -127,7 +129,7 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
             throw new BizException("知识库中仍有文档，请先迁移或删除文档");
         }
         boolean deleted = knowledgeBaseMapper.deleteById(base.getFid()) > 0;
-        if (deleted) {
+        if (deleted && aclService.isEnabled()) {
             aclService.deleteEntries(base.getFkbid());
         }
         return deleted;
