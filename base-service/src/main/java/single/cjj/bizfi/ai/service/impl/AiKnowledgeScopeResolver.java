@@ -41,13 +41,13 @@ public class AiKnowledgeScopeResolver {
 
         LinkedHashSet<String> scopes = kbIds.stream()
                 .filter(StringUtils::hasText)
-                .map(String::trim)
+                .map(this::normalizeIdentifier)
                 .filter(StringUtils::hasText)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         if (scopes.isEmpty()) {
             return null;
         }
-        if (scopes.stream().map(item -> item.toLowerCase(Locale.ROOT)).anyMatch(GLOBAL_ALIASES::contains)) {
+        if (scopes.stream().anyMatch(GLOBAL_ALIASES::contains)) {
             return null;
         }
 
@@ -77,19 +77,18 @@ public class AiKnowledgeScopeResolver {
 
         scopes.stream()
                 .filter(scope -> !knownBaseIds.contains(scope))
-                .map(this::normalizeDocId)
-                .filter(StringUtils::hasText)
                 .forEach(documentIds::add);
         return documentIds;
     }
 
-    private String normalizeDocId(String docId) {
-        if (!StringUtils.hasText(docId)) {
+    private String normalizeIdentifier(String value) {
+        if (!StringUtils.hasText(value)) {
             return "";
         }
-        String normalized = docId.trim()
+        String normalized = value.trim()
                 .replaceAll("[^A-Za-z0-9_-]", "_")
                 .replaceAll("_+", "_")
+                .replaceAll("^_+|_+$", "")
                 .toLowerCase(Locale.ROOT);
         return normalized.length() <= 64 ? normalized : normalized.substring(0, 64);
     }
