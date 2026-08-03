@@ -33,9 +33,7 @@ spring:
         options:
           model: ${AI_CHAT_MODEL:gpt-4o-mini}
       embedding:
-        embeddings-path: ${AI_EMBEDDINGS_PATH:/v1/embeddings}
-        options:
-          model: ${AI_EMBEDDING_MODEL:text-embedding-3-small}
+        model: ${AI_EMBEDDING_MODEL:text-embedding-3-small}
 
 matrix:
   ai:
