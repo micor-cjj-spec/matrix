@@ -17,6 +17,7 @@ on:
       - 'fi-service/src/test/java/single/cjj/fi/ai/**'
       - 'fi-service/src/main/resources/application.yml'
       - 'deploy/pgvector/**'
+      - 'scripts/apply-dev-db-scripts.sh'
       - 'sql/bizfi_ai_rag_v*.sql'
       - 'sql/bizfi_ai_rag_evaluation_v*.sql'
       - 'sql/bizfi_ai_pgvector_v*.sql'
@@ -49,6 +50,7 @@ on:
       - 'fi-service/src/test/java/single/cjj/fi/ai/**'
       - 'fi-service/src/main/resources/application.yml'
       - 'deploy/pgvector/**'
+      - 'scripts/apply-dev-db-scripts.sh'
       - 'sql/bizfi_ai_rag_v*.sql'
       - 'sql/bizfi_ai_rag_evaluation_v*.sql'
       - 'sql/bizfi_ai_pgvector_v*.sql'
@@ -97,6 +99,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Validate dev migration script
+        run: bash -n scripts/apply-dev-db-scripts.sh
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
