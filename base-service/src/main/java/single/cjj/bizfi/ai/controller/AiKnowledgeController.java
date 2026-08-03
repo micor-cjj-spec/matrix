@@ -18,6 +18,7 @@ import single.cjj.bizfi.ai.dto.AiKnowledgeDocRequest;
 import single.cjj.bizfi.ai.dto.AiKnowledgeDocSummaryResponse;
 import single.cjj.bizfi.ai.dto.AiKnowledgeRetrieveRequest;
 import single.cjj.bizfi.ai.service.AiKnowledgeManagementService;
+import single.cjj.bizfi.ai.service.AiKnowledgeService;
 import single.cjj.bizfi.ai.service.impl.AiKnowledgeVectorIndexService;
 import single.cjj.bizfi.entity.ApiResponse;
 
@@ -29,6 +30,9 @@ public class AiKnowledgeController {
 
     @Autowired
     private AiKnowledgeManagementService knowledgeManagementService;
+
+    @Autowired
+    private AiKnowledgeService knowledgeRetrievalService;
 
     @Autowired
     private AiKnowledgeVectorIndexService vectorIndexService;
@@ -107,7 +111,7 @@ public class AiKnowledgeController {
         String question = request == null ? null : request.getQuestion();
         List<String> kbIds = request == null ? null : request.getKbIds();
         Integer topK = request == null ? null : request.getTopK();
-        return ApiResponse.success(knowledgeManagementService.retrieve(question, kbIds, topK));
+        return ApiResponse.success(knowledgeRetrievalService.retrieve(question, kbIds, topK));
     }
 
     public record RebuildResponse(
