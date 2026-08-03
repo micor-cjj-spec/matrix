@@ -11,6 +11,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import single.cjj.bizfi.ai.config.AiVectorStoreProperties;
 
+import javax.sql.DataSource;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -142,6 +144,18 @@ public class PgVectorKnowledgeRepository {
             } catch (RuntimeException unavailable) {
                 return false;
             }
+        }
+    }
+
+    public String databaseProductName() {
+        DataSource dataSource = jdbcTemplate.getDataSource();
+        if (dataSource == null) {
+            return "UNAVAILABLE";
+        }
+        try (Connection connection = dataSource.getConnection()) {
+            return connection.getMetaData().getDatabaseProductName();
+        } catch (SQLException | RuntimeException unavailable) {
+            return "UNAVAILABLE";
         }
     }
 
