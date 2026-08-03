@@ -43,7 +43,7 @@ bizfi:
     hybrid-rrf-k: ${AI_HYBRID_RRF_K:60}
     embedding-batch-size: ${AI_EMBEDDING_BATCH_SIZE:16}
     knowledge-ingestion:
-      enabled: ${AI_KNOWLEDGE_INGESTION_ENABLED:true}
+      enabled: ${AI_KNOWLEDGE_INGESTION_ENABLED:false}
       max-file-size-bytes: ${AI_KNOWLEDGE_MAX_FILE_SIZE_BYTES:10485760}
       max-extracted-characters: ${AI_KNOWLEDGE_MAX_EXTRACTED_CHARACTERS:2000000}
       max-attempts: ${AI_KNOWLEDGE_INDEX_MAX_ATTEMPTS:3}
