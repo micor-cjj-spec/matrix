@@ -4,6 +4,10 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+/**
+ * File ingestion remains disabled by default so older deployments do not query the V5 job table
+ * before {@code bizfi_ai_knowledge_ingestion_v5.sql} has been applied.
+ */
 @Data
 @Component
 @ConfigurationProperties(prefix = "bizfi.ai.knowledge-ingestion")
