@@ -21,6 +21,7 @@ public class BizfiAiKnowledgeDoc implements Serializable {
     @TableId(value = "fid", type = IdType.AUTO)
     private Long fid;
 
+    private String fkbid;
     private String fdocid;
     private String ftitle;
     private String fcategory;
