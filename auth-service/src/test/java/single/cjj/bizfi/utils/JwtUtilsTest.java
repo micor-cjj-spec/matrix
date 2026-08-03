@@ -8,7 +8,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JwtUtilsTest {
 
@@ -20,17 +19,18 @@ class JwtUtilsTest {
     }
 
     @Test
-    void shouldIncludeTeamAndDepartmentContext() {
+    void shouldIncludeTeamAndDepartmentContextWithoutPollutingRoles() {
         String token = JwtUtils.generateToken(1001L, 1001L, 88L, 9L);
 
         Claims claims = JwtUtils.parseToken(token);
         List<?> organizationIds = claims.get("organizationIds", List.class);
-        List<?> authorities = claims.get("authorities", List.class);
+        List<?> departmentIds = claims.get("departmentIds", List.class);
 
         assertEquals("1001", String.valueOf(claims.get("id")));
         assertEquals(List.of("88"), organizationIds.stream().map(String::valueOf).toList());
-        assertTrue(authorities.contains("team:88"));
-        assertTrue(authorities.contains("department:9"));
+        assertEquals(List.of("9"), departmentIds.stream().map(String::valueOf).toList());
+        assertFalse(claims.containsKey("authorities"));
+        assertFalse(claims.containsKey("roles"));
     }
 
     @Test
@@ -41,6 +41,7 @@ class JwtUtilsTest {
 
         assertEquals("1001", String.valueOf(claims.get("id")));
         assertFalse(claims.containsKey("organizationIds"));
+        assertFalse(claims.containsKey("departmentIds"));
         assertFalse(claims.containsKey("authorities"));
     }
 }
