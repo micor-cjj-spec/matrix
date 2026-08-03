@@ -82,7 +82,7 @@ class AiKnowledgeIndexJobServiceTest {
         service.dispatchPendingJobs();
 
         ArgumentCaptor<BizfiAiKnowledgeIndexJob> updates = ArgumentCaptor.forClass(BizfiAiKnowledgeIndexJob.class);
-        verify(jobMapper, atLeast(3)).update(updates.capture(), any(LambdaUpdateWrapper.class));
+        verify(jobMapper, atLeast(4)).update(updates.capture(), any(LambdaUpdateWrapper.class));
         assertTrue(updates.getAllValues().stream()
                 .anyMatch(item -> AiKnowledgeIndexJobService.RUNNING.equals(item.getFstatus())));
         assertTrue(updates.getAllValues().stream()
@@ -101,13 +101,22 @@ class AiKnowledgeIndexJobServiceTest {
     }
 
     @Test
-    void shouldNotQueryJobsWhenWorkerIsDisabled() {
+    void shouldAvoidAllJobStorageWhenIngestionIsDisabled() {
         properties.setEnabled(false);
 
         service.dispatchPendingJobs();
+        assertEquals(List.of(), service.listJobs(null, null, 50));
+        assertThrows(BizException.class, () -> service.createJob(
+                "default", "doc", "doc.txt", "text/plain", 3L, "manual"
+        ));
+        assertThrows(BizException.class, () -> service.retry("idx_test"));
+        assertThrows(BizException.class, () -> service.createReindexJob("doc"));
 
         verify(jobMapper, never()).selectList(any(LambdaQueryWrapper.class));
+        verify(jobMapper, never()).selectOne(any(LambdaQueryWrapper.class));
+        verify(jobMapper, never()).insert(any(BizfiAiKnowledgeIndexJob.class));
         verify(jobMapper, never()).update(any(BizfiAiKnowledgeIndexJob.class), any(LambdaUpdateWrapper.class));
+        verify(docMapper, never()).selectOne(any(LambdaQueryWrapper.class));
     }
 
     private BizfiAiKnowledgeIndexJob pendingJob() {
