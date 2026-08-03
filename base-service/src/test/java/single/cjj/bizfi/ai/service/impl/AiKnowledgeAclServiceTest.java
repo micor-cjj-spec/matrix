@@ -62,13 +62,13 @@ class AiKnowledgeAclServiceTest {
 
         assertNull(service.resolveAccessibleBaseIds(AiKnowledgePermission.VIEWER));
         assertEquals(AiKnowledgePermission.OWNER, service.effectivePermission("finance"));
-        verify(aclMapper, never()).selectList(any(LambdaQueryWrapper.class));
+        verify(aclMapper, never()).selectMatching(any(), any(), any(), any());
     }
 
     @Test
     void shouldResolveDirectUserPermission() {
         authenticate("1001");
-        when(aclMapper.selectList(any(LambdaQueryWrapper.class)))
+        when(aclMapper.selectMatching(any(), any(), any(), any()))
                 .thenReturn(List.of(acl("finance", "USER", "1001", "VIEWER")));
 
         assertEquals(Set.of("finance"), service.resolveAccessibleBaseIds(AiKnowledgePermission.VIEWER));
@@ -78,7 +78,7 @@ class AiKnowledgeAclServiceTest {
     @Test
     void shouldResolveOrganizationPermissionFromJwtAuthority() {
         authenticate("1001", "org:88");
-        when(aclMapper.selectList(any(LambdaQueryWrapper.class)))
+        when(aclMapper.selectMatching(any(), any(), any(), any()))
                 .thenReturn(List.of(acl("finance", "ORGANIZATION", "88", "EDITOR")));
 
         assertEquals(AiKnowledgePermission.EDITOR, service.effectivePermission("finance"));
@@ -88,10 +88,20 @@ class AiKnowledgeAclServiceTest {
     @Test
     void shouldRejectWhenPermissionIsInsufficient() {
         authenticate("1001");
-        when(aclMapper.selectList(any(LambdaQueryWrapper.class)))
+        when(aclMapper.selectMatching(any(), any(), any(), any()))
                 .thenReturn(List.of(acl("finance", "USER", "1001", "VIEWER")));
 
         assertThrows(BizException.class, () -> service.assertCanEdit("finance"));
+    }
+
+    @Test
+    void shouldFailClosedForInvalidStoredPermission() {
+        authenticate("1001");
+        when(aclMapper.selectMatching(any(), any(), any(), any()))
+                .thenReturn(List.of(acl("finance", "USER", "1001", "UNKNOWN")));
+
+        assertEquals(Set.of(), service.resolveAccessibleBaseIds(AiKnowledgePermission.VIEWER));
+        assertThrows(BizException.class, () -> service.assertCanView("finance"));
     }
 
     @Test
@@ -100,7 +110,7 @@ class AiKnowledgeAclServiceTest {
 
         assertNull(service.resolveAccessibleBaseIds(AiKnowledgePermission.OWNER));
         assertEquals(AiKnowledgePermission.OWNER, service.effectivePermission("private"));
-        verify(aclMapper, never()).selectList(any(LambdaQueryWrapper.class));
+        verify(aclMapper, never()).selectMatching(any(), any(), any(), any());
     }
 
     @Test
