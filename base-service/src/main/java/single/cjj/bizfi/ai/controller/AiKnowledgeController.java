@@ -18,10 +18,11 @@ import single.cjj.bizfi.ai.dto.AiKnowledgeDocRequest;
 import single.cjj.bizfi.ai.dto.AiKnowledgeDocSummaryResponse;
 import single.cjj.bizfi.ai.dto.AiKnowledgeRetrieveRequest;
 import single.cjj.bizfi.ai.service.AiKnowledgeManagementService;
+import single.cjj.bizfi.ai.service.AiKnowledgeService;
+import single.cjj.bizfi.ai.service.impl.AiKnowledgeVectorIndexService;
 import single.cjj.bizfi.entity.ApiResponse;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/ai/knowledge")
@@ -29,6 +30,12 @@ public class AiKnowledgeController {
 
     @Autowired
     private AiKnowledgeManagementService knowledgeManagementService;
+
+    @Autowired
+    private AiKnowledgeService knowledgeRetrievalService;
+
+    @Autowired
+    private AiKnowledgeVectorIndexService vectorIndexService;
 
     @GetMapping("/docs")
     public ApiResponse<IPage<AiKnowledgeDocSummaryResponse>> listDocs(
@@ -48,7 +55,9 @@ public class AiKnowledgeController {
 
     @PostMapping("/docs")
     public ApiResponse<AiKnowledgeDocDetailResponse> createDoc(@RequestBody AiKnowledgeDocRequest request) {
-        return ApiResponse.success(knowledgeManagementService.createDoc(request));
+        AiKnowledgeDocDetailResponse result = knowledgeManagementService.createDoc(request);
+        vectorIndexService.indexDocumentIfEnabled(result.getDocId());
+        return ApiResponse.success(result);
     }
 
     @PutMapping("/docs/{docId}")
@@ -56,7 +65,9 @@ public class AiKnowledgeController {
             @PathVariable("docId") String docId,
             @RequestBody AiKnowledgeDocRequest request
     ) {
-        return ApiResponse.success(knowledgeManagementService.updateDoc(docId, request));
+        AiKnowledgeDocDetailResponse result = knowledgeManagementService.updateDoc(docId, request);
+        vectorIndexService.indexDocumentIfEnabled(result.getDocId());
+        return ApiResponse.success(result);
     }
 
     @DeleteMapping("/docs/{docId}")
@@ -65,9 +76,24 @@ public class AiKnowledgeController {
     }
 
     @PostMapping("/docs/{docId}/rebuild")
-    public ApiResponse<Map<String, Object>> rebuildChunks(@PathVariable("docId") String docId) {
+    public ApiResponse<RebuildResponse> rebuildChunks(@PathVariable("docId") String docId) {
         int chunkCount = knowledgeManagementService.rebuildChunks(docId);
-        return ApiResponse.success(Map.of("docId", docId, "chunkCount", chunkCount));
+        AiKnowledgeVectorIndexService.IndexResult indexResult = vectorIndexService.indexDocumentIfEnabled(docId);
+        return ApiResponse.success(new RebuildResponse(docId, chunkCount, indexResult));
+    }
+
+    @PostMapping("/docs/{docId}/reindex-vector")
+    public ApiResponse<AiKnowledgeVectorIndexService.IndexResult> reindexDocumentVector(
+            @PathVariable("docId") String docId
+    ) {
+        return ApiResponse.success(vectorIndexService.reindexDocument(docId));
+    }
+
+    @PostMapping("/reindex")
+    public ApiResponse<AiKnowledgeVectorIndexService.BulkIndexResult> reindexAll(
+            @RequestParam(value = "onlyMissing", defaultValue = "true") boolean onlyMissing
+    ) {
+        return ApiResponse.success(vectorIndexService.reindexAll(onlyMissing));
     }
 
     @GetMapping("/docs/{docId}/chunks")
@@ -85,6 +111,13 @@ public class AiKnowledgeController {
         String question = request == null ? null : request.getQuestion();
         List<String> kbIds = request == null ? null : request.getKbIds();
         Integer topK = request == null ? null : request.getTopK();
-        return ApiResponse.success(knowledgeManagementService.retrieve(question, kbIds, topK));
+        return ApiResponse.success(knowledgeRetrievalService.retrieve(question, kbIds, topK));
+    }
+
+    public record RebuildResponse(
+            String docId,
+            int chunkCount,
+            AiKnowledgeVectorIndexService.IndexResult vectorIndex
+    ) {
     }
 }

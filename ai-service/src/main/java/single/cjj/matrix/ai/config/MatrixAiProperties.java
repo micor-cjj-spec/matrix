@@ -14,6 +14,7 @@ public class MatrixAiProperties {
     private String systemPrompt = "你是 Matrix 企业财务平台的 AI 助手。默认使用中文回答，优先依据提供的业务知识回答；不知道时明确说明，不要编造系统能力或业务数据。";
 
     private String modelName = "gpt-4o-mini";
+    private String embeddingModelName = "text-embedding-3-small";
     private String knowledgeQaModel;
     private String financialAnalysisModel;
     private String toolCallingModel;
@@ -45,6 +46,14 @@ public class MatrixAiProperties {
 
     public void setModelName(String modelName) {
         this.modelName = modelName;
+    }
+
+    public String getEmbeddingModelName() {
+        return embeddingModelName;
+    }
+
+    public void setEmbeddingModelName(String embeddingModelName) {
+        this.embeddingModelName = embeddingModelName;
     }
 
     public String getKnowledgeQaModel() {

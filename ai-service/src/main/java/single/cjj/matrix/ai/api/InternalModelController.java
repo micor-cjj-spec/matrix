@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 import single.cjj.matrix.ai.security.InternalTokenGuard;
 import single.cjj.matrix.ai.service.AiTaskRouter;
+import single.cjj.matrix.ai.service.SpringAiEmbeddingGateway;
 import single.cjj.matrix.ai.service.SpringAiModelGateway;
 
 @RestController
@@ -19,10 +20,16 @@ import single.cjj.matrix.ai.service.SpringAiModelGateway;
 public class InternalModelController {
 
     private final SpringAiModelGateway modelGateway;
+    private final SpringAiEmbeddingGateway embeddingGateway;
     private final InternalTokenGuard tokenGuard;
 
-    public InternalModelController(SpringAiModelGateway modelGateway, InternalTokenGuard tokenGuard) {
+    public InternalModelController(
+            SpringAiModelGateway modelGateway,
+            SpringAiEmbeddingGateway embeddingGateway,
+            InternalTokenGuard tokenGuard
+    ) {
         this.modelGateway = modelGateway;
+        this.embeddingGateway = embeddingGateway;
         this.tokenGuard = tokenGuard;
     }
 
@@ -41,6 +48,15 @@ public class InternalModelController {
     ) {
         tokenGuard.verify(internalToken);
         return modelGateway.chat(request);
+    }
+
+    @PostMapping("/embeddings")
+    public ModelContracts.EmbeddingResponse embeddings(
+            @RequestHeader(value = InternalTokenGuard.HEADER_NAME, required = false) String internalToken,
+            @Valid @RequestBody ModelContracts.EmbeddingRequest request
+    ) {
+        tokenGuard.verify(internalToken);
+        return embeddingGateway.embed(request);
     }
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
