@@ -50,6 +50,10 @@ public class AiKnowledgeIndexJobService {
         this.properties = properties;
     }
 
+    public boolean isEnabled() {
+        return Boolean.TRUE.equals(properties.getEnabled());
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public AiKnowledgeIndexJobResponse createJob(
             String kbId,
@@ -59,6 +63,7 @@ public class AiKnowledgeIndexJobService {
             long fileSize,
             String contentHash
     ) {
+        requireEnabled();
         if (!StringUtils.hasText(docId)) {
             throw new BizException("知识文档编号不能为空");
         }
@@ -82,6 +87,9 @@ public class AiKnowledgeIndexJobService {
     }
 
     public List<AiKnowledgeIndexJobResponse> listJobs(String docId, String status, Integer limit) {
+        if (!isEnabled()) {
+            return List.of();
+        }
         LambdaQueryWrapper<BizfiAiKnowledgeIndexJob> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(docId)) {
             wrapper.eq(BizfiAiKnowledgeIndexJob::getFdocid, docId.trim());
@@ -97,6 +105,7 @@ public class AiKnowledgeIndexJobService {
 
     @Transactional(rollbackFor = Exception.class)
     public AiKnowledgeIndexJobResponse retry(String jobId) {
+        requireEnabled();
         BizfiAiKnowledgeIndexJob job = requireJob(jobId);
         if (RUNNING.equals(job.getFstatus())) {
             throw new BizException("索引任务正在执行，不能重复提交");
@@ -114,6 +123,7 @@ public class AiKnowledgeIndexJobService {
     }
 
     public AiKnowledgeIndexJobResponse createReindexJob(String docId) {
+        requireEnabled();
         BizfiAiKnowledgeDoc doc = docMapper.selectOne(new LambdaQueryWrapper<BizfiAiKnowledgeDoc>()
                 .eq(BizfiAiKnowledgeDoc::getFdocid, docId)
                 .last("limit 1"));
@@ -132,7 +142,7 @@ public class AiKnowledgeIndexJobService {
 
     @Scheduled(fixedDelayString = "${bizfi.ai.knowledge-ingestion.poll-delay-ms:5000}")
     public void dispatchPendingJobs() {
-        if (!Boolean.TRUE.equals(properties.getEnabled())) {
+        if (!isEnabled()) {
             return;
         }
         recoverStaleJobs();
@@ -235,7 +245,25 @@ public class AiKnowledgeIndexJobService {
         update.setFmodifytime(now);
         jobMapper.update(update, new LambdaUpdateWrapper<BizfiAiKnowledgeIndexJob>()
                 .eq(BizfiAiKnowledgeIndexJob::getFstatus, RUNNING)
-                .lt(BizfiAiKnowledgeIndexJob::getFstarttime, now.minusMinutes(staleMinutes)));
+                .lt(BizfiAiKnowledgeIndexJob::getFstarttime, now.minusMinutes(staleMinutes))
+                .apply("fattempts < fmaxattempts"));
+
+        BizfiAiKnowledgeIndexJob failed = new BizfiAiKnowledgeIndexJob();
+        failed.setFstatus(FAILED);
+        failed.setFerrormessage("任务执行超时且已达到最大重试次数");
+        failed.setFnextretrytime(null);
+        failed.setFfinishtime(now);
+        failed.setFmodifytime(now);
+        jobMapper.update(failed, new LambdaUpdateWrapper<BizfiAiKnowledgeIndexJob>()
+                .eq(BizfiAiKnowledgeIndexJob::getFstatus, RUNNING)
+                .lt(BizfiAiKnowledgeIndexJob::getFstarttime, now.minusMinutes(staleMinutes))
+                .apply("fattempts >= fmaxattempts"));
+    }
+
+    private void requireEnabled() {
+        if (!isEnabled()) {
+            throw new BizException("知识文件导入和异步索引功能未启用");
+        }
     }
 
     private BizfiAiKnowledgeIndexJob requireJob(String jobId) {
