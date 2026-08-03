@@ -19,6 +19,7 @@ import single.cjj.bizfi.ai.dto.AiKnowledgeDocSummaryResponse;
 import single.cjj.bizfi.ai.dto.AiKnowledgeRetrieveRequest;
 import single.cjj.bizfi.ai.service.AiKnowledgeManagementService;
 import single.cjj.bizfi.ai.service.AiKnowledgeService;
+import single.cjj.bizfi.ai.service.impl.AiKnowledgeAccessGuard;
 import single.cjj.bizfi.ai.service.impl.AiKnowledgeVectorIndexService;
 import single.cjj.bizfi.entity.ApiResponse;
 
@@ -36,6 +37,9 @@ public class AiKnowledgeController {
 
     @Autowired
     private AiKnowledgeVectorIndexService vectorIndexService;
+
+    @Autowired
+    private AiKnowledgeAccessGuard accessGuard;
 
     @GetMapping("/docs")
     public ApiResponse<IPage<AiKnowledgeDocSummaryResponse>> listDocs(
@@ -91,6 +95,7 @@ public class AiKnowledgeController {
     public ApiResponse<AiKnowledgeVectorIndexService.IndexResult> reindexDocumentVector(
             @PathVariable("docId") String docId
     ) {
+        accessGuard.assertCanEditDocument(docId);
         return ApiResponse.success(vectorIndexService.reindexDocument(docId));
     }
 
@@ -98,6 +103,7 @@ public class AiKnowledgeController {
     public ApiResponse<AiKnowledgeVectorIndexService.BulkIndexResult> reindexAll(
             @RequestParam(value = "onlyMissing", defaultValue = "true") boolean onlyMissing
     ) {
+        accessGuard.assertCanRunGlobalKnowledgeOperation();
         return ApiResponse.success(vectorIndexService.reindexAll(onlyMissing));
     }
 
