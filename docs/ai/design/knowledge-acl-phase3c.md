@@ -24,12 +24,21 @@ The highest matching permission wins.
 `bizfi_ai_knowledge_base_acl` supports:
 
 - `USER`: numeric Matrix user ID. It is matched against the authenticated principal.
-- `ORGANIZATION`: organization ID. It is matched against JWT authorities such as `org:88`, `org_88`, `organization:88`, or `organization_88`.
-- `AUTHORITY`: arbitrary Spring Security authority, for example `ROLE_FINANCE_KNOWLEDGE`.
+- `ORGANIZATION`: Matrix team ID (`bizfi_base_user.ftid`). It is issued in JWT `organizationIds` and mapped to `org:<id>`, `organization:<id>`, and `team:<id>` authorities.
+- `AUTHORITY`: arbitrary Spring Security authority, for example `ROLE_FINANCE_KNOWLEDGE`, `team:88`, or `department:9`.
 
-## JWT claim mapping
+Team and department IDs remain distinct. Department IDs are never interpreted as organization IDs.
 
-`JwtAuthenticationFilter` continues to use claim `id` as the principal and additionally reads:
+## JWT identity lifecycle
+
+`auth-service` continues to issue claim `id` as the user principal and now includes:
+
+- `organizationIds`: the user's `ftid`, when present
+- `departmentIds`: the user's `fdptid`, when present
+
+These dedicated claims are intentionally separate from `roles` and `authorities`, so Gateway does not forward teams or departments as `X-User-Roles`.
+
+`base-service` also accepts externally issued identity claims:
 
 - `authorities`
 - `permissions`
@@ -39,10 +48,17 @@ The highest matching permission wins.
 - `organizationId`
 - `orgIds`
 - `orgId`
+- `departmentIds`
+- `departmentId`
 
-Organization claims are converted to both `org:<id>` and `organization:<id>` authorities. Role claims also receive a `ROLE_` alias when the prefix is absent.
+Mapping rules:
 
-Tokens without these claims remain valid and can use USER ACL entries.
+- organization IDs become `org:<id>`, `organization:<id>`, and `team:<id>`
+- department IDs become `department:<id>`
+- role claims receive a `ROLE_` alias when the prefix is absent
+- explicit authorities and permissions are preserved
+
+Tokens without the new claims remain valid and can use USER ACL entries. Existing sessions must log in again before organization or department grants take effect. Tokens expire after one hour, so stale organization membership is bounded by the existing token lifetime.
 
 ## Protected paths
 
@@ -94,16 +110,19 @@ System-administrator configuration is a global bypass and should be limited to o
 
 ## Deployment order
 
-1. Deploy Phase 3C backend with `AI_KNOWLEDGE_ACL_ENABLED=false`.
-2. Verify existing knowledge CRUD, retrieval, ingestion, and indexing behavior.
+1. Deploy Phase 3C `auth-service` and `base-service` with `AI_KNOWLEDGE_ACL_ENABLED=false`.
+2. Verify existing login, knowledge CRUD, retrieval, ingestion, and indexing behavior.
 3. Apply `sql/bizfi_ai_knowledge_acl_v6.sql`.
 4. Configure at least one system administrator through `AI_KNOWLEDGE_ACL_ADMIN_USER_IDS` or `AI_KNOWLEDGE_ACL_ADMIN_AUTHORITIES`.
 5. Insert at least one OWNER for every existing knowledge base. The V6 migration contains examples.
 6. Add required organization, user, and authority grants.
 7. Verify ACL entries through the API or frontend shield launcher.
 8. Set `AI_KNOWLEDGE_ACL_ENABLED=true` and restart `base-service`.
-9. Test one VIEWER, EDITOR, ADMIN, OWNER, and unauthorized account.
-10. Deploy the Phase 3C frontend.
+9. Sign out and sign in again so the token includes current team and department claims.
+10. Test one VIEWER, EDITOR, ADMIN, OWNER, and unauthorized account.
+11. Deploy the Phase 3C frontend.
+
+Re-run the existing-base bootstrap immediately before enabling ACL if knowledge bases were created while the feature flag remained disabled.
 
 New knowledge bases created after ACL is enabled automatically grant the creator USER/OWNER in the same transaction.
 
@@ -118,6 +137,18 @@ While ACL is disabled:
 - the frontend shows rollout guidance instead of loading ACL members
 
 ACL management endpoints themselves require the V6 table because they are used for bootstrap and administration.
+
+## Query behavior
+
+Interactive access resolution queries only ACL rows matching the current user ID, organization IDs, or authorities. The V6 indexes support these subject lookups. Invalid stored permission values fail closed and do not grant VIEWER access.
+
+RAG scope resolution calculates:
+
+```text
+requested knowledge scope ∩ current principal's accessible knowledge bases
+```
+
+Legacy direct document-ID scopes are resolved back to their owning knowledge base before retrieval, preventing cross-base bypass.
 
 ## Rollback
 
@@ -137,7 +168,9 @@ After enabling ACL, validate:
 
 - unauthorized users receive no knowledge bases and no retrieval citations
 - legacy document-ID retrieval cannot cross into an inaccessible knowledge base
-- organization authorities grant the expected effective permission
+- a team ORGANIZATION grant works only after the user obtains a refreshed token
+- `department:<id>` can be used as an AUTHORITY grant without becoming an organization ID
+- Gateway does not expose team or department claims as `X-User-Roles`
 - non-admin users cannot list or change ACL members
 - ADMIN cannot remove or demote the final OWNER
 - global reindex is rejected for non-system administrators
