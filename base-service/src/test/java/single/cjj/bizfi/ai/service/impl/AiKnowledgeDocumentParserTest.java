@@ -44,6 +44,18 @@ class AiKnowledgeDocumentParserTest {
     }
 
     @Test
+    void shouldRejectEmptyFile() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "empty.txt",
+                "text/plain",
+                new byte[0]
+        );
+
+        assertThrows(BizException.class, () -> parser.parse(file));
+    }
+
+    @Test
     void shouldRejectContentThatDoesNotMatchPdfExtension() {
         MockMultipartFile file = new MockMultipartFile(
                 "file",
