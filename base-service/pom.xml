@@ -176,7 +176,7 @@
                     <execution>
                         <goals>
                             <goal>repackage</goal>
-                        </executions>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>
