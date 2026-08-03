@@ -1,6 +1,7 @@
 package single.cjj.bizfi.utils;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -11,7 +12,11 @@ import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 @Component
 public class JwtUtils {
@@ -28,9 +33,35 @@ public class JwtUtils {
     }
 
     public static String generateToken(Long userId, Long username) {
-        return Jwts.builder()
+        return generateToken(userId, username, null, null);
+    }
+
+    public static String generateToken(
+            Long userId,
+            Long username,
+            Long organizationId,
+            Long departmentId
+    ) {
+        JwtBuilder builder = Jwts.builder()
                 .claim("id", userId)
-                .claim("username", username)
+                .claim("username", username);
+
+        if (organizationId != null && organizationId > 0) {
+            builder.claim("organizationIds", List.of(organizationId));
+        }
+
+        Set<String> authorities = new LinkedHashSet<>();
+        if (organizationId != null && organizationId > 0) {
+            authorities.add("team:" + organizationId);
+        }
+        if (departmentId != null && departmentId > 0) {
+            authorities.add("department:" + departmentId);
+        }
+        if (!authorities.isEmpty()) {
+            builder.claim("authorities", new ArrayList<>(authorities));
+        }
+
+        return builder
                 .setExpiration(new Date(System.currentTimeMillis() + EXPIRE))
                 .signWith(requireSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
