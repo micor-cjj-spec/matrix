@@ -11,13 +11,12 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import single.cjj.bizfi.ai.config.KnowledgeIngestionProperties;
-import single.cjj.bizfi.ai.dto.AiKnowledgeDocDetailResponse;
 import single.cjj.bizfi.ai.dto.AiKnowledgeDocRequest;
 import single.cjj.bizfi.ai.dto.AiKnowledgeImportResponse;
 import single.cjj.bizfi.ai.dto.AiKnowledgeIndexJobResponse;
-import single.cjj.bizfi.ai.service.AiKnowledgeManagementService;
 import single.cjj.bizfi.ai.service.impl.AiKnowledgeDocumentParser;
 import single.cjj.bizfi.ai.service.impl.AiKnowledgeIndexJobService;
+import single.cjj.bizfi.ai.service.impl.AiKnowledgeIngestionService;
 import single.cjj.bizfi.entity.ApiResponse;
 
 import java.util.List;
@@ -27,18 +26,18 @@ import java.util.List;
 public class AiKnowledgeIngestionController {
 
     private final AiKnowledgeDocumentParser documentParser;
-    private final AiKnowledgeManagementService knowledgeManagementService;
+    private final AiKnowledgeIngestionService ingestionService;
     private final AiKnowledgeIndexJobService indexJobService;
     private final KnowledgeIngestionProperties properties;
 
     public AiKnowledgeIngestionController(
             AiKnowledgeDocumentParser documentParser,
-            AiKnowledgeManagementService knowledgeManagementService,
+            AiKnowledgeIngestionService ingestionService,
             AiKnowledgeIndexJobService indexJobService,
             KnowledgeIngestionProperties properties
     ) {
         this.documentParser = documentParser;
-        this.knowledgeManagementService = knowledgeManagementService;
+        this.ingestionService = ingestionService;
         this.indexJobService = indexJobService;
         this.properties = properties;
     }
@@ -61,17 +60,7 @@ public class AiKnowledgeIngestionController {
         request.setContent(parsed.content());
         request.setVersion(version);
         request.setStatus(status);
-
-        AiKnowledgeDocDetailResponse document = knowledgeManagementService.createDoc(request);
-        AiKnowledgeIndexJobResponse job = indexJobService.createJob(
-                document.getKbId(),
-                document.getDocId(),
-                parsed.fileName(),
-                parsed.mediaType(),
-                parsed.fileSize(),
-                parsed.contentHash()
-        );
-        return ApiResponse.success(new AiKnowledgeImportResponse(document, job));
+        return ApiResponse.success(ingestionService.createImportedDocument(request, parsed));
     }
 
     @GetMapping("/index-jobs")
