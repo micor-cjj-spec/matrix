@@ -14,8 +14,8 @@ import single.cjj.bizfi.ai.config.KnowledgeIngestionProperties;
 import single.cjj.bizfi.ai.dto.AiKnowledgeDocRequest;
 import single.cjj.bizfi.ai.dto.AiKnowledgeImportResponse;
 import single.cjj.bizfi.ai.dto.AiKnowledgeIndexJobResponse;
+import single.cjj.bizfi.ai.service.impl.AclAwareAiKnowledgeIndexJobService;
 import single.cjj.bizfi.ai.service.impl.AiKnowledgeDocumentParser;
-import single.cjj.bizfi.ai.service.impl.AiKnowledgeIndexJobService;
 import single.cjj.bizfi.ai.service.impl.AiKnowledgeIngestionService;
 import single.cjj.bizfi.entity.ApiResponse;
 
@@ -27,13 +27,13 @@ public class AiKnowledgeIngestionController {
 
     private final AiKnowledgeDocumentParser documentParser;
     private final AiKnowledgeIngestionService ingestionService;
-    private final AiKnowledgeIndexJobService indexJobService;
+    private final AclAwareAiKnowledgeIndexJobService indexJobService;
     private final KnowledgeIngestionProperties properties;
 
     public AiKnowledgeIngestionController(
             AiKnowledgeDocumentParser documentParser,
             AiKnowledgeIngestionService ingestionService,
-            AiKnowledgeIndexJobService indexJobService,
+            AclAwareAiKnowledgeIndexJobService indexJobService,
             KnowledgeIngestionProperties properties
     ) {
         this.documentParser = documentParser;
