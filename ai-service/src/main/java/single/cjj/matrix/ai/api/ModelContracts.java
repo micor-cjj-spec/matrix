@@ -2,6 +2,8 @@ package single.cjj.matrix.ai.api;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
@@ -82,6 +84,20 @@ public final class ModelContracts {
             Integer completionTokens,
             Integer totalTokens,
             Double estimatedCost
+    ) {
+    }
+
+    public record EmbeddingRequest(
+            @NotEmpty
+            @Size(max = 32)
+            List<@NotBlank @Size(max = 8000) String> texts
+    ) {
+    }
+
+    public record EmbeddingResponse(
+            String model,
+            Integer dimensions,
+            List<List<Double>> vectors
     ) {
     }
 
