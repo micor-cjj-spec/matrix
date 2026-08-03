@@ -2,10 +2,12 @@ package single.cjj.bizfi.ai.config;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.springframework.beans.factory.annotation.Qualifier;
+import jakarta.annotation.PreDestroy;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -20,8 +22,36 @@ import javax.sql.DataSource;
 )
 public class PgVectorDataSourceConfig {
 
-    @Bean(name = "pgVectorDataSource", destroyMethod = "close")
-    public HikariDataSource pgVectorDataSource(AiVectorStoreProperties properties) {
+    private HikariDataSource pgVectorDataSource;
+
+    @Bean(name = "jdbcTemplate")
+    @Primary
+    @ConditionalOnMissingBean(name = "jdbcTemplate")
+    public JdbcTemplate jdbcTemplate(DataSource dataSource) {
+        return new JdbcTemplate(dataSource);
+    }
+
+    @Bean(name = "pgVectorJdbcTemplate")
+    public JdbcTemplate pgVectorJdbcTemplate(AiVectorStoreProperties properties) {
+        return new JdbcTemplate(pgVectorDataSource(properties));
+    }
+
+    @Bean(name = "pgVectorTransactionManager")
+    public PlatformTransactionManager pgVectorTransactionManager(AiVectorStoreProperties properties) {
+        return new DataSourceTransactionManager(pgVectorDataSource(properties));
+    }
+
+    @PreDestroy
+    public void closePgVectorDataSource() {
+        if (pgVectorDataSource != null) {
+            pgVectorDataSource.close();
+        }
+    }
+
+    private synchronized HikariDataSource pgVectorDataSource(AiVectorStoreProperties properties) {
+        if (pgVectorDataSource != null) {
+            return pgVectorDataSource;
+        }
         AiVectorStoreProperties.PgVector settings = properties.getPgvector();
         HikariConfig config = new HikariConfig();
         config.setPoolName("matrix-pgvector-pool");
@@ -33,21 +63,8 @@ public class PgVectorDataSourceConfig {
         config.setMinimumIdle(0);
         config.setConnectionTimeout(resolvePositive(settings.getConnectionTimeoutMs(), 5000L));
         config.setValidationTimeout(Math.min(3000L, config.getConnectionTimeout()));
-        return new HikariDataSource(config);
-    }
-
-    @Bean(name = "pgVectorJdbcTemplate")
-    public JdbcTemplate pgVectorJdbcTemplate(
-            @Qualifier("pgVectorDataSource") DataSource dataSource
-    ) {
-        return new JdbcTemplate(dataSource);
-    }
-
-    @Bean(name = "pgVectorTransactionManager")
-    public PlatformTransactionManager pgVectorTransactionManager(
-            @Qualifier("pgVectorDataSource") DataSource dataSource
-    ) {
-        return new DataSourceTransactionManager(dataSource);
+        pgVectorDataSource = new HikariDataSource(config);
+        return pgVectorDataSource;
     }
 
     private int resolvePositive(Integer value, int fallback) {
