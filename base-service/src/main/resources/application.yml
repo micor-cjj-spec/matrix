@@ -50,6 +50,10 @@ bizfi:
       batch-size: ${AI_KNOWLEDGE_INDEX_BATCH_SIZE:5}
       poll-delay-ms: ${AI_KNOWLEDGE_INDEX_POLL_DELAY_MS:5000}
       stale-running-minutes: ${AI_KNOWLEDGE_INDEX_STALE_MINUTES:15}
+    knowledge-acl:
+      enabled: ${AI_KNOWLEDGE_ACL_ENABLED:false}
+      admin-user-ids: ${AI_KNOWLEDGE_ACL_ADMIN_USER_IDS:}
+      admin-authorities: ${AI_KNOWLEDGE_ACL_ADMIN_AUTHORITIES:ROLE_ADMIN,ROLE_SUPER_ADMIN,admin,super_admin}
     vector-store:
       type: ${AI_VECTOR_STORE_TYPE:mysql-json}
       dual-write-enabled: ${AI_VECTOR_DUAL_WRITE_ENABLED:false}
