@@ -17,11 +17,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 @Service
 public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
 
     public static final String DEFAULT_KB_ID = "default";
+    private static final Set<String> RESERVED_GLOBAL_IDS = Set.of("all", "knowledge", "bizfi");
 
     private final BizfiAiKnowledgeBaseMapper knowledgeBaseMapper;
     private final BizfiAiKnowledgeDocMapper knowledgeDocMapper;
@@ -57,6 +59,7 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
         if (!StringUtils.hasText(kbId)) {
             kbId = generateKbId(request.getName());
         }
+        validateNewKbId(kbId);
         if (findBase(kbId) != null) {
             throw new BizException("知识库编号已存在");
         }
@@ -87,7 +90,11 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
             base.setFdescription(normalizeDescription(request.getDescription()));
         }
         if (request.getStatus() != null) {
-            base.setFstatus(normalizeStatus(request.getStatus()));
+            String nextStatus = normalizeStatus(request.getStatus());
+            if (DEFAULT_KB_ID.equals(base.getFkbid()) && !"ACTIVE".equals(nextStatus)) {
+                throw new BizException("默认知识库必须保持启用");
+            }
+            base.setFstatus(nextStatus);
         }
         base.setFmodifytime(LocalDateTime.now());
         knowledgeBaseMapper.updateById(base);
@@ -152,6 +159,15 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
         return base;
     }
 
+    private void validateNewKbId(String kbId) {
+        if (!StringUtils.hasText(kbId)) {
+            throw new BizException("知识库编号不能为空");
+        }
+        if (RESERVED_GLOBAL_IDS.contains(kbId)) {
+            throw new BizException("该知识库编号为系统保留范围标识");
+        }
+    }
+
     private String normalizeKbId(String kbId) {
         if (!StringUtils.hasText(kbId)) {
             return "";
@@ -159,6 +175,7 @@ public class AiKnowledgeBaseServiceImpl implements AiKnowledgeBaseService {
         String normalized = kbId.trim()
                 .replaceAll("[^A-Za-z0-9_-]", "_")
                 .replaceAll("_+", "_")
+                .replaceAll("^_+|_+$", "")
                 .toLowerCase(Locale.ROOT);
         return normalized.length() <= 64 ? normalized : normalized.substring(0, 64);
     }
