@@ -19,6 +19,17 @@ class KnowledgeEvaluationSecurityValidatorTest {
     }
 
     @Test
+    void shouldIgnoreWorkerAuthorityWhileAclIsDisabled() {
+        KnowledgeEvaluationProperties evaluation = new KnowledgeEvaluationProperties();
+        evaluation.setEnabled(true);
+        KnowledgeAclProperties acl = new KnowledgeAclProperties();
+        acl.setEnabled(false);
+        acl.setAdminAuthorities("");
+
+        assertDoesNotThrow(() -> new KnowledgeEvaluationSecurityValidator(evaluation, acl).validate());
+    }
+
+    @Test
     void shouldRequireWorkerAuthorityWhenAclAndEvaluationAreEnabled() {
         KnowledgeEvaluationProperties evaluation = new KnowledgeEvaluationProperties();
         evaluation.setEnabled(true);
