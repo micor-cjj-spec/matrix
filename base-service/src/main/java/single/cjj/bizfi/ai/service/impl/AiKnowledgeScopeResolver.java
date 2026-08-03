@@ -51,11 +51,15 @@ public class AiKnowledgeScopeResolver {
             return null;
         }
 
-        Set<String> activeBaseIds = knowledgeBaseMapper.selectList(
-                        new LambdaQueryWrapper<BizfiAiKnowledgeBase>()
-                                .in(BizfiAiKnowledgeBase::getFkbid, scopes)
-                                .eq(BizfiAiKnowledgeBase::getFstatus, "ACTIVE")
-                ).stream()
+        List<BizfiAiKnowledgeBase> matchingBases = knowledgeBaseMapper.selectList(
+                new LambdaQueryWrapper<BizfiAiKnowledgeBase>()
+                        .in(BizfiAiKnowledgeBase::getFkbid, scopes)
+        );
+        Set<String> knownBaseIds = matchingBases.stream()
+                .map(BizfiAiKnowledgeBase::getFkbid)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Set<String> activeBaseIds = matchingBases.stream()
+                .filter(base -> "ACTIVE".equals(base.getFstatus()))
                 .map(BizfiAiKnowledgeBase::getFkbid)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
@@ -72,7 +76,7 @@ public class AiKnowledgeScopeResolver {
         }
 
         scopes.stream()
-                .filter(scope -> !activeBaseIds.contains(scope))
+                .filter(scope -> !knownBaseIds.contains(scope))
                 .map(this::normalizeDocId)
                 .filter(StringUtils::hasText)
                 .forEach(documentIds::add);
