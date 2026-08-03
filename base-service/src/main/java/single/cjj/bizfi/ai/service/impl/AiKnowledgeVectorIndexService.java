@@ -5,16 +5,24 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import single.cjj.bizfi.ai.config.AiProperties;
+import single.cjj.bizfi.ai.config.AiVectorStoreProperties;
 import single.cjj.bizfi.ai.entity.BizfiAiKnowledgeChunk;
 import single.cjj.bizfi.ai.mapper.BizfiAiKnowledgeChunkMapper;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -26,17 +34,23 @@ public class AiKnowledgeVectorIndexService {
     private final AiEmbeddingClient embeddingClient;
     private final ObjectMapper objectMapper;
     private final AiProperties properties;
+    private final AiVectorStoreProperties vectorStoreProperties;
+    private final ObjectProvider<PgVectorKnowledgeRepository> pgVectorRepositoryProvider;
 
     public AiKnowledgeVectorIndexService(
             BizfiAiKnowledgeChunkMapper chunkMapper,
             AiEmbeddingClient embeddingClient,
             ObjectMapper objectMapper,
-            AiProperties properties
+            AiProperties properties,
+            AiVectorStoreProperties vectorStoreProperties,
+            ObjectProvider<PgVectorKnowledgeRepository> pgVectorRepositoryProvider
     ) {
         this.chunkMapper = chunkMapper;
         this.embeddingClient = embeddingClient;
         this.objectMapper = objectMapper;
         this.properties = properties;
+        this.vectorStoreProperties = vectorStoreProperties;
+        this.pgVectorRepositoryProvider = pgVectorRepositoryProvider;
     }
 
     public boolean isEnabled() {
@@ -63,20 +77,24 @@ public class AiKnowledgeVectorIndexService {
         if (!StringUtils.hasText(docId)) {
             throw new IllegalArgumentException("docId 不能为空");
         }
+        String normalizedDocId = docId.trim();
 
         List<BizfiAiKnowledgeChunk> chunks = chunkMapper.selectList(
                 new LambdaQueryWrapper<BizfiAiKnowledgeChunk>()
-                        .eq(BizfiAiKnowledgeChunk::getFdocid, docId.trim())
+                        .eq(BizfiAiKnowledgeChunk::getFdocid, normalizedDocId)
                         .orderByAsc(BizfiAiKnowledgeChunk::getFseq)
         );
         if (chunks == null || chunks.isEmpty()) {
-            return new IndexResult(docId.trim(), 0, null, 0, "EMPTY");
+            deleteDocument(normalizedDocId);
+            return new IndexResult(normalizedDocId, 0, null, 0, "EMPTY");
         }
 
         int batchSize = resolveBatchSize();
         int indexed = 0;
         String model = null;
         Integer dimensions = null;
+        List<PgVectorKnowledgeRepository.KnowledgeVectorRecord> pgVectorRecords = new ArrayList<>();
+
         for (int start = 0; start < chunks.size(); start += batchSize) {
             int end = Math.min(chunks.size(), start + batchSize);
             List<BizfiAiKnowledgeChunk> batchChunks = chunks.subList(start, end);
@@ -91,22 +109,30 @@ public class AiKnowledgeVectorIndexService {
             LocalDateTime indexedAt = LocalDateTime.now();
             for (int offset = 0; offset < batchChunks.size(); offset++) {
                 BizfiAiKnowledgeChunk chunk = batchChunks.get(offset);
-                chunk.setFembedding(toJson(batch.vectors().get(offset)));
-                chunk.setFembeddingmodel(model);
-                chunk.setFembeddingdimensions(dimensions);
-                chunk.setFembeddingtime(indexedAt);
-                chunkMapper.updateById(chunk);
+                List<Double> vector = batch.vectors().get(offset);
+                persistMysqlIndexMetadata(chunk, vector, model, dimensions, indexedAt);
+                pgVectorRecords.add(toPgVectorRecord(chunk, vector, model, dimensions, indexedAt));
                 indexed++;
             }
         }
 
-        return new IndexResult(docId.trim(), indexed, model, dimensions == null ? 0 : dimensions, "INDEXED");
+        boolean pgVectorWriteSucceeded = writePgVectorIfRequired(normalizedDocId, pgVectorRecords);
+        String status = vectorStoreProperties.shouldWritePgVector() && !pgVectorWriteSucceeded
+                ? "PARTIAL"
+                : "INDEXED";
+        return new IndexResult(
+                normalizedDocId,
+                indexed,
+                model,
+                dimensions == null ? 0 : dimensions,
+                status
+        );
     }
 
     public BulkIndexResult reindexAll(boolean onlyMissing) {
         requireEnabled();
         LambdaQueryWrapper<BizfiAiKnowledgeChunk> wrapper = new LambdaQueryWrapper<>();
-        if (onlyMissing) {
+        if (onlyMissing && vectorStoreProperties.shouldWriteMysqlJson()) {
             wrapper.and(query -> query.isNull(BizfiAiKnowledgeChunk::getFembedding)
                     .or()
                     .eq(BizfiAiKnowledgeChunk::getFembedding, ""));
@@ -126,20 +152,144 @@ public class AiKnowledgeVectorIndexService {
         int indexedDocuments = 0;
         int indexedChunks = 0;
         List<String> failedDocIds = new ArrayList<>();
-        for (String docId : docIds) {
+        for (String currentDocId : docIds) {
             try {
-                IndexResult result = reindexDocument(docId);
-                indexedDocuments++;
-                indexedChunks += result.indexedChunks();
+                IndexResult result = reindexDocument(currentDocId);
+                if (!"FAILED".equals(result.status())) {
+                    indexedDocuments++;
+                    indexedChunks += result.indexedChunks();
+                }
+                if ("PARTIAL".equals(result.status())) {
+                    failedDocIds.add(currentDocId);
+                }
             } catch (RuntimeException failure) {
-                failedDocIds.add(docId);
+                failedDocIds.add(currentDocId);
                 if (!Boolean.TRUE.equals(properties.getSemanticFailOpen())) {
                     throw failure;
                 }
-                log.warn("Bulk knowledge embedding indexing failed. docId={}", docId, failure);
+                log.warn("Bulk knowledge embedding indexing failed. docId={}", currentDocId, failure);
             }
         }
         return new BulkIndexResult(docIds.size(), indexedDocuments, indexedChunks, failedDocIds);
+    }
+
+    public BulkIndexResult migrateAllToPgVector() {
+        requireEnabled();
+        if (!Boolean.TRUE.equals(vectorStoreProperties.getPgvector().getEnabled())) {
+            throw new IllegalStateException("AI_PGVECTOR_ENABLED 未启用");
+        }
+        if (!vectorStoreProperties.shouldWritePgVector()) {
+            throw new IllegalStateException(
+                    "迁移前请启用 AI_VECTOR_DUAL_WRITE_ENABLED，或将 AI_VECTOR_STORE_TYPE 设置为 pgvector"
+            );
+        }
+        return reindexAll(false);
+    }
+
+    public void deleteDocument(String docId) {
+        if (!StringUtils.hasText(docId) || !Boolean.TRUE.equals(vectorStoreProperties.getPgvector().getEnabled())) {
+            return;
+        }
+        PgVectorKnowledgeRepository repository = pgVectorRepositoryProvider.getIfAvailable();
+        if (repository == null) {
+            if (vectorStoreProperties.shouldWritePgVector()
+                    && !Boolean.TRUE.equals(properties.getSemanticFailOpen())) {
+                throw new IllegalStateException("PGVector Repository 未启用");
+            }
+            return;
+        }
+        try {
+            repository.deleteByDocumentId(docId.trim());
+        } catch (RuntimeException failure) {
+            if (!Boolean.TRUE.equals(properties.getSemanticFailOpen())) {
+                throw failure;
+            }
+            log.warn("Delete PGVector knowledge records failed. docId={}", docId, failure);
+        }
+    }
+
+    public VectorStoreStatus vectorStoreStatus() {
+        PgVectorKnowledgeRepository repository = pgVectorRepositoryProvider.getIfAvailable();
+        boolean pgVectorReady = repository != null && repository.isReady();
+        return new VectorStoreStatus(
+                vectorStoreProperties.getType(),
+                Boolean.TRUE.equals(vectorStoreProperties.getDualWriteEnabled()),
+                Boolean.TRUE.equals(vectorStoreProperties.getReadFallbackEnabled()),
+                Boolean.TRUE.equals(vectorStoreProperties.getPgvector().getEnabled()),
+                pgVectorReady,
+                vectorStoreProperties.getPgvector().getDimensions()
+        );
+    }
+
+    private void persistMysqlIndexMetadata(
+            BizfiAiKnowledgeChunk chunk,
+            List<Double> vector,
+            String model,
+            Integer dimensions,
+            LocalDateTime indexedAt
+    ) {
+        if (vectorStoreProperties.shouldWriteMysqlJson()) {
+            chunk.setFembedding(toJson(vector));
+        }
+        chunk.setFembeddingmodel(model);
+        chunk.setFembeddingdimensions(dimensions);
+        chunk.setFembeddingtime(indexedAt);
+        chunkMapper.updateById(chunk);
+    }
+
+    private PgVectorKnowledgeRepository.KnowledgeVectorRecord toPgVectorRecord(
+            BizfiAiKnowledgeChunk chunk,
+            List<Double> vector,
+            String model,
+            int dimensions,
+            LocalDateTime indexedAt
+    ) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        if (chunk.getFseq() != null) {
+            metadata.put("sequence", chunk.getFseq());
+        }
+        metadata.put("source", "matrix-knowledge");
+        return new PgVectorKnowledgeRepository.KnowledgeVectorRecord(
+                chunk.getFchunkid(),
+                chunk.getFdocid(),
+                chunk.getFcontent(),
+                sha256(chunk.getFcontent()),
+                toJson(metadata),
+                vector,
+                model,
+                dimensions,
+                indexedAt
+        );
+    }
+
+    private boolean writePgVectorIfRequired(
+            String docId,
+            List<PgVectorKnowledgeRepository.KnowledgeVectorRecord> records
+    ) {
+        if (!vectorStoreProperties.shouldWritePgVector()) {
+            return true;
+        }
+        PgVectorKnowledgeRepository repository = pgVectorRepositoryProvider.getIfAvailable();
+        if (repository == null) {
+            return handlePgVectorWriteFailure(
+                    docId,
+                    new IllegalStateException("PGVector Repository 未启用")
+            );
+        }
+        try {
+            repository.replaceDocument(docId, records);
+            return true;
+        } catch (RuntimeException failure) {
+            return handlePgVectorWriteFailure(docId, failure);
+        }
+    }
+
+    private boolean handlePgVectorWriteFailure(String docId, RuntimeException failure) {
+        if (!Boolean.TRUE.equals(properties.getSemanticFailOpen())) {
+            throw failure;
+        }
+        log.warn("Write PGVector knowledge records failed. docId={}", docId, failure);
+        return false;
     }
 
     private void requireEnabled() {
@@ -160,13 +310,34 @@ public class AiKnowledgeVectorIndexService {
                 throw new IllegalStateException("Embedding 向量维度不一致");
             }
         }
+        if (vectorStoreProperties.shouldWritePgVector()) {
+            Integer configuredDimensions = vectorStoreProperties.getPgvector().getDimensions();
+            if (configuredDimensions != null
+                    && configuredDimensions > 0
+                    && !configuredDimensions.equals(batch.dimensions())) {
+                throw new IllegalStateException(
+                        "Embedding 维度 " + batch.dimensions()
+                                + " 与 PGVector 配置维度 " + configuredDimensions + " 不一致"
+                );
+            }
+        }
     }
 
-    private String toJson(List<Double> vector) {
+    private String toJson(Object value) {
         try {
-            return objectMapper.writeValueAsString(vector);
+            return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException failure) {
-            throw new IllegalStateException("Embedding 向量序列化失败", failure);
+            throw new IllegalStateException("知识向量数据序列化失败", failure);
+        }
+    }
+
+    private String sha256(String content) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] bytes = digest.digest((content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(bytes);
+        } catch (NoSuchAlgorithmException failure) {
+            throw new IllegalStateException("JVM 不支持 SHA-256", failure);
         }
     }
 
@@ -192,6 +363,16 @@ public class AiKnowledgeVectorIndexService {
             int indexedDocuments,
             int indexedChunks,
             List<String> failedDocIds
+    ) {
+    }
+
+    public record VectorStoreStatus(
+            String readStore,
+            boolean dualWriteEnabled,
+            boolean readFallbackEnabled,
+            boolean pgVectorEnabled,
+            boolean pgVectorReady,
+            Integer dimensions
     ) {
     }
 }
