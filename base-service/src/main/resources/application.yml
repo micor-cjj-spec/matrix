@@ -5,6 +5,11 @@ spring:
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
+  servlet:
+    multipart:
+      max-file-size: ${AI_KNOWLEDGE_MAX_FILE_SIZE:10MB}
+      max-request-size: ${AI_KNOWLEDGE_MAX_REQUEST_SIZE:11MB}
+
   config:
     import: "nacos:${spring.application.name}"
 
@@ -37,6 +42,14 @@ bizfi:
     hybrid-semantic-weight: ${AI_HYBRID_SEMANTIC_WEIGHT:1.0}
     hybrid-rrf-k: ${AI_HYBRID_RRF_K:60}
     embedding-batch-size: ${AI_EMBEDDING_BATCH_SIZE:16}
+    knowledge-ingestion:
+      enabled: ${AI_KNOWLEDGE_INGESTION_ENABLED:false}
+      max-file-size-bytes: ${AI_KNOWLEDGE_MAX_FILE_SIZE_BYTES:10485760}
+      max-extracted-characters: ${AI_KNOWLEDGE_MAX_EXTRACTED_CHARACTERS:2000000}
+      max-attempts: ${AI_KNOWLEDGE_INDEX_MAX_ATTEMPTS:3}
+      batch-size: ${AI_KNOWLEDGE_INDEX_BATCH_SIZE:5}
+      poll-delay-ms: ${AI_KNOWLEDGE_INDEX_POLL_DELAY_MS:5000}
+      stale-running-minutes: ${AI_KNOWLEDGE_INDEX_STALE_MINUTES:15}
     vector-store:
       type: ${AI_VECTOR_STORE_TYPE:mysql-json}
       dual-write-enabled: ${AI_VECTOR_DUAL_WRITE_ENABLED:false}
