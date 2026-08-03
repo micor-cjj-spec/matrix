@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class AiKnowledgeDocRequest {
+    private String kbId;
     private String docId;
     private String title;
     private String category;
