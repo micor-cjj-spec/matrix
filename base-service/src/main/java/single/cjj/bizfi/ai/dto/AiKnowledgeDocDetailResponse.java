@@ -12,6 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 public class AiKnowledgeDocDetailResponse {
     private Long fid;
+    private String kbId;
     private String docId;
     private String title;
     private String category;
