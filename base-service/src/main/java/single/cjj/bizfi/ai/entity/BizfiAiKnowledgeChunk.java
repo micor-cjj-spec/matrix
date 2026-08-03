@@ -26,5 +26,9 @@ public class BizfiAiKnowledgeChunk implements Serializable {
     private Integer fseq;
     private String fcontent;
     private String fkeywords;
+    private String fembedding;
+    private String fembeddingmodel;
+    private Integer fembeddingdimensions;
+    private LocalDateTime fembeddingtime;
     private LocalDateTime fcreatetime;
 }
