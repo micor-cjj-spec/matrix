@@ -72,7 +72,11 @@ public class AiKnowledgeController {
 
     @DeleteMapping("/docs/{docId}")
     public ApiResponse<Boolean> deleteDoc(@PathVariable("docId") String docId) {
-        return ApiResponse.success(knowledgeManagementService.deleteDoc(docId));
+        boolean deleted = knowledgeManagementService.deleteDoc(docId);
+        if (deleted) {
+            vectorIndexService.deleteDocument(docId);
+        }
+        return ApiResponse.success(deleted);
     }
 
     @PostMapping("/docs/{docId}/rebuild")
