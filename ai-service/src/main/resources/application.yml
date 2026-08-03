@@ -24,6 +24,7 @@ spring:
   ai:
     model:
       chat: openai
+      embedding: openai
     openai:
       api-key: ${AI_API_KEY}
       base-url: ${AI_BASE_URL:https://api.openai.com}
@@ -31,11 +32,16 @@ spring:
         completions-path: ${AI_COMPLETIONS_PATH:/v1/chat/completions}
         options:
           model: ${AI_CHAT_MODEL:gpt-4o-mini}
+      embedding:
+        embeddings-path: ${AI_EMBEDDINGS_PATH:/v1/embeddings}
+        options:
+          model: ${AI_EMBEDDING_MODEL:text-embedding-3-small}
 
 matrix:
   ai:
     internal-token: ${AI_INTERNAL_TOKEN}
     model-name: ${AI_CHAT_MODEL:gpt-4o-mini}
+    embedding-model-name: ${AI_EMBEDDING_MODEL:text-embedding-3-small}
     knowledge-qa-model: ${AI_MODEL_KNOWLEDGE_QA:}
     financial-analysis-model: ${AI_MODEL_FINANCIAL_ANALYSIS:}
     tool-calling-model: ${AI_MODEL_TOOL_CALLING:}
