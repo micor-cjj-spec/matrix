@@ -20,6 +20,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <pgvector-java.version>0.1.6</pgvector-java.version>
         <tika.version>3.3.2</tika.version>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
+        <commons-io.version>2.20.0</commons-io.version>
     </properties>
 
     <dependencies>
@@ -66,6 +68,16 @@
             <groupId>com.pgvector</groupId>
             <artifactId>pgvector</artifactId>
             <version>${pgvector-java.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>${commons-io.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.tika</groupId>
