@@ -1,6 +1,8 @@
 package single.cjj.bizfi.ai.config;
 
+import com.baomidou.mybatisplus.autoconfigure.MybatisPlusAutoConfiguration;
 import org.junit.jupiter.api.Test;
+import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
@@ -22,12 +24,16 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import single.cjj.bizfi.ai.entity.BizfiAiKnowledgeBaseAcl;
+import single.cjj.bizfi.ai.mapper.BizfiAiKnowledgeBaseAclMapper;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -97,6 +103,9 @@ class PgVectorDataSourceIsolationIntegrationTest {
     @Qualifier("pgVectorTransactionManager")
     private PlatformTransactionManager pgVectorTransactionManager;
 
+    @Autowired
+    private BizfiAiKnowledgeBaseAclMapper aclMapper;
+
     @Test
     void shouldKeepPrimaryAndVectorDataSourcesStrictlySeparated() throws SQLException {
         Map<String, DataSource> dataSources = applicationContext.getBeansOfType(DataSource.class);
@@ -148,6 +157,68 @@ class PgVectorDataSourceIsolationIntegrationTest {
         ));
     }
 
+    @Test
+    void shouldResolveAclSubjectsWithIndexedMyBatisQuery() {
+        jdbcTemplate.execute("""
+                CREATE TABLE bizfi_ai_knowledge_base_acl (
+                    fid BIGINT PRIMARY KEY AUTO_INCREMENT,
+                    fkbid VARCHAR(64) NOT NULL,
+                    fsubjecttype VARCHAR(32) NOT NULL,
+                    fsubjectid VARCHAR(128) NOT NULL,
+                    fpermission VARCHAR(32) NOT NULL,
+                    fcreatedby BIGINT NOT NULL,
+                    fcreatetime DATETIME NOT NULL,
+                    fmodifytime DATETIME NOT NULL
+                )
+                """);
+        insertAcl("finance", "USER", "1001", "VIEWER");
+        insertAcl("finance", "ORGANIZATION", "88", "EDITOR");
+        insertAcl("hr", "AUTHORITY", "department:9", "VIEWER");
+        insertAcl("private", "USER", "2002", "OWNER");
+
+        List<BizfiAiKnowledgeBaseAcl> allMatches = aclMapper.selectMatching(
+                "1001",
+                Set.of("88"),
+                Set.of("department:9"),
+                null
+        );
+        assertEquals(3, allMatches.size());
+        assertEquals(
+                Set.of("finance", "hr"),
+                allMatches.stream().map(BizfiAiKnowledgeBaseAcl::getFkbid).collect(Collectors.toSet())
+        );
+
+        List<BizfiAiKnowledgeBaseAcl> financeMatches = aclMapper.selectMatching(
+                "1001",
+                Set.of("88"),
+                Set.of("department:9"),
+                "finance"
+        );
+        assertEquals(2, financeMatches.size());
+
+        List<BizfiAiKnowledgeBaseAcl> directUserOnly = aclMapper.selectMatching(
+                "1001",
+                Set.of(),
+                Set.of(),
+                null
+        );
+        assertEquals(1, directUserOnly.size());
+        assertEquals("USER", directUserOnly.get(0).getFsubjecttype());
+    }
+
+    private void insertAcl(String kbId, String subjectType, String subjectId, String permission) {
+        jdbcTemplate.update("""
+                        INSERT INTO bizfi_ai_knowledge_base_acl
+                        (fkbid, fsubjecttype, fsubjectid, fpermission, fcreatedby, fcreatetime, fmodifytime)
+                        VALUES (?, ?, ?, ?, 1001, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        """,
+                kbId,
+                subjectType,
+                subjectId,
+                permission
+        );
+    }
+
     private void assertDatabaseProduct(DataSource dataSource, String expected) throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
             assertEquals(expected, connection.getMetaData().getDatabaseProductName());
@@ -157,10 +228,12 @@ class PgVectorDataSourceIsolationIntegrationTest {
     @SpringBootConfiguration
     @EnableConfigurationProperties(AiVectorStoreProperties.class)
     @Import(PgVectorDataSourceConfig.class)
+    @MapperScan(basePackageClasses = BizfiAiKnowledgeBaseAclMapper.class)
     @ImportAutoConfiguration({
             DataSourceAutoConfiguration.class,
             JdbcTemplateAutoConfiguration.class,
-            DataSourceTransactionManagerAutoConfiguration.class
+            DataSourceTransactionManagerAutoConfiguration.class,
+            MybatisPlusAutoConfiguration.class
     })
     static class TestApplication {
     }
