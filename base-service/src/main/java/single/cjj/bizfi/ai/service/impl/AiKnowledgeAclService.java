@@ -25,6 +25,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -53,37 +54,29 @@ public class AiKnowledgeAclService {
      * Returns null when ACL filtering is disabled or the current principal is a system administrator.
      */
     public Set<String> resolveAccessibleBaseIds(AiKnowledgePermission required) {
-        if (!isEnabled() || isSystemAdmin()) {
+        PrincipalSubjects principal = currentPrincipal();
+        if (!isEnabled() || isSystemAdmin(principal)) {
             return null;
         }
-        PrincipalSubjects principal = currentPrincipal();
         if (principal.userId() == null) {
             return Set.of();
         }
-        return aclMapper.selectList(new LambdaQueryWrapper<BizfiAiKnowledgeBaseAcl>())
-                .stream()
-                .filter(entry -> subjectMatches(entry, principal))
-                .filter(entry -> parseStoredPermission(entry.getFpermission()).allows(required))
+        return loadMatchingEntries(principal, null).stream()
+                .filter(entry -> permissionAllows(entry.getFpermission(), required))
                 .map(BizfiAiKnowledgeBaseAcl::getFkbid)
                 .filter(StringUtils::hasText)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     public AiKnowledgePermission effectivePermission(String kbId) {
-        if (!isEnabled() || isSystemAdmin()) {
+        PrincipalSubjects principal = currentPrincipal();
+        if (!isEnabled() || isSystemAdmin(principal)) {
             return AiKnowledgePermission.OWNER;
         }
-        PrincipalSubjects principal = currentPrincipal();
         if (principal.userId() == null) {
             return null;
         }
-        return aclMapper.selectList(new LambdaQueryWrapper<BizfiAiKnowledgeBaseAcl>()
-                        .eq(BizfiAiKnowledgeBaseAcl::getFkbid, normalizeKbId(kbId)))
-                .stream()
-                .filter(entry -> subjectMatches(entry, principal))
-                .map(entry -> parseStoredPermission(entry.getFpermission()))
-                .max(Comparator.comparingInt(Enum::ordinal))
-                .orElse(null);
+        return highestPermission(loadMatchingEntries(principal, normalizeKbId(kbId)));
     }
 
     public void assertCanView(String kbId) {
@@ -103,9 +96,10 @@ public class AiKnowledgeAclService {
     }
 
     public AiKnowledgeAccessResponse currentAccess(String kbId) {
-        AiKnowledgePermission permission = effectivePermission(kbId);
+        String normalizedKbId = requireBaseId(kbId);
+        AiKnowledgePermission permission = effectivePermission(normalizedKbId);
         return new AiKnowledgeAccessResponse(
-                normalizeKbId(kbId),
+                normalizedKbId,
                 isEnabled(),
                 permission == null ? "NONE" : permission.name(),
                 permission != null && permission.allows(AiKnowledgePermission.VIEWER),
@@ -120,7 +114,6 @@ public class AiKnowledgeAclService {
         assertCanManageAcl(normalizedKbId, AiKnowledgePermission.ADMIN);
         return aclMapper.selectList(new LambdaQueryWrapper<BizfiAiKnowledgeBaseAcl>()
                         .eq(BizfiAiKnowledgeBaseAcl::getFkbid, normalizedKbId)
-                        .orderByDesc(BizfiAiKnowledgeBaseAcl::getFpermission)
                         .orderByAsc(BizfiAiKnowledgeBaseAcl::getFsubjecttype)
                         .orderByAsc(BizfiAiKnowledgeBaseAcl::getFsubjectid))
                 .stream()
@@ -137,8 +130,12 @@ public class AiKnowledgeAclService {
         AiKnowledgeAclSubjectType subjectType = AiKnowledgeAclSubjectType.parse(request.getSubjectType());
         String subjectId = normalizeSubjectId(subjectType, request.getSubjectId());
         AiKnowledgePermission permission = AiKnowledgePermission.parse(request.getPermission());
-        assertCanManageAcl(normalizedKbId,
-                permission == AiKnowledgePermission.OWNER ? AiKnowledgePermission.OWNER : AiKnowledgePermission.ADMIN);
+        assertCanManageAcl(
+                normalizedKbId,
+                permission == AiKnowledgePermission.OWNER
+                        ? AiKnowledgePermission.OWNER
+                        : AiKnowledgePermission.ADMIN
+        );
 
         BizfiAiKnowledgeBaseAcl existing = aclMapper.selectOne(new LambdaQueryWrapper<BizfiAiKnowledgeBaseAcl>()
                 .eq(BizfiAiKnowledgeBaseAcl::getFkbid, normalizedKbId)
@@ -184,8 +181,12 @@ public class AiKnowledgeAclService {
             throw new BizException("ACL记录不存在");
         }
         AiKnowledgePermission permission = parseStoredPermission(entry.getFpermission());
-        assertCanManageAcl(normalizedKbId,
-                permission == AiKnowledgePermission.OWNER ? AiKnowledgePermission.OWNER : AiKnowledgePermission.ADMIN);
+        assertCanManageAcl(
+                normalizedKbId,
+                permission == AiKnowledgePermission.OWNER
+                        ? AiKnowledgePermission.OWNER
+                        : AiKnowledgePermission.ADMIN
+        );
         if (permission == AiKnowledgePermission.OWNER) {
             assertAnotherOwnerExists(normalizedKbId, entry.getFid());
         }
@@ -196,11 +197,6 @@ public class AiKnowledgeAclService {
     public void bootstrapOwner(String kbId) {
         String normalizedKbId = requireBaseId(kbId);
         Long userId = requireCurrentUserId();
-        AiKnowledgeAclRequest request = new AiKnowledgeAclRequest();
-        request.setSubjectType(AiKnowledgeAclSubjectType.USER.name());
-        request.setSubjectId(String.valueOf(userId));
-        request.setPermission(AiKnowledgePermission.OWNER.name());
-
         BizfiAiKnowledgeBaseAcl existing = aclMapper.selectOne(new LambdaQueryWrapper<BizfiAiKnowledgeBaseAcl>()
                 .eq(BizfiAiKnowledgeBaseAcl::getFkbid, normalizedKbId)
                 .eq(BizfiAiKnowledgeBaseAcl::getFsubjecttype, AiKnowledgeAclSubjectType.USER.name())
@@ -228,46 +224,68 @@ public class AiKnowledgeAclService {
     }
 
     private void assertPermission(String kbId, AiKnowledgePermission required) {
-        if (!isEnabled() || isSystemAdmin()) {
+        PrincipalSubjects principal = currentPrincipal();
+        if (!isEnabled() || isSystemAdmin(principal)) {
             return;
         }
-        AiKnowledgePermission actual = effectivePermission(kbId);
+        AiKnowledgePermission actual = principal.userId() == null
+                ? null
+                : highestPermission(loadMatchingEntries(principal, normalizeKbId(kbId)));
         if (actual == null || !actual.allows(required)) {
-            throw new BizException("当前用户无权访问知识库 " + normalizeKbId(kbId)
-                    + "，至少需要 " + required.name() + " 权限");
+            throw new BizException(
+                    "当前用户无权访问知识库 " + normalizeKbId(kbId)
+                            + "，至少需要 " + required.name() + " 权限"
+            );
         }
     }
 
     private void assertCanManageAcl(String kbId, AiKnowledgePermission required) {
-        if (isSystemAdmin()) {
+        PrincipalSubjects principal = currentPrincipal();
+        if (isSystemAdmin(principal)) {
             return;
         }
-        PrincipalSubjects principal = currentPrincipal();
         if (principal.userId() == null) {
             throw new BizException("未获取到当前登录用户");
         }
-        AiKnowledgePermission actual = effectivePermissionIgnoringFeatureFlag(kbId, principal);
+        AiKnowledgePermission actual = highestPermission(
+                loadMatchingEntries(principal, normalizeKbId(kbId))
+        );
         if (actual == null || !actual.allows(required)) {
             throw new BizException("当前用户无权管理知识库ACL，至少需要 " + required.name() + " 权限");
         }
     }
 
-    private AiKnowledgePermission effectivePermissionIgnoringFeatureFlag(
-            String kbId,
-            PrincipalSubjects principal
+    private List<BizfiAiKnowledgeBaseAcl> loadMatchingEntries(
+            PrincipalSubjects principal,
+            String kbId
     ) {
-        return aclMapper.selectList(new LambdaQueryWrapper<BizfiAiKnowledgeBaseAcl>()
-                        .eq(BizfiAiKnowledgeBaseAcl::getFkbid, normalizeKbId(kbId)))
-                .stream()
-                .filter(entry -> subjectMatches(entry, principal))
+        return aclMapper.selectMatching(
+                String.valueOf(principal.userId()),
+                principal.organizationIds(),
+                principal.authorities(),
+                StringUtils.hasText(kbId) ? kbId : null
+        );
+    }
+
+    private AiKnowledgePermission highestPermission(List<BizfiAiKnowledgeBaseAcl> entries) {
+        if (entries == null || entries.isEmpty()) {
+            return null;
+        }
+        return entries.stream()
                 .map(entry -> parseStoredPermission(entry.getFpermission()))
-                .max(Comparator.comparingInt(Enum::ordinal))
+                .filter(Objects::nonNull)
+                .max(Comparator.comparingInt(AiKnowledgePermission::ordinal))
                 .orElse(null);
     }
 
-    private boolean isSystemAdmin() {
-        PrincipalSubjects principal = currentPrincipal();
-        if (principal.userId() != null && configuredValues(properties.getAdminUserIds())
+    private boolean permissionAllows(String storedPermission, AiKnowledgePermission required) {
+        AiKnowledgePermission permission = parseStoredPermission(storedPermission);
+        return permission != null && permission.allows(required);
+    }
+
+    private boolean isSystemAdmin(PrincipalSubjects principal) {
+        if (principal.userId() != null
+                && configuredValues(properties.getAdminUserIds())
                 .contains(String.valueOf(principal.userId()))) {
             return true;
         }
@@ -299,24 +317,6 @@ public class AiKnowledgeAclService {
                 .filter(StringUtils::hasText)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         return new PrincipalSubjects(userId, authorities, organizations);
-    }
-
-    private boolean subjectMatches(BizfiAiKnowledgeBaseAcl entry, PrincipalSubjects principal) {
-        AiKnowledgeAclSubjectType type;
-        try {
-            type = AiKnowledgeAclSubjectType.parse(entry.getFsubjecttype());
-        } catch (BizException ignored) {
-            return false;
-        }
-        String subjectId = entry.getFsubjectid();
-        if (!StringUtils.hasText(subjectId)) {
-            return false;
-        }
-        return switch (type) {
-            case USER -> principal.userId() != null && subjectId.equals(String.valueOf(principal.userId()));
-            case ORGANIZATION -> principal.organizationIds().contains(subjectId.trim().toLowerCase(Locale.ROOT));
-            case AUTHORITY -> principal.authorities().contains(normalizeAuthority(subjectId));
-        };
     }
 
     private String extractOrganizationId(String authority) {
@@ -389,7 +389,7 @@ public class AiKnowledgeAclService {
         try {
             return AiKnowledgePermission.parse(permission);
         } catch (BizException ignored) {
-            return AiKnowledgePermission.VIEWER;
+            return null;
         }
     }
 
