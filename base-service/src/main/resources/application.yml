@@ -29,6 +29,14 @@ bizfi:
     max-history-messages: ${AI_MAX_HISTORY_MESSAGES:20}
     max-knowledge-chunks: ${AI_MAX_KNOWLEDGE_CHUNKS:5}
     request-timeout-seconds: ${AI_REQUEST_TIMEOUT_SECONDS:60}
+    semantic-retrieval-enabled: ${AI_SEMANTIC_RETRIEVAL_ENABLED:false}
+    semantic-fail-open: ${AI_SEMANTIC_FAIL_OPEN:true}
+    semantic-candidate-limit: ${AI_SEMANTIC_CANDIDATE_LIMIT:500}
+    semantic-min-score: ${AI_SEMANTIC_MIN_SCORE:0.50}
+    hybrid-keyword-weight: ${AI_HYBRID_KEYWORD_WEIGHT:1.0}
+    hybrid-semantic-weight: ${AI_HYBRID_SEMANTIC_WEIGHT:1.0}
+    hybrid-rrf-k: ${AI_HYBRID_RRF_K:60}
+    embedding-batch-size: ${AI_EMBEDDING_BATCH_SIZE:16}
     spring-ai-base-url: ${AI_SERVICE_BASE_URL:http://127.0.0.1:10020/api}
     spring-ai-service-id: ${AI_SERVICE_ID:ai-service}
     spring-ai-discovery-enabled: ${AI_SERVICE_DISCOVERY_ENABLED:false}
