@@ -70,6 +70,8 @@ Evaluation management requires knowledge-base `ADMIN` or `OWNER` permission. Sys
 
 The scheduled worker runs the retrieval call under a controlled `ROLE_SUPER_ADMIN` security context. This is required because scheduled threads have no interactive JWT principal. The worker still restricts every request to the run's single knowledge base ID.
 
+When both ACL and evaluation are enabled, startup validation requires `ROLE_SUPER_ADMIN` to remain in `AI_KNOWLEDGE_ACL_ADMIN_AUTHORITIES`. This prevents an ACL configuration override from silently making every background evaluation retrieve zero citations.
+
 ## APIs
 
 ```text
@@ -119,17 +121,26 @@ bizfi:
       stale-running-minutes: ${AI_KNOWLEDGE_EVALUATION_STALE_MINUTES:30}
 ```
 
+When ACL is enabled, retain:
+
+```text
+AI_KNOWLEDGE_ACL_ADMIN_AUTHORITIES=ROLE_ADMIN,ROLE_SUPER_ADMIN,admin,super_admin
+```
+
+The value may contain additional authorities, but `ROLE_SUPER_ADMIN` is required by the evaluation worker startup guard.
+
 ## Safe rollout
 
 1. Deploy the backend with `AI_KNOWLEDGE_EVALUATION_ENABLED=false`.
 2. Confirm existing knowledge CRUD, ingestion, ACL, and retrieval remain healthy.
 3. Apply `sql/bizfi_ai_rag_evaluation_v7.sql`.
-4. Set `AI_KNOWLEDGE_EVALUATION_ENABLED=true` and restart `base-service`.
-5. Deploy the Phase 3D frontend.
-6. Create one evaluation set for the default or finance knowledge base.
-7. Start with 20–50 real questions from finance operations and interviews.
-8. Run the baseline and record Hit@K, MRR, Recall@K, average latency, and P95.
-9. Change only one retrieval variable at a time, then rerun the same set.
+4. Confirm `ROLE_SUPER_ADMIN` is present in `AI_KNOWLEDGE_ACL_ADMIN_AUTHORITIES` when ACL is enabled.
+5. Set `AI_KNOWLEDGE_EVALUATION_ENABLED=true` and restart `base-service`.
+6. Deploy the Phase 3D frontend.
+7. Create one evaluation set for the default or finance knowledge base.
+8. Start with 20–50 real questions from finance operations and interviews.
+9. Run the baseline and record Hit@K, MRR, Recall@K, average latency, and P95.
+10. Change only one retrieval variable at a time, then rerun the same set.
 
 ## Recommended initial acceptance gates
 
