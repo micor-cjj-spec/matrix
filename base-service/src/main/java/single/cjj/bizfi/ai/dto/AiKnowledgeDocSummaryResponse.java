@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class AiKnowledgeDocSummaryResponse {
     private Long fid;
+    private String kbId;
     private String docId;
     private String title;
     private String category;
