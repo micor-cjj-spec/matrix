@@ -85,6 +85,8 @@ scripts=(
   "sql/bizfi_ai_tool_audit_v1.sql"
   "sql/bizfi_ai_tool_audit_v2.sql"
   "sql/bizfi_ai_tool_audit_v3.sql"
+  "sql/bizfi_ai_knowledge_evaluation_v7.sql"
+  "sql/bizfi_ai_knowledge_evaluation_trace_v8.sql"
 )
 
 for sql_path in "${scripts[@]}"; do
@@ -95,6 +97,6 @@ docker exec \
   -e MYSQL_PWD="${MYSQL_PWD}" \
   "${MYSQL_CONTAINER}" \
   mysql -u"${MYSQL_USER}" -N "${MYSQL_DATABASE}" -e \
-  "SHOW TABLES LIKE 'fi_event_outbox'; SHOW TABLES LIKE 'bizfi_ai_audit_access_log'; SHOW TABLES LIKE 'bizfi_ai_tool_execution';"
+  "SHOW TABLES LIKE 'fi_event_outbox'; SHOW TABLES LIKE 'bizfi_ai_audit_access_log'; SHOW TABLES LIKE 'bizfi_ai_tool_execution'; SHOW TABLES LIKE 'bizfi_ai_evaluation_run'; SHOW TABLES LIKE 'bizfi_ai_evaluation_trace';"
 
 echo "dev database scripts applied to ${MYSQL_DATABASE}."
