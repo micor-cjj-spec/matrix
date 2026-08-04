@@ -1,0 +1,62 @@
+{
+  "name": "Matrix 财务知识基线 V1",
+  "description": "50 条财务领域待标注问题。导入后默认为 INACTIVE；绑定标准文档或标准分片后再激活。",
+  "questions": [
+    {"question":"一张凭证从制单到正式过账需要经过哪些状态和校验？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明制单、审核、过账等环节及关键校验。","status":"INACTIVE"},
+    {"question":"凭证借贷不平衡时系统应如何提示并阻止过账？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明借贷平衡校验、错误提示和过账拦截。","status":"INACTIVE"},
+    {"question":"凭证断号产生后应如何检查和处理？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明断号检测、原因定位、补号或登记处理。","status":"INACTIVE"},
+    {"question":"已经过账的凭证需要修改时应遵循什么流程？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明反过账、权限、期间状态和重新审核要求。","status":"INACTIVE"},
+    {"question":"红字冲销凭证和反向凭证分别适用于什么场景？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"区分两种冲销方式的适用条件和会计影响。","status":"INACTIVE"},
+    {"question":"自动生成凭证时如何保证同一业务单据不会重复生成？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明业务单号幂等键、唯一约束、状态校验和补偿。","status":"INACTIVE"},
+    {"question":"凭证摘要、科目和辅助核算信息有哪些必填规则？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明摘要、科目、核算维度和金额字段的完整性规则。","status":"INACTIVE"},
+    {"question":"跨组织凭证生成时账簿和组织应如何确定？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明核算组织、账簿映射和跨组织边界。","status":"INACTIVE"},
+    {"question":"外币凭证应保存哪些汇率和本位币金额信息？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明币种、汇率日期、原币金额和本位币金额。","status":"INACTIVE"},
+    {"question":"如何按组织、期间、科目和辅助维度查询凭证汇总？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明主要过滤条件、汇总口径和数据权限。","status":"INACTIVE"},
+
+    {"question":"月结前必须完成哪些结账检查？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"覆盖未过账凭证、期间状态、损益结转、往来核对和数据一致性。","status":"INACTIVE"},
+    {"question":"存在未审核或未过账凭证时是否允许结账？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明阻断规则、例外权限和处理步骤。","status":"INACTIVE"},
+    {"question":"损益结转的执行前提和生成凭证规则是什么？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明期间、科目余额、结转科目和凭证生成。","status":"INACTIVE"},
+    {"question":"期末调汇需要选择哪些外币科目并如何计算汇兑损益？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明适用科目、期末汇率、差额和凭证处理。","status":"INACTIVE"},
+    {"question":"结账完成后发现错误，反结账需要满足哪些条件？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明权限、后续期间状态、反结账顺序和审计。","status":"INACTIVE"},
+    {"question":"多账簿月结时各账簿之间是否有执行顺序要求？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明主账簿、子账簿或组织间依赖关系。","status":"INACTIVE"},
+    {"question":"期末结账检查失败后如何定位具体失败项？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明检查项明细、错误数据、修复建议和重试。","status":"INACTIVE"},
+    {"question":"结账期间如何防止新的业务凭证继续写入？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明期间锁定、并发控制和业务入口校验。","status":"INACTIVE"},
+    {"question":"月结任务重复执行时如何保证结果幂等？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明任务实例键、状态机、唯一约束和重复请求处理。","status":"INACTIVE"},
+    {"question":"结账完成后应保留哪些执行日志和审计信息？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明执行人、时间、检查项、结果、凭证和异常记录。","status":"INACTIVE"},
+
+    {"question":"应付单从确认到付款完成的标准流程是什么？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明应付确认、付款申请、排程、支付和核销。","status":"INACTIVE"},
+    {"question":"付款申请如何关联应付单并控制可申请金额？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明关联关系、未付余额、在途金额和超额控制。","status":"INACTIVE"},
+    {"question":"应收款到账后如何进行自动或手工核销？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明收款匹配、核销规则、差异和人工处理。","status":"INACTIVE"},
+    {"question":"部分付款或部分收款时剩余金额如何管理？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明已核销金额、未核销余额和后续处理。","status":"INACTIVE"},
+    {"question":"往来对账发现双方金额不一致时应如何处理？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明差异定位、调整、确认和留痕。","status":"INACTIVE"},
+    {"question":"应收账龄和应付账龄通常按什么日期和区间计算？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明基准日期、到期日、账龄区间和余额口径。","status":"INACTIVE"},
+    {"question":"暂估应付转正式应付时如何避免重复确认成本？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明暂估冲回、正式单据匹配和差异处理。","status":"INACTIVE"},
+    {"question":"客户或供应商信用额度超限时系统应如何控制？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明额度占用、预警、阻断和授权放行。","status":"INACTIVE"},
+
+    {"question":"费用报销从申请到生成凭证需要经过哪些环节？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明申请、审批、预算、付款和凭证环节。","status":"INACTIVE"},
+    {"question":"报销金额超过预算时系统应如何处理？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明预算校验、预警或阻断、追加预算和审批。","status":"INACTIVE"},
+    {"question":"差旅报销中的住宿和交通标准如何按人员职级控制？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明职级、城市、费用类型、限额和例外审批。","status":"INACTIVE"},
+    {"question":"同一张发票被重复用于报销时如何识别和拦截？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明发票号码、代码、金额、日期和查重状态。","status":"INACTIVE"},
+    {"question":"员工借款与费用报销如何进行冲借款处理？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明借款余额、冲销顺序、补付或退款。","status":"INACTIVE"},
+    {"question":"报销单审批通过后付款失败应如何补偿？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明付款状态、失败原因、重试、人工兜底和防重。","status":"INACTIVE"},
+    {"question":"报销单撤回或驳回后预算占用应如何释放？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明状态变化、预算释放时点和异常补偿。","status":"INACTIVE"},
+    {"question":"费用分摊到多个组织或成本中心时如何生成会计分录？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明分摊比例、核算维度、跨组织和凭证行。","status":"INACTIVE"},
+
+    {"question":"付款处理如何保证同一付款单不会被重复支付？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明付款单号幂等、唯一索引、状态机和银行结果校验。","status":"INACTIVE"},
+    {"question":"银企互联返回超时但实际已扣款时应如何处理？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明未知状态、主动查询、银行对账和禁止盲目重试。","status":"INACTIVE"},
+    {"question":"付款排程应考虑哪些日期、账户余额和优先级条件？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明计划日期、资金账户、余额、优先级和到期日。","status":"INACTIVE"},
+    {"question":"银行回单如何与系统付款记录进行自动对账？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明订单号、金额、时间、账户和状态匹配。","status":"INACTIVE"},
+    {"question":"内部借款从申请到还本付息需要生成哪些业务单据和凭证？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明借款、付款、计息、还本、还息及对应凭证。","status":"INACTIVE"},
+    {"question":"资金支付失败达到最大重试次数后应进入什么处理流程？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明失败终态、告警、人工处理、补偿和审计。","status":"INACTIVE"},
+
+    {"question":"新增会计科目时需要配置哪些基础属性和控制项？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明编码、名称、余额方向、科目类型、辅助核算和状态。","status":"INACTIVE"},
+    {"question":"客户和供应商主数据重复时应按哪些字段判断？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明统一社会信用代码、名称、证件或银行信息等查重规则。","status":"INACTIVE"},
+    {"question":"组织、账簿和核算体系之间是什么关系？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明组织归属、账簿范围、会计政策和核算边界。","status":"INACTIVE"},
+    {"question":"基础资料停用后历史单据和新建单据应分别如何处理？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明历史可追溯、新业务禁用和引用完整性。","status":"INACTIVE"},
+
+    {"question":"批处理任务执行失败后如何判断是自动重试还是人工处理？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明错误类型、重试次数、退避策略和人工兜底。","status":"INACTIVE"},
+    {"question":"外部系统重复推送同一业务单据时接口应如何响应？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明幂等识别、已有结果返回、冲突检测和审计。","status":"INACTIVE"},
+    {"question":"系统出现数据库事务中止后后续 SQL 均失败时应如何排查？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明首个异常、事务回滚、连接状态和错误日志定位。","status":"INACTIVE"},
+    {"question":"业务数据与凭证数据不一致时应如何进行对账和修复？","kbIds":["all"],"expectedDocIds":[],"expectedChunkIds":[],"expectedAnswer":"说明业务单据、凭证号、金额、状态核对及补偿流程。","status":"INACTIVE"}
+  ]
+}
