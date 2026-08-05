@@ -80,6 +80,9 @@ run_sql() {
 }
 
 scripts=(
+  "sql/bizfi_fi_core_repair_v1.sql"
+  "sql/bizfi_fi_voucher_entry_schema_v1.sql"
+  "sql/bizfi_fi_arap_writeoff_v1.sql"
   "fi-service/src/main/resources/sql/fi_workflow_expense_v1.sql"
   "fi-service/src/main/resources/sql/fi_workflow_expense_v2.sql"
   "sql/bizfi_ai_tool_audit_v1.sql"
