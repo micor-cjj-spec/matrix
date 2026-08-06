@@ -3,12 +3,14 @@ package single.cjj.bizfi.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.bizfi.entity.BizfiBaseUser;
 import single.cjj.bizfi.service.BizfiBaseUserService;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,6 +28,7 @@ import java.util.Map;
 public class BizfiBaseUserController {
     @Autowired
     private BizfiBaseUserService baseUserService;
+
     @GetMapping("/account/{account}")
     public ApiResponse<BizfiBaseUser> getByAccount(@PathVariable("account") String account) {
         long start = System.currentTimeMillis();
@@ -37,6 +40,32 @@ public class BizfiBaseUserController {
             log.error("getByAccount failed, account={}, costMs={}", account, System.currentTimeMillis() - start, e);
             return ApiResponse.error("查询用户失败: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/me")
+    public ApiResponse<Map<String, Object>> currentUser(
+            @RequestHeader("X-User-Id") String userId,
+            @RequestHeader(value = "X-Tenant-Id", defaultValue = "default") String tenantId,
+            @RequestHeader(value = "X-User-Roles", required = false) String roles
+    ) {
+        BizfiBaseUser user = null;
+        try {
+            user = baseUserService.getUserById(Long.parseLong(userId));
+        } catch (NumberFormatException exception) {
+            log.warn("current user id is not numeric, userId={}", userId);
+        }
+
+        Map<String, Object> profile = new LinkedHashMap<>();
+        profile.put("userId", userId);
+        profile.put("tenantId", tenantId);
+        profile.put("roles", StringUtils.hasText(roles) ? List.of(roles.split(",")) : List.of());
+        profile.put("displayName", resolveDisplayName(user, userId));
+        profile.put("avatarUrl", user == null ? null : firstText(user.getFavatar(), user.getFheadsculpture()));
+        profile.put("employeeNumber", user == null ? null : user.getFnumber());
+        profile.put("email", user == null ? null : user.getFemail());
+        profile.put("departmentId", user == null ? null : user.getFdptid());
+        profile.put("positionId", user == null ? null : user.getFpositionid());
+        return ApiResponse.success(profile);
     }
 
     // 新增
@@ -56,6 +85,7 @@ public class BizfiBaseUserController {
     public ApiResponse<BizfiBaseUser> updateUser(@RequestBody BizfiBaseUser user) {
         return ApiResponse.success(baseUserService.updateUser(user));
     }
+
     /**
      * 分页/条件查询用户列表
      */
@@ -88,5 +118,21 @@ public class BizfiBaseUserController {
     @PostMapping("/delete-batch")
     public ApiResponse<Boolean> deleteBatch(@RequestBody List<Long> fids) {
         return ApiResponse.success(baseUserService.deleteBatch(fids));
+    }
+
+    private String resolveDisplayName(BizfiBaseUser user, String fallback) {
+        if (user == null) {
+            return fallback;
+        }
+        return firstText(user.getFtruename(), user.getFnickname(), user.getFnumber(), fallback);
+    }
+
+    private String firstText(String... values) {
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value;
+            }
+        }
+        return null;
     }
 }
