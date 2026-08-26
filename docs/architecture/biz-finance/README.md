@@ -6,7 +6,7 @@
 
 ## 1. 文档定位
 
-本目录归档 Matrix 从现有财务平台演进为 ERP / 业财一体平台的架构设计。
+本目录归档 Matrix 从现有财务平台演进为 ERP / 业财一体平台的架构设计与实现记录。
 
 本目录不是对原始项目设计文档的复制，而是基于以下材料形成的 Matrix 目标设计：
 
@@ -17,9 +17,9 @@
 3. `MHES-XXSJ-YCYT-业财一体项目详细设计方案2.0-第七章-技术架构设计方案.docx`
    - 作为技术架构参考：集成、中间件、部署、安全、高可用。
 4. Matrix `dev` 当前代码
-   - 作为现状约束：`base-service`、`botp-service`、`fi-service`、`workflow-service`、`openapi-service`、`scheduler-service`、`im-service`、`ai-service` 等现有能力。
+   - 作为现状约束：`base-service`、`erp-service`、`botp-service`、`fi-service`、`workflow-service`、`openapi-service`、`scheduler-service`、`im-service`、`ai-service` 等现有能力。
 
-`matrix-prp` 仅作为只读参考，不在本设计归档过程中修改。
+`matrix-prp` 仅作为只读参考，不在本设计/实现过程中修改。
 
 ## 2. 来源标识约定
 
@@ -90,6 +90,10 @@ Report
 - [ADR-006 Reconciliation Boundary](./decisions/ADR-006-reconciliation-boundary.md)
 - [ADR-007 P2P Inbound Accounting Trigger](./decisions/ADR-007-p2p-inbound-accounting-trigger.md)
 
+实现记录：
+
+- [P0-IMP-01 erp-service + PurchaseOrder](./implementation/P0-IMP-01-purchase-order.md)
+
 ## 5. 当前 P0 进度
 
 ```text
@@ -102,7 +106,7 @@ P0-06 Reconciliation Framework         已完成设计
 P0-07 P2P E2E                           已完成设计
 ```
 
-P0 架构设计阶段到 P0-07 结束。后续应进入实现阶段，而不是继续增加基础抽象。
+P0 架构设计阶段到 P0-07 结束。后续进入实现阶段，不继续增加基础抽象。
 
 ## 6. P0-07 语义校正
 
@@ -164,27 +168,27 @@ Accounting
 
 四者不混用。
 
-## 8. P0 实现阶段建议
+## 8. P0 实现进度
 
 ```text
-P0-IMP-01 erp-service + PurchaseOrder
-P0-IMP-02 Receipt / Acceptance / Inbound
-P0-IMP-03 Inbound → AP Estimate → Voucher
-P0-IMP-04 SupplierInvoice + 3-Way Match
-P0-IMP-05 Formal AP
-P0-IMP-06 PaymentApplication
-P0-IMP-07 PaymentOrder + BankTransaction
-P0-IMP-08 Settlement + Payment Voucher
-P0-IMP-09 P2P frontend E2E
+P0-IMP-01 erp-service + PurchaseOrder           已实现 v1
+P0-IMP-02 Receipt / Acceptance / Inbound        待实现
+P0-IMP-03 Inbound → AP Estimate → Voucher       待实现
+P0-IMP-04 SupplierInvoice + 3-Way Match         待实现
+P0-IMP-05 Formal AP                             待实现
+P0-IMP-06 PaymentApplication                    待实现
+P0-IMP-07 PaymentOrder + BankTransaction        待实现
+P0-IMP-08 Settlement + Payment Voucher          待实现
+P0-IMP-09 P2P frontend E2E                      待实现
 ```
 
-每个实现 PR 需要同时包含：
+每个实现阶段至少包含：
 
 ```text
 schema
 backend
 API
-test
+test/验收说明
 trace
 ```
 
