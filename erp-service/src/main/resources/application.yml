@@ -1,3 +1,7 @@
+server:
+  servlet:
+    context-path: /api
+
 spring:
   application:
     name: erp-service
@@ -7,6 +11,12 @@ spring:
 
   config:
     import: "optional:nacos:${spring.application.name}"
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${ERP_DB_URL:jdbc:mysql://117.72.216.168:3306/matrix_erp?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${ERP_DB_USERNAME:root}
+    password: ${ERP_DB_PASSWORD:}
 
   cloud:
     nacos:
@@ -19,6 +29,16 @@ spring:
         file-extension: yaml
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: fdeleteFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
 
 management:
   endpoints:
