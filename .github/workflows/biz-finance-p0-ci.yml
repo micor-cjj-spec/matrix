@@ -1,0 +1,55 @@
+name: Biz Finance P0 CI
+
+on:
+  pull_request:
+    paths:
+      - 'erp-service/**'
+      - 'fi-service/**'
+      - 'deliverables/fi/**'
+      - 'docs/architecture/biz-finance/**'
+      - 'common/**'
+      - 'pom.xml'
+      - '.github/workflows/biz-finance-p0-ci.yml'
+  push:
+    branches:
+      - 'dev'
+    paths:
+      - 'erp-service/**'
+      - 'fi-service/**'
+      - 'deliverables/fi/**'
+      - 'docs/architecture/biz-finance/**'
+      - 'common/**'
+      - 'pom.xml'
+      - '.github/workflows/biz-finance-p0-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Test ERP and FI business-finance chain
+        shell: bash
+        run: |
+          set +e
+          mvn -q -Dstyle.color=never -pl erp-service,fi-service -am test > /tmp/biz-finance-p0-maven.log 2>&1
+          status=$?
+          cat /tmp/biz-finance-p0-maven.log
+          exit $status
+
+      - name: Upload Maven failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: biz-finance-p0-maven-failure-log
+          path: /tmp/biz-finance-p0-maven.log
+          if-no-files-found: error
+          retention-days: 3

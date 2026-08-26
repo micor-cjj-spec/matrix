@@ -8,6 +8,16 @@ spring:
   config:
     import: "optional:nacos:${spring.application.name}"
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        default-requeue-rejected: false
+
   cloud:
     nacos:
       discovery:
@@ -45,6 +55,9 @@ matrix:
       initialize-schema: true
 
 fi:
+  accounting:
+    default-book-id: ${FI_ACCOUNTING_DEFAULT_BOOK_ID:DEFAULT}
+    purchase-inbound-consumer-code: ${FI_PURCHASE_INBOUND_CONSUMER_CODE:FI_PURCHASE_INBOUND_ACCOUNTING_V1}
   workflow:
     base-url: ${FI_WORKFLOW_BASE_URL:http://localhost:10006/api}
     callback-url: ${FI_WORKFLOW_CALLBACK_URL:http://localhost:10003/api/fi/expense/workflow/events}

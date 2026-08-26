@@ -3,7 +3,9 @@ package single.cjj.erp;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
+@EnableScheduling
 @SpringBootApplication(scanBasePackages = "single.cjj.erp")
 @MapperScan("single.cjj.erp.**.mapper")
 public class ErpApplication {
