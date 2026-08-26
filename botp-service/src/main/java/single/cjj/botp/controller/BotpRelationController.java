@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.botp.domain.BotpContracts.DocumentRelation;
+import single.cjj.botp.domain.BotpContracts.DocumentRelationEntry;
 import single.cjj.botp.domain.BotpContracts.RelationInvalidateRequest;
 import single.cjj.botp.domain.BotpContracts.TargetStatusEvent;
 import single.cjj.botp.domain.BotpContracts.WritebackTask;
@@ -43,10 +44,20 @@ public class BotpRelationController {
         return ApiResponse.success(repository.find(tenantId, sourceDocumentId, targetDocumentId, limit));
     }
 
+    @GetMapping("/{relationId}")
+    public ApiResponse<DocumentRelation> detail(@PathVariable("relationId") Long relationId) {
+        return repository.findById(relationId)
+                .map(ApiResponse::success)
+                .orElseGet(() -> ApiResponse.error("BOTP 单据关系不存在: " + relationId));
+    }
+
+    @GetMapping("/{relationId}/entries")
+    public ApiResponse<List<DocumentRelationEntry>> entries(@PathVariable("relationId") Long relationId) {
+        return ApiResponse.success(repository.findEntries(relationId));
+    }
+
     @PostMapping("/target-events")
-    public ApiResponse<List<DocumentRelation>> targetStatusEvent(
-            @Valid @RequestBody TargetStatusEvent event
-    ) {
+    public ApiResponse<List<DocumentRelation>> targetStatusEvent(@Valid @RequestBody TargetStatusEvent event) {
         return ApiResponse.success(lifecycleService.handleTargetStatusEvent(event));
     }
 

@@ -34,8 +34,6 @@
 
 ## 3. 总体设计原则
 
-Matrix 的核心链路统一为：
-
 ```text
 经营对象
   ↓
@@ -93,8 +91,9 @@ Report
 实现记录：
 
 - [P0-IMP-01 erp-service + PurchaseOrder](./implementation/P0-IMP-01-purchase-order.md)
+- [P0-IMP-02 Receipt / Acceptance / Inbound](./implementation/P0-IMP-02-purchase-fulfillment.md)
 
-## 5. 当前 P0 进度
+## 5. 当前 P0 设计进度
 
 ```text
 P0-01 BusinessPartner                  已完成设计
@@ -110,14 +109,7 @@ P0 架构设计阶段到 P0-07 结束。后续进入实现阶段，不继续增�
 
 ## 6. P0-07 语义校正
 
-前序文档示例曾使用：
-
-```text
-PURCHASE_RECEIPT_CONFIRMED
-→ 暂估应付
-```
-
-P0-07 按源业务流程校正为：
+正式实现以以下语义为准：
 
 ```text
 PurchaseReceipt
@@ -127,7 +119,7 @@ PurchaseReceipt
 → AP Estimate
 ```
 
-正式实现以 [ADR-007](./decisions/ADR-007-p2p-inbound-accounting-trigger.md) 为准。
+采购收货本身不触发财务暂估；正式入库才是第一条财务触发事实。
 
 ## 7. 第一条端到端验证链
 
@@ -150,20 +142,11 @@ Supplier
 → GL
 ```
 
-其中：
-
 ```text
-BOTP Relation
-= 单据转换和上下游关系
-
-Reconciliation
-= 数据一致性判断
-
-Settlement
-= 应付余额核销
-
-Accounting
-= 会计结果
+BOTP Relation = 单据转换和上下游关系
+Reconciliation = 数据一致性判断
+Settlement = 应付余额核销
+Accounting = 会计结果
 ```
 
 四者不混用。
@@ -172,7 +155,7 @@ Accounting
 
 ```text
 P0-IMP-01 erp-service + PurchaseOrder           已实现 v1
-P0-IMP-02 Receipt / Acceptance / Inbound        待实现
+P0-IMP-02 Receipt / Acceptance / Inbound        已实现 v1
 P0-IMP-03 Inbound → AP Estimate → Voucher       待实现
 P0-IMP-04 SupplierInvoice + 3-Way Match         待实现
 P0-IMP-05 Formal AP                             待实现

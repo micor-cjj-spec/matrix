@@ -31,10 +31,17 @@ public class BotpRelationLifecycleService {
 
     public List<DocumentRelation> handleTargetStatusEvent(TargetStatusEvent event) {
         if (!isInvalidatingStatus(event.targetStatus())) {
-            return relationRepository.findByTarget(event.tenantId(), event.targetDocumentId());
+            return relationRepository.findByTarget(
+                    event.tenantId(), event.targetSystemCode(), event.targetDocumentType(), event.targetDocumentId());
         }
         List<DocumentRelation> invalidated = relationRepository.invalidateByTarget(
-                event.tenantId(), event.targetDocumentId(), event.eventId(), event.targetStatus(), event.reason());
+                event.tenantId(),
+                event.targetSystemCode(),
+                event.targetDocumentType(),
+                event.targetDocumentId(),
+                event.eventId(),
+                event.targetStatus(),
+                event.reason());
         for (DocumentRelation relation : invalidated) {
             enqueueAndRunReverse(relation, "目标单状态变更: " + event.targetStatus());
         }

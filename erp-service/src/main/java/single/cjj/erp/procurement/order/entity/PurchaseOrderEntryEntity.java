@@ -35,6 +35,7 @@ public class PurchaseOrderEntryEntity {
     private LocalDate fplannedDeliveryDate;
     private Long fprojectId;
     private Long fcostCenterId;
+    private BigDecimal freceiptReservedQuantity;
     private BigDecimal freceivedQuantity;
     private BigDecimal facceptedQuantity;
     private BigDecimal finboundQuantity;

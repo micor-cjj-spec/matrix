@@ -8,10 +8,13 @@ import org.springframework.util.StringUtils;
 import single.cjj.bizfi.exception.BizException;
 import single.cjj.botp.domain.BotpContracts.DocumentRef;
 import single.cjj.botp.domain.BotpContracts.DocumentRelation;
+import single.cjj.botp.domain.BotpContracts.DocumentRelationEntry;
 import single.cjj.botp.domain.BotpContracts.RelationStatus;
 import single.cjj.botp.domain.BotpContracts.RuleDefinition;
 import single.cjj.botp.domain.BotpContracts.TargetResult;
 import single.cjj.botp.persistence.entity.BotpDocumentRelationEntity;
+import single.cjj.botp.persistence.entity.BotpDocumentRelationEntryEntity;
+import single.cjj.botp.persistence.mapper.BotpDocumentRelationEntryMapper;
 import single.cjj.botp.persistence.mapper.BotpDocumentRelationMapper;
 
 import java.math.BigDecimal;
@@ -25,9 +28,14 @@ import java.util.Optional;
 public class MybatisBotpRelationRepository implements BotpRelationRepository {
 
     private final BotpDocumentRelationMapper mapper;
+    private final BotpDocumentRelationEntryMapper entryMapper;
 
-    public MybatisBotpRelationRepository(BotpDocumentRelationMapper mapper) {
+    public MybatisBotpRelationRepository(
+            BotpDocumentRelationMapper mapper,
+            BotpDocumentRelationEntryMapper entryMapper
+    ) {
         this.mapper = mapper;
+        this.entryMapper = entryMapper;
     }
 
     @Override
@@ -42,11 +50,15 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
     ) {
         BotpDocumentRelationEntity existing = mapper.selectOne(
                 new LambdaQueryWrapper<BotpDocumentRelationEntity>()
+                        .eq(BotpDocumentRelationEntity::getFtenantId, tenantId)
                         .eq(BotpDocumentRelationEntity::getFexecutionId, executionId)
+                        .eq(BotpDocumentRelationEntity::getFsourceSystemCode, source.systemCode())
+                        .eq(BotpDocumentRelationEntity::getFsourceDocumentType, source.documentType())
                         .eq(BotpDocumentRelationEntity::getFsourceDocumentId, source.documentId())
+                        .eq(BotpDocumentRelationEntity::getFtargetSystemCode, target.systemCode())
+                        .eq(BotpDocumentRelationEntity::getFtargetDocumentType, target.documentType())
                         .eq(BotpDocumentRelationEntity::getFtargetDocumentId, target.documentId())
-                        .last("limit 1")
-        );
+                        .last("limit 1"));
         if (existing != null) {
             return toRelation(existing);
         }
@@ -76,6 +88,44 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void saveEntries(String tenantId, Long relationId, List<DocumentRelationEntry> entries) {
+        LocalDateTime now = LocalDateTime.now();
+        for (DocumentRelationEntry item : entries) {
+            Long count = entryMapper.selectCount(new LambdaQueryWrapper<BotpDocumentRelationEntryEntity>()
+                    .eq(BotpDocumentRelationEntryEntity::getFrelationId, relationId)
+                    .eq(BotpDocumentRelationEntryEntity::getFsourceEntryId, item.sourceEntryId())
+                    .eq(BotpDocumentRelationEntryEntity::getFtargetEntryId, item.targetEntryId()));
+            if (count != null && count > 0) {
+                continue;
+            }
+            BotpDocumentRelationEntryEntity entity = new BotpDocumentRelationEntryEntity();
+            entity.setFtenantId(tenantId);
+            entity.setFrelationId(relationId);
+            entity.setFsourceEntryId(item.sourceEntryId());
+            entity.setFtargetEntryId(item.targetEntryId());
+            entity.setFquantity(item.quantity());
+            entity.setFamount(item.amount());
+            entity.setFbaseQuantity(item.baseQuantity());
+            entity.setFbaseAmount(item.baseAmount());
+            entity.setFrelationStatus(RelationStatus.ACTIVE.name());
+            entity.setFcreateTime(now);
+            entity.setFmodifyTime(now);
+            entity.setFdeleteFlag(0);
+            entity.setFversion(0);
+            entryMapper.insert(entity);
+        }
+    }
+
+    @Override
+    public List<DocumentRelationEntry> findEntries(Long relationId) {
+        return entryMapper.selectList(new LambdaQueryWrapper<BotpDocumentRelationEntryEntity>()
+                        .eq(BotpDocumentRelationEntryEntity::getFrelationId, relationId)
+                        .orderByAsc(BotpDocumentRelationEntryEntity::getFid))
+                .stream().map(this::toRelationEntry).toList();
+    }
+
+    @Override
     public BigDecimal sumActiveAmount(String tenantId, DocumentRef source) {
         return mapper.selectList(new LambdaQueryWrapper<BotpDocumentRelationEntity>()
                         .eq(BotpDocumentRelationEntity::getFtenantId, tenantId)
@@ -83,10 +133,8 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
                         .eq(BotpDocumentRelationEntity::getFsourceDocumentType, source.documentType())
                         .eq(BotpDocumentRelationEntity::getFsourceDocumentId, source.documentId())
                         .eq(BotpDocumentRelationEntity::getFrelationStatus, RelationStatus.ACTIVE.name()))
-                .stream()
-                .map(BotpDocumentRelationEntity::getFallocatedAmount)
-                .filter(value -> value != null)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                .stream().map(BotpDocumentRelationEntity::getFallocatedAmount)
+                .filter(value -> value != null).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     @Override
@@ -96,8 +144,29 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
 
     @Override
     public List<DocumentRelation> findByTarget(String tenantId, String targetDocumentId) {
+        return findByTargetInternal(tenantId, null, null, targetDocumentId);
+    }
+
+    @Override
+    public List<DocumentRelation> findByTarget(
+            String tenantId,
+            String targetSystemCode,
+            String targetDocumentType,
+            String targetDocumentId
+    ) {
+        return findByTargetInternal(tenantId, targetSystemCode, targetDocumentType, targetDocumentId);
+    }
+
+    private List<DocumentRelation> findByTargetInternal(
+            String tenantId,
+            String targetSystemCode,
+            String targetDocumentType,
+            String targetDocumentId
+    ) {
         return mapper.selectList(new LambdaQueryWrapper<BotpDocumentRelationEntity>()
                         .eq(BotpDocumentRelationEntity::getFtenantId, tenantId)
+                        .eq(StringUtils.hasText(targetSystemCode), BotpDocumentRelationEntity::getFtargetSystemCode, targetSystemCode)
+                        .eq(StringUtils.hasText(targetDocumentType), BotpDocumentRelationEntity::getFtargetDocumentType, targetDocumentType)
                         .eq(BotpDocumentRelationEntity::getFtargetDocumentId, targetDocumentId)
                         .orderByDesc(BotpDocumentRelationEntity::getFcreateTime))
                 .stream().map(this::toRelation).toList();
@@ -134,11 +203,41 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
             String targetStatus,
             String reason
     ) {
+        return invalidateByTargetInternal(
+                tenantId, null, null, targetDocumentId, eventId, targetStatus, reason);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List<DocumentRelation> invalidateByTarget(
+            String tenantId,
+            String targetSystemCode,
+            String targetDocumentType,
+            String targetDocumentId,
+            String eventId,
+            String targetStatus,
+            String reason
+    ) {
+        return invalidateByTargetInternal(
+                tenantId, targetSystemCode, targetDocumentType, targetDocumentId,
+                eventId, targetStatus, reason);
+    }
+
+    private List<DocumentRelation> invalidateByTargetInternal(
+            String tenantId,
+            String targetSystemCode,
+            String targetDocumentType,
+            String targetDocumentId,
+            String eventId,
+            String targetStatus,
+            String reason
+    ) {
         List<BotpDocumentRelationEntity> entities = mapper.selectList(
                 new LambdaQueryWrapper<BotpDocumentRelationEntity>()
                         .eq(BotpDocumentRelationEntity::getFtenantId, tenantId)
-                        .eq(BotpDocumentRelationEntity::getFtargetDocumentId, targetDocumentId)
-        );
+                        .eq(StringUtils.hasText(targetSystemCode), BotpDocumentRelationEntity::getFtargetSystemCode, targetSystemCode)
+                        .eq(StringUtils.hasText(targetDocumentType), BotpDocumentRelationEntity::getFtargetDocumentType, targetDocumentType)
+                        .eq(BotpDocumentRelationEntity::getFtargetDocumentId, targetDocumentId));
         List<DocumentRelation> changed = new ArrayList<>();
         for (BotpDocumentRelationEntity entity : entities) {
             if (eventId.equals(entity.getFlastEventId())) {
@@ -155,6 +254,7 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
             entity.setFinvalidTime(LocalDateTime.now());
             entity.setFmodifyTime(LocalDateTime.now());
             mapper.updateById(entity);
+            updateEntryStatus(entity.getFid(), RelationStatus.INVALID);
             changed.add(toRelation(entity));
         }
         return changed;
@@ -176,6 +276,7 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
             entity.setFinvalidTime(LocalDateTime.now());
             entity.setFmodifyTime(LocalDateTime.now());
             mapper.updateById(entity);
+            updateEntryStatus(relationId, RelationStatus.INVALID);
         }
         return toRelation(entity);
     }
@@ -187,6 +288,7 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
             entity.setFrelationStatus(RelationStatus.REVERSING.name());
             entity.setFmodifyTime(LocalDateTime.now());
             mapper.updateById(entity);
+            updateEntryStatus(relationId, RelationStatus.REVERSING);
         }
         return toRelation(entity);
     }
@@ -200,8 +302,20 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
             entity.setFreversedTime(LocalDateTime.now());
             entity.setFmodifyTime(LocalDateTime.now());
             mapper.updateById(entity);
+            updateEntryStatus(relationId, RelationStatus.REVERSED);
         }
         return toRelation(entity);
+    }
+
+    private void updateEntryStatus(Long relationId, RelationStatus status) {
+        List<BotpDocumentRelationEntryEntity> entries = entryMapper.selectList(
+                new LambdaQueryWrapper<BotpDocumentRelationEntryEntity>()
+                        .eq(BotpDocumentRelationEntryEntity::getFrelationId, relationId));
+        for (BotpDocumentRelationEntryEntity entry : entries) {
+            entry.setFrelationStatus(status.name());
+            entry.setFmodifyTime(LocalDateTime.now());
+            entryMapper.updateById(entry);
+        }
     }
 
     private BotpDocumentRelationEntity requireEntity(Long relationId) {
@@ -214,21 +328,19 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
 
     private DocumentRelation toRelation(BotpDocumentRelationEntity entity) {
         return new DocumentRelation(
-                entity.getFid(),
-                entity.getFtenantId(),
-                entity.getFexecutionId(),
-                entity.getFruleCode(),
-                entity.getFruleVersion(),
+                entity.getFid(), entity.getFtenantId(), entity.getFexecutionId(),
+                entity.getFruleCode(), entity.getFruleVersion(),
                 new DocumentRef(entity.getFsourceSystemCode(), entity.getFsourceDocumentType(), entity.getFsourceDocumentId(), List.of()),
                 new TargetResult(entity.getFtargetSystemCode(), entity.getFtargetDocumentType(), entity.getFtargetDocumentId(), entity.getFtargetDocumentNo()),
-                entity.getFallocatedAmount(),
-                RelationStatus.valueOf(entity.getFrelationStatus()),
-                entity.getFtargetStatus(),
-                entity.getFlastEventId(),
-                entity.getFinvalidReason(),
-                entity.getFcreateTime(),
-                entity.getFinvalidTime(),
-                entity.getFreversedTime()
-        );
+                entity.getFallocatedAmount(), RelationStatus.valueOf(entity.getFrelationStatus()),
+                entity.getFtargetStatus(), entity.getFlastEventId(), entity.getFinvalidReason(),
+                entity.getFcreateTime(), entity.getFinvalidTime(), entity.getFreversedTime());
+    }
+
+    private DocumentRelationEntry toRelationEntry(BotpDocumentRelationEntryEntity entity) {
+        return new DocumentRelationEntry(
+                entity.getFid(), entity.getFtenantId(), entity.getFrelationId(),
+                entity.getFsourceEntryId(), entity.getFtargetEntryId(), entity.getFquantity(), entity.getFamount(),
+                entity.getFbaseQuantity(), entity.getFbaseAmount(), RelationStatus.valueOf(entity.getFrelationStatus()));
     }
 }

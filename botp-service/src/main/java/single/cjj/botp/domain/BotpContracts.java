@@ -159,12 +159,31 @@ public final class BotpContracts {
         }
     }
 
+    public record TargetEntryResult(
+            String correlationKey,
+            String targetEntryId
+    ) {
+    }
+
     public record TargetResult(
             String systemCode,
             String documentType,
             String documentId,
-            String documentNo
+            String documentNo,
+            List<TargetEntryResult> entries
     ) {
+        public TargetResult {
+            entries = immutable(entries);
+        }
+
+        public TargetResult(
+                String systemCode,
+                String documentType,
+                String documentId,
+                String documentNo
+        ) {
+            this(systemCode, documentType, documentId, documentNo, List.of());
+        }
     }
 
     public record ExecutionRequest(
@@ -192,7 +211,6 @@ public final class BotpContracts {
     ) {
         public PreviewResult {
             targetDrafts = immutable(targetDrafts);
-            warnings = immutable(warnings);
         }
     }
 
@@ -250,6 +268,20 @@ public final class BotpContracts {
             LocalDateTime createdTime,
             LocalDateTime invalidTime,
             LocalDateTime reversedTime
+    ) {
+    }
+
+    public record DocumentRelationEntry(
+            Long relationEntryId,
+            String tenantId,
+            Long relationId,
+            String sourceEntryId,
+            String targetEntryId,
+            BigDecimal quantity,
+            BigDecimal amount,
+            BigDecimal baseQuantity,
+            BigDecimal baseAmount,
+            RelationStatus status
     ) {
     }
 

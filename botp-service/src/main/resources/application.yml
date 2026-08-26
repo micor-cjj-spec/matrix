@@ -38,6 +38,7 @@ botp:
     mode: ${BOTP_PERSISTENCE_MODE:mysql}
   default-tenant: ${BOTP_DEFAULT_TENANT:default}
   fi-service-url: ${FI_SERVICE_URL:}
+  erp-service-url: ${ERP_SERVICE_URL:}
   writeback:
     scan-interval-ms: ${BOTP_WRITEBACK_SCAN_INTERVAL_MS:10000}
   reconciliation:

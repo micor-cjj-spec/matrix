@@ -31,12 +31,10 @@ public class PurchaseOrderService {
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_EFFECTIVE = "EFFECTIVE";
     private static final String STATUS_CANCELLED = "CANCELLED";
-
     private static final String APPROVAL_DRAFT = "DRAFT";
     private static final String APPROVAL_SUBMITTED = "SUBMITTED";
     private static final String APPROVAL_AUDITED = "AUDITED";
     private static final String APPROVAL_REJECTED = "REJECTED";
-
     private static final String NONE = "NONE";
     private static final String CLOSE_OPEN = "OPEN";
     private static final String CLOSE_CLOSED = "CLOSED";
@@ -54,16 +52,8 @@ public class PurchaseOrderService {
         return new PurchaseOrderDetail(order, listEntries(fid));
     }
 
-    public IPage<PurchaseOrderEntity> page(
-            String tenantId,
-            Long orgId,
-            int page,
-            int size,
-            String number,
-            Long businessPartnerId,
-            String approvalStatus,
-            String status
-    ) {
+    public IPage<PurchaseOrderEntity> page(String tenantId, Long orgId, int page, int size, String number,
+                                           Long businessPartnerId, String approvalStatus, String status) {
         if (!StringUtils.hasText(tenantId)) {
             throw new BizException("tenantId 不能为空");
         }
@@ -84,19 +74,10 @@ public class PurchaseOrderService {
         String tenantId = requireTenant(request.ftenantId());
         LocalDate orderDate = request.fdate() == null ? LocalDate.now() : request.fdate();
         Long orderId = IdWorker.getId();
-        String number = StringUtils.hasText(request.fnumber())
-                ? request.fnumber().trim()
-                : buildNumber(orderDate, orderId);
+        String number = StringUtils.hasText(request.fnumber()) ? request.fnumber().trim() : buildNumber(orderDate, orderId);
         ensureNumberUnique(tenantId, number);
-
-        CalculatedEntries calculated = calculateEntries(
-                orderId,
-                tenantId,
-                request.forgId(),
-                request.fplannedDeliveryDate(),
-                request.entries(),
-                operatorId
-        );
+        CalculatedEntries calculated = calculateEntries(orderId, tenantId, request.forgId(),
+                request.fplannedDeliveryDate(), request.entries(), operatorId);
 
         PurchaseOrderEntity order = new PurchaseOrderEntity();
         order.setFid(orderId);
@@ -135,16 +116,8 @@ public class PurchaseOrderService {
         String tenantId = requireTenant(request.ftenantId());
         PurchaseOrderEntity order = requireOrder(fid, tenantId);
         ensureEditable(order);
-
-        CalculatedEntries calculated = calculateEntries(
-                fid,
-                tenantId,
-                request.forgId(),
-                request.fplannedDeliveryDate(),
-                request.entries(),
-                operatorId
-        );
-
+        CalculatedEntries calculated = calculateEntries(fid, tenantId, request.forgId(),
+                request.fplannedDeliveryDate(), request.entries(), operatorId);
         order.setForgId(request.forgId());
         order.setFbusinessPartnerId(request.fbusinessPartnerId());
         order.setFbusinessPartnerCode(request.fbusinessPartnerCode().trim());
@@ -157,7 +130,6 @@ public class PurchaseOrderService {
         applyTotals(order, calculated);
         touch(order, operatorId);
         requireUpdated(orderMapper.updateById(order));
-
         entryMapper.delete(new LambdaQueryWrapper<PurchaseOrderEntryEntity>()
                 .eq(PurchaseOrderEntryEntity::getFpurchaseOrderId, fid));
         insertEntries(calculated.entries());
@@ -168,8 +140,7 @@ public class PurchaseOrderService {
     public PurchaseOrderDetail submit(Long fid, String tenantId, Long operatorId) {
         PurchaseOrderEntity order = requireOrder(fid, tenantId);
         if (!STATUS_DRAFT.equals(order.getFstatus())
-                || !(APPROVAL_DRAFT.equals(order.getFapprovalStatus())
-                || APPROVAL_REJECTED.equals(order.getFapprovalStatus()))) {
+                || !(APPROVAL_DRAFT.equals(order.getFapprovalStatus()) || APPROVAL_REJECTED.equals(order.getFapprovalStatus()))) {
             throw new BizException("仅草稿或已驳回采购订单允许提交");
         }
         if (listEntries(fid).isEmpty()) {
@@ -232,10 +203,9 @@ public class PurchaseOrderService {
     }
 
     private PurchaseOrderEntity requireOrder(Long fid, String tenantId) {
-        String normalizedTenant = requireTenant(tenantId);
         PurchaseOrderEntity order = orderMapper.selectOne(new LambdaQueryWrapper<PurchaseOrderEntity>()
                 .eq(PurchaseOrderEntity::getFid, fid)
-                .eq(PurchaseOrderEntity::getFtenantId, normalizedTenant)
+                .eq(PurchaseOrderEntity::getFtenantId, requireTenant(tenantId))
                 .last("limit 1"));
         if (order == null) {
             throw new BizException("采购订单不存在: " + fid);
@@ -251,8 +221,7 @@ public class PurchaseOrderService {
 
     private void ensureEditable(PurchaseOrderEntity order) {
         if (!STATUS_DRAFT.equals(order.getFstatus())
-                || !(APPROVAL_DRAFT.equals(order.getFapprovalStatus())
-                || APPROVAL_REJECTED.equals(order.getFapprovalStatus()))) {
+                || !(APPROVAL_DRAFT.equals(order.getFapprovalStatus()) || APPROVAL_REJECTED.equals(order.getFapprovalStatus()))) {
             throw new BizException("仅草稿或已驳回采购订单允许修改/删除");
         }
     }
@@ -266,14 +235,9 @@ public class PurchaseOrderService {
         }
     }
 
-    private CalculatedEntries calculateEntries(
-            Long orderId,
-            String tenantId,
-            Long orgId,
-            LocalDate headerPlannedDeliveryDate,
-            List<PurchaseOrderEntryRequest> requests,
-            Long operatorId
-    ) {
+    private CalculatedEntries calculateEntries(Long orderId, String tenantId, Long orgId,
+                                                LocalDate headerPlannedDeliveryDate,
+                                                List<PurchaseOrderEntryRequest> requests, Long operatorId) {
         if (requests == null || requests.isEmpty()) {
             throw new BizException("采购订单至少需要一条分录");
         }
@@ -283,7 +247,6 @@ public class PurchaseOrderService {
         BigDecimal taxAmount = BigDecimal.ZERO;
         BigDecimal grossAmount = BigDecimal.ZERO;
         LocalDateTime now = LocalDateTime.now();
-
         for (int i = 0; i < requests.size(); i++) {
             PurchaseOrderEntryRequest request = requests.get(i);
             BigDecimal quantity = request.fquantity();
@@ -310,11 +273,10 @@ public class PurchaseOrderService {
             entry.setFtaxRate(taxRate);
             entry.setFtaxAmount(lineTax);
             entry.setFgrossAmount(lineGross);
-            entry.setFplannedDeliveryDate(request.fplannedDeliveryDate() == null
-                    ? headerPlannedDeliveryDate
-                    : request.fplannedDeliveryDate());
+            entry.setFplannedDeliveryDate(request.fplannedDeliveryDate() == null ? headerPlannedDeliveryDate : request.fplannedDeliveryDate());
             entry.setFprojectId(request.fprojectId());
             entry.setFcostCenterId(request.fcostCenterId());
+            entry.setFreceiptReservedQuantity(BigDecimal.ZERO);
             entry.setFreceivedQuantity(BigDecimal.ZERO);
             entry.setFacceptedQuantity(BigDecimal.ZERO);
             entry.setFinboundQuantity(BigDecimal.ZERO);
@@ -327,7 +289,6 @@ public class PurchaseOrderService {
             entry.setFdeleteFlag(0);
             entry.setFversion(0);
             entries.add(entry);
-
             totalQuantity = totalQuantity.add(quantity);
             netAmount = netAmount.add(lineNet);
             taxAmount = taxAmount.add(lineTax);
@@ -377,12 +338,7 @@ public class PurchaseOrderService {
         }
     }
 
-    private record CalculatedEntries(
-            List<PurchaseOrderEntryEntity> entries,
-            BigDecimal totalQuantity,
-            BigDecimal netAmount,
-            BigDecimal taxAmount,
-            BigDecimal grossAmount
-    ) {
+    private record CalculatedEntries(List<PurchaseOrderEntryEntity> entries, BigDecimal totalQuantity,
+                                     BigDecimal netAmount, BigDecimal taxAmount, BigDecimal grossAmount) {
     }
 }

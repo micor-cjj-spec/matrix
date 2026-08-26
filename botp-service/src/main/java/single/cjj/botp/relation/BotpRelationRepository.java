@@ -2,6 +2,7 @@ package single.cjj.botp.relation;
 
 import single.cjj.botp.domain.BotpContracts.DocumentRef;
 import single.cjj.botp.domain.BotpContracts.DocumentRelation;
+import single.cjj.botp.domain.BotpContracts.DocumentRelationEntry;
 import single.cjj.botp.domain.BotpContracts.RuleDefinition;
 import single.cjj.botp.domain.BotpContracts.TargetResult;
 
@@ -20,11 +21,22 @@ public interface BotpRelationRepository {
             BigDecimal allocatedAmount
     );
 
+    void saveEntries(String tenantId, Long relationId, List<DocumentRelationEntry> entries);
+
+    List<DocumentRelationEntry> findEntries(Long relationId);
+
     BigDecimal sumActiveAmount(String tenantId, DocumentRef source);
 
     Optional<DocumentRelation> findById(Long relationId);
 
     List<DocumentRelation> findByTarget(String tenantId, String targetDocumentId);
+
+    List<DocumentRelation> findByTarget(
+            String tenantId,
+            String targetSystemCode,
+            String targetDocumentType,
+            String targetDocumentId
+    );
 
     List<DocumentRelation> find(String tenantId, String sourceDocumentId, String targetDocumentId, int limit);
 
@@ -32,6 +44,16 @@ public interface BotpRelationRepository {
 
     List<DocumentRelation> invalidateByTarget(
             String tenantId,
+            String targetDocumentId,
+            String eventId,
+            String targetStatus,
+            String reason
+    );
+
+    List<DocumentRelation> invalidateByTarget(
+            String tenantId,
+            String targetSystemCode,
+            String targetDocumentType,
             String targetDocumentId,
             String eventId,
             String targetStatus,

@@ -9,14 +9,17 @@ import single.cjj.botp.adapter.BotpDocumentAdapter;
 import single.cjj.botp.domain.BotpContracts.DocumentData;
 import single.cjj.botp.domain.BotpContracts.DocumentRef;
 import single.cjj.botp.domain.BotpContracts.DocumentRelation;
+import single.cjj.botp.domain.BotpContracts.DocumentRelationEntry;
 import single.cjj.botp.domain.BotpContracts.ExecutionDetails;
 import single.cjj.botp.domain.BotpContracts.ExecutionMode;
 import single.cjj.botp.domain.BotpContracts.ExecutionRequest;
 import single.cjj.botp.domain.BotpContracts.ExecutionResult;
 import single.cjj.botp.domain.BotpContracts.ExecutionStatus;
 import single.cjj.botp.domain.BotpContracts.PreviewResult;
+import single.cjj.botp.domain.BotpContracts.RelationStatus;
 import single.cjj.botp.domain.BotpContracts.RuleDefinition;
 import single.cjj.botp.domain.BotpContracts.TargetDraft;
+import single.cjj.botp.domain.BotpContracts.TargetEntryResult;
 import single.cjj.botp.domain.BotpContracts.TargetResult;
 import single.cjj.botp.domain.BotpContracts.TaskStatus;
 import single.cjj.botp.domain.BotpContracts.WritebackCommand;
@@ -33,6 +36,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class DefaultBotpExecutionService implements BotpExecutionService {
@@ -64,7 +69,6 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
         this.writebackService = writebackService;
     }
 
-    /** 保留给纯单元测试和嵌入式调用。 */
     public DefaultBotpExecutionService(
             BotpRuleRepository ruleRepository,
             BotpAdapterRegistry adapterRegistry,
@@ -103,20 +107,25 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
             throw new BizException("BOTP V3 当前仅开放 SYNC 创建，失败补偿由异步任务执行");
         }
 
+        RuleDefinition rule = requirePublishedRule(request.ruleCode());
         ExecutionDetails existing = executionStore.findByRequest(
                 request.tenantId(), request.sourceSystem(), request.requestId()).orElse(null);
-        if (existing != null) {
-            return existing.toResult();
-        }
 
-        RuleDefinition rule = requirePublishedRule(request.ruleCode());
-        String executionId = newExecutionId();
-        try {
-            save(request, rule, executionId, ExecutionStatus.CREATED, List.of(), null);
-        } catch (DuplicateKeyException duplicateKeyException) {
-            return executionStore.findByRequest(request.tenantId(), request.sourceSystem(), request.requestId())
-                    .map(ExecutionDetails::toResult)
-                    .orElseThrow(() -> duplicateKeyException);
+        String executionId;
+        if (existing == null) {
+            executionId = newExecutionId();
+            try {
+                save(request, rule, executionId, ExecutionStatus.CREATED, List.of(), null);
+            } catch (DuplicateKeyException duplicateKeyException) {
+                return executionStore.findByRequest(request.tenantId(), request.sourceSystem(), request.requestId())
+                        .map(ExecutionDetails::toResult)
+                        .orElseThrow(() -> duplicateKeyException);
+            }
+        } else if (existing.status() == ExecutionStatus.FAILED) {
+            // 使用原 executionId 重试。目标单通过相同幂等键恢复，避免重复创建。
+            executionId = existing.executionId();
+        } else {
+            return existing.toResult();
         }
 
         List<TargetResult> targets = new ArrayList<>();
@@ -142,6 +151,9 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
                 DocumentRelation relation = relationRepository.saveActive(
                         request.tenantId(), executionId, rule,
                         sourceAndDraft.sourceDocument().reference(), target, sourceAndDraft.allocatedAmount());
+                relationRepository.saveEntries(
+                        request.tenantId(), relation.relationId(),
+                        buildRelationEntries(request.tenantId(), relation.relationId(), sourceAndDraft.targetDraft(), target));
                 save(request, rule, executionId, ExecutionStatus.RELATION_SAVED, targets, null);
 
                 BigDecimal activeAmount = relationRepository.sumActiveAmount(
@@ -157,8 +169,7 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
                             sourceAndDraft.sourceDocument().reference(),
                             target,
                             rule.writebackMappings(),
-                            writebackContext
-                    ));
+                            writebackContext));
                 } catch (RuntimeException writebackException) {
                     writebackService.enqueueForward(
                             request.tenantId(), executionId, relation, activeAmount, sourceAndDraft.allocatedAmount());
@@ -170,9 +181,7 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
 
             return save(request, rule, executionId, ExecutionStatus.SUCCEEDED, targets, null);
         } catch (RuntimeException exception) {
-            return save(
-                    request, rule, executionId, ExecutionStatus.FAILED,
-                    targets, safeMessage(exception));
+            return save(request, rule, executionId, ExecutionStatus.FAILED, targets, safeMessage(exception));
         }
     }
 
@@ -203,20 +212,55 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
             TargetDraft targetDraft = mappingEngine.transform(rule, sourceDocument, context);
             transformed.add(new SourceAndDraft(
                     sourceAdapter, sourceDocument, targetDraft, context,
-                    resolveAllocatedAmount(context, targetDraft)
-            ));
+                    resolveAllocatedAmount(context, targetDraft)));
         }
         return transformed;
     }
 
     private Map<String, Object> enrichContext(ExecutionRequest request, DocumentRef sourceRef, String executionId) {
         Map<String, Object> context = new LinkedHashMap<>(request.parameters());
+        context.put("tenantId", request.tenantId());
         context.put("executionId", executionId);
         context.put("sourceSystemCode", sourceRef.systemCode());
         context.put("sourceDocumentType", sourceRef.documentType());
         context.put("sourceDocumentId", sourceRef.documentId());
         context.putIfAbsent("operator", context.get("operatorId"));
         return context;
+    }
+
+    private List<DocumentRelationEntry> buildRelationEntries(
+            String tenantId,
+            Long relationId,
+            TargetDraft draft,
+            TargetResult target
+    ) {
+        if (draft.entries().isEmpty() || target.entries().isEmpty()) {
+            return List.of();
+        }
+        Map<String, TargetEntryResult> targetsByCorrelation = target.entries().stream()
+                .collect(Collectors.toMap(
+                        TargetEntryResult::correlationKey,
+                        Function.identity(),
+                        (first, ignored) -> first,
+                        LinkedHashMap::new));
+        List<DocumentRelationEntry> result = new ArrayList<>();
+        for (Map<String, Object> draftEntry : draft.entries()) {
+            String sourceEntryId = textOrNull(draftEntry.get("_botpSourceEntryId"));
+            String correlationKey = textOrNull(draftEntry.get("_botpCorrelationKey"));
+            if (sourceEntryId == null || correlationKey == null) {
+                continue;
+            }
+            TargetEntryResult targetEntry = targetsByCorrelation.get(correlationKey);
+            if (targetEntry == null || targetEntry.targetEntryId() == null) {
+                throw new BizException("BOTP 目标分录回传缺失: correlationKey=" + correlationKey);
+            }
+            result.add(new DocumentRelationEntry(
+                    null, tenantId, relationId, sourceEntryId, targetEntry.targetEntryId(),
+                    nullableDecimal(draftEntry.get("_botpRelationQuantity")),
+                    nullableDecimal(draftEntry.get("_botpRelationAmount")),
+                    null, null, RelationStatus.ACTIVE));
+        }
+        return result;
     }
 
     private BigDecimal resolveAllocatedAmount(Map<String, Object> context, TargetDraft targetDraft) {
@@ -230,22 +274,39 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
         if (value == null) {
             return BigDecimal.ZERO;
         }
-        BigDecimal amount;
-        if (value instanceof BigDecimal decimal) {
-            amount = decimal;
-        } else if (value instanceof Number number) {
-            amount = new BigDecimal(number.toString());
-        } else {
-            try {
-                amount = new BigDecimal(String.valueOf(value));
-            } catch (NumberFormatException exception) {
-                throw new BizException("下推分配金额格式错误: " + value);
-            }
-        }
+        BigDecimal amount = decimal(value, "下推分配金额");
         if (amount.compareTo(BigDecimal.ZERO) < 0) {
             throw new BizException("下推分配金额不能小于0");
         }
         return amount;
+    }
+
+    private BigDecimal nullableDecimal(Object value) {
+        if (value == null || String.valueOf(value).isBlank()) {
+            return null;
+        }
+        return decimal(value, "BOTP 分录关联数量/金额");
+    }
+
+    private BigDecimal decimal(Object value, String field) {
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof Number number) {
+            return new BigDecimal(number.toString());
+        }
+        try {
+            return new BigDecimal(String.valueOf(value));
+        } catch (NumberFormatException exception) {
+            throw new BizException(field + "格式错误: " + value);
+        }
+    }
+
+    private String textOrNull(Object value) {
+        if (value == null || String.valueOf(value).isBlank()) {
+            return null;
+        }
+        return String.valueOf(value);
     }
 
     private RuleDefinition requirePublishedRule(String ruleCode) {
@@ -259,8 +320,7 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
             throw new BizException(
                     "源单类型与规则不匹配: expected="
                             + rule.sourceSystemCode() + "/" + rule.sourceDocumentType()
-                            + ", actual=" + sourceRef.systemCode() + "/" + sourceRef.documentType()
-            );
+                            + ", actual=" + sourceRef.systemCode() + "/" + sourceRef.documentType());
         }
     }
 
@@ -283,14 +343,11 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
         ExecutionDetails details = executionStore.save(
                 request, rule, executionId, status, targets, errorMessage);
         logRepository.append(
-                executionId,
-                status.name(),
-                logStatus(status),
+                executionId, status.name(), logStatus(status),
                 errorMessage == null ? "执行阶段完成: " + status.name() : errorMessage,
                 status == ExecutionStatus.CREATED ? request.toString() : null,
                 targets.isEmpty() ? null : targets.toString(),
-                errorMessage == null ? null : new RuntimeException(errorMessage)
-        );
+                errorMessage == null ? null : new RuntimeException(errorMessage));
         return details.toResult();
     }
 
