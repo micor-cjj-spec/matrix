@@ -60,12 +60,24 @@ Ledger
 Report
 ```
 
+横向控制链：
+
+```text
+Business Document / Finance Object
+  ↓
+Reconciliation Framework
+  ↓
+Difference
+  ↓
+Resolution
+```
+
 核心边界：
 
 - `base-service`：组织、基础资料、主数据、Business Partner 主体。
 - `erp-service`：CRM、合同、销售、SRM、采购、库存、制造、项目等经营域。
 - `botp-service`：单据转换、单据上下游关系、分录关系、反写和转换幂等。
-- `fi-service`：预算、费用、AR/AP、资金、税务、资产、成本、Accounting Event、Accounting Rule、Voucher、GL、Report。
+- `fi-service`：预算、费用、AR/AP、资金、税务、资产、成本、Accounting Event、Accounting Rule、Voucher、GL、Report、Reconciliation。
 - 平台服务继续独立：workflow、scheduler、openapi、im、ai、gateway。
 
 ## 4. P0 设计目录
@@ -77,6 +89,7 @@ Report
 - [04-business-event.md](./04-business-event.md)：Business Event + Outbox/Inbox 设计。
 - [05-accounting-event-rule.md](./05-accounting-event-rule.md)：Accounting Event + Accounting Rule 设计。
 - [06-accounting-voucher-gl.md](./06-accounting-voucher-gl.md)：Accounting Event → Voucher → GL 设计。
+- [07-reconciliation-framework.md](./07-reconciliation-framework.md)：统一对账 / 勾稽 / 差异处理框架。
 
 架构决策记录：
 
@@ -85,6 +98,7 @@ Report
 - [ADR-003 Transactional Outbox](./decisions/ADR-003-transactional-outbox.md)
 - [ADR-004 Accounting Event Model](./decisions/ADR-004-accounting-event-model.md)
 - [ADR-005 Accounting Result to Voucher/GL](./decisions/ADR-005-accounting-result-to-voucher-gl.md)
+- [ADR-006 Reconciliation Boundary](./decisions/ADR-006-reconciliation-boundary.md)
 
 ## 5. 当前 P0 进度
 
@@ -94,7 +108,7 @@ P0-02 BOTP Document Relation           已完成设计
 P0-03 Business Event                   已完成设计
 P0-04 Accounting Event + Rule          已完成设计
 P0-05 Accounting Event → Voucher → GL  已完成设计
-P0-06 Reconciliation Framework         待设计
+P0-06 Reconciliation Framework         已完成设计
 P0-07 P2P E2E 验证                     待设计/实现
 ```
 
@@ -129,6 +143,16 @@ PurchaseOrder
 → Voucher Draft
 → Voucher Review / Audit
 → GL
+```
+
+同时验证控制链：
+
+```text
+PO + Receipt + SupplierInvoice
+→ Reconciliation Batch
+→ Reconciliation Case
+→ MATCHED / PARTIAL_MATCHED / DIFFERENCE
+→ Resolution
 ```
 
 ## 7. 数据库命名
