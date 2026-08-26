@@ -60,24 +60,12 @@ Ledger
 Report
 ```
 
-横向控制链：
-
-```text
-Business Document / Finance Object
-  ↓
-Reconciliation Framework
-  ↓
-Difference
-  ↓
-Resolution
-```
-
 核心边界：
 
 - `base-service`：组织、基础资料、主数据、Business Partner 主体。
 - `erp-service`：CRM、合同、销售、SRM、采购、库存、制造、项目等经营域。
 - `botp-service`：单据转换、单据上下游关系、分录关系、反写和转换幂等。
-- `fi-service`：预算、费用、AR/AP、资金、税务、资产、成本、Accounting Event、Accounting Rule、Voucher、GL、Report、Reconciliation。
+- `fi-service`：预算、费用、AR/AP、资金、税务、资产、成本、Reconciliation、Accounting Event、Accounting Rule、Voucher、GL、Report。
 - 平台服务继续独立：workflow、scheduler、openapi、im、ai、gateway。
 
 ## 4. P0 设计目录
@@ -89,7 +77,8 @@ Resolution
 - [04-business-event.md](./04-business-event.md)：Business Event + Outbox/Inbox 设计。
 - [05-accounting-event-rule.md](./05-accounting-event-rule.md)：Accounting Event + Accounting Rule 设计。
 - [06-accounting-voucher-gl.md](./06-accounting-voucher-gl.md)：Accounting Event → Voucher → GL 设计。
-- [07-reconciliation-framework.md](./07-reconciliation-framework.md)：统一对账 / 勾稽 / 差异处理框架。
+- [07-reconciliation-framework.md](./07-reconciliation-framework.md)：Reconciliation 对账 / 勾稽中心设计。
+- [08-p2p-e2e.md](./08-p2p-e2e.md)：P2P 第一条真实端到端链路设计。
 
 架构决策记录：
 
@@ -99,6 +88,7 @@ Resolution
 - [ADR-004 Accounting Event Model](./decisions/ADR-004-accounting-event-model.md)
 - [ADR-005 Accounting Result to Voucher/GL](./decisions/ADR-005-accounting-result-to-voucher-gl.md)
 - [ADR-006 Reconciliation Boundary](./decisions/ADR-006-reconciliation-boundary.md)
+- [ADR-007 P2P Inbound Accounting Trigger](./decisions/ADR-007-p2p-inbound-accounting-trigger.md)
 
 ## 5. 当前 P0 进度
 
@@ -109,53 +99,98 @@ P0-03 Business Event                   已完成设计
 P0-04 Accounting Event + Rule          已完成设计
 P0-05 Accounting Event → Voucher → GL  已完成设计
 P0-06 Reconciliation Framework         已完成设计
-P0-07 P2P E2E 验证                     待设计/实现
+P0-07 P2P E2E                           已完成设计
 ```
 
-## 6. 第一条端到端验证链
+P0 架构设计阶段到 P0-07 结束。后续应进入实现阶段，而不是继续增加基础抽象。
 
-P0 最终以 P2P 链路作为第一条真实验证链：
+## 6. P0-07 语义校正
+
+前序文档示例曾使用：
+
+```text
+PURCHASE_RECEIPT_CONFIRMED
+→ 暂估应付
+```
+
+P0-07 按源业务流程校正为：
+
+```text
+PurchaseReceipt
+→ PurchaseAcceptance
+→ PurchaseInbound
+→ PURCHASE_INBOUND_CONFIRMED
+→ AP Estimate
+```
+
+正式实现以 [ADR-007](./decisions/ADR-007-p2p-inbound-accounting-trigger.md) 为准。
+
+## 7. 第一条端到端验证链
 
 ```text
 Supplier
-→ PurchaseRequest
 → PurchaseOrder
-→ Receipt
+→ PurchaseReceipt
+→ PurchaseAcceptance
+→ PurchaseInbound
+→ AP Estimate
 → SupplierInvoice
 → 3-Way Match
-→ AccountsPayable
-→ PaymentRequest
-→ Payment
-→ BankFlow
+→ AP Formal
+→ PaymentApplication
+→ PaymentOrder
+→ BankTransaction
+→ AP Settlement
+→ Accounting Event
 → Voucher
 → GL
 ```
 
-第一阶段先验证：
+其中：
 
 ```text
-PurchaseOrder
-→ BOTP
-→ PurchaseReceipt
-→ PURCHASE_RECEIPT_CONFIRMED
-→ AccountingEvent
-→ AccountingRule
-→ Voucher Draft
-→ Voucher Review / Audit
-→ GL
+BOTP Relation
+= 单据转换和上下游关系
+
+Reconciliation
+= 数据一致性判断
+
+Settlement
+= 应付余额核销
+
+Accounting
+= 会计结果
 ```
 
-同时验证控制链：
+四者不混用。
+
+## 8. P0 实现阶段建议
 
 ```text
-PO + Receipt + SupplierInvoice
-→ Reconciliation Batch
-→ Reconciliation Case
-→ MATCHED / PARTIAL_MATCHED / DIFFERENCE
-→ Resolution
+P0-IMP-01 erp-service + PurchaseOrder
+P0-IMP-02 Receipt / Acceptance / Inbound
+P0-IMP-03 Inbound → AP Estimate → Voucher
+P0-IMP-04 SupplierInvoice + 3-Way Match
+P0-IMP-05 Formal AP
+P0-IMP-06 PaymentApplication
+P0-IMP-07 PaymentOrder + BankTransaction
+P0-IMP-08 Settlement + Payment Voucher
+P0-IMP-09 P2P frontend E2E
 ```
 
-## 7. 数据库命名
+每个实现 PR 需要同时包含：
+
+```text
+schema
+backend
+API
+test
+trace
+```
+
+需要页面时同步考虑 `matrix-web`。
+
+## 9. 数据库命名
 
 所有新增数据库对象必须遵守 `docs/specs/database-naming-convention.md`：
 
