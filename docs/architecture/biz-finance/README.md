@@ -76,6 +76,7 @@ Report
 - [03-botp-document-relation.md](./03-botp-document-relation.md)：BOTP 单据转换与关系中心增强设计。
 - [04-business-event.md](./04-business-event.md)：Business Event + Outbox/Inbox 设计。
 - [05-accounting-event-rule.md](./05-accounting-event-rule.md)：Accounting Event + Accounting Rule 设计。
+- [06-accounting-voucher-gl.md](./06-accounting-voucher-gl.md)：Accounting Event → Voucher → GL 设计。
 
 架构决策记录：
 
@@ -83,6 +84,7 @@ Report
 - [ADR-002 BOTP as Document Infrastructure](./decisions/ADR-002-botp-as-document-infrastructure.md)
 - [ADR-003 Transactional Outbox](./decisions/ADR-003-transactional-outbox.md)
 - [ADR-004 Accounting Event Model](./decisions/ADR-004-accounting-event-model.md)
+- [ADR-005 Accounting Result to Voucher/GL](./decisions/ADR-005-accounting-result-to-voucher-gl.md)
 
 ## 5. 当前 P0 进度
 
@@ -91,7 +93,7 @@ P0-01 BusinessPartner                  已完成设计
 P0-02 BOTP Document Relation           已完成设计
 P0-03 Business Event                   已完成设计
 P0-04 Accounting Event + Rule          已完成设计
-P0-05 Accounting Event → Voucher → GL  待设计
+P0-05 Accounting Event → Voucher → GL  已完成设计
 P0-06 Reconciliation Framework         待设计
 P0-07 P2P E2E 验证                     待设计/实现
 ```
@@ -125,7 +127,7 @@ PurchaseOrder
 → AccountingEvent
 → AccountingRule
 → Voucher Draft
-→ Voucher Workflow
+→ Voucher Review / Audit
 → GL
 ```
 
