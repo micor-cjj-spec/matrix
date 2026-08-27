@@ -1,6 +1,19 @@
 # P0-IMP-02 BOTP 规则配置说明
 
-P0-IMP-02 不把采购转换规则硬编码进 Java。规则继续通过现有 BOTP Rule API 维护和发布。
+P0-IMP-02 初始版本由 BOTP Rule API 维护和发布采购转换规则。
+
+P1-IMP-07 已将稳定、确定性的采购转换规则纳入 `BotpBuiltInRuleInitializer`，启动时幂等确保规则存在并发布。规则仍持久化为正常 BOTP Rule / RuleVersion，不把采购领域校验复制进 BOTP 引擎。
+
+当前内置规则：
+
+```text
+PURCHASE_CONTRACT_TO_ORDER
+PURCHASE_ORDER_TO_RECEIPT
+PURCHASE_RECEIPT_TO_ACCEPTANCE
+PURCHASE_ACCEPTANCE_TO_INBOUND
+```
+
+其中 Contract → PO 使用已有 ERP `PurchaseOrderContractConversionService`；RFQ → Award 等包含人工/策略决策的过程不注册为自动转换规则。
 
 首批规则：
 
