@@ -20,6 +20,11 @@ public class PurchaseOrderEntryEntity {
     private String ftenantId;
     private Long forgId;
     private Long fpurchaseOrderId;
+    private Long fcontractEntryId;
+    private Long fsourcingAwardEntryId;
+    private Long frfqEntryId;
+    private Long fpurchaseRequestId;
+    private Long fpurchaseRequestEntryId;
     private Integer flineNo;
     private Long fmaterialId;
     private String fmaterialCode;
