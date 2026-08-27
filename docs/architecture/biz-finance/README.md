@@ -101,6 +101,7 @@ Report
 - [P0-IMP-08 Settlement + Payment Voucher](./implementation/P0-IMP-08-payment-settlement-voucher.md)
 - [P0-IMP-09 P2P Frontend E2E](./implementation/P0-IMP-09-p2p-frontend-e2e.md)
 - [P1-IMP-01 PurchaseRequest](./implementation/P1-IMP-01-purchase-request.md)
+- [P1-IMP-02 RFQ / 采购询价与比价](./implementation/P1-IMP-02-rfq-sourcing.md)
 
 ## 5. 当前 P0 设计进度
 
@@ -220,7 +221,7 @@ trace
 
 ```text
 P1-IMP-01 PurchaseRequest                         已实现 v1
-P1-IMP-02 RFQ / 采购询价与比价                   待实现
+P1-IMP-02 RFQ / 采购询价与比价                   已实现 v1
 P1-IMP-03 PurchaseContract                       待实现
 P1-IMP-04 Request/Sourcing/Contract → PO         待实现
 P1-IMP-05 DeliveryPlan / Supplier Collaboration  待实现
