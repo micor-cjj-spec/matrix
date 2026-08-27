@@ -70,8 +70,19 @@ public final class PurchaseOrderContracts {
             @NotNull Long fcontractId,
             String fnumber,
             LocalDate fdate,
-            @NotEmpty List<@Valid PurchaseOrderFromContractEntryRequest> entries
+            @NotEmpty List<@Valid PurchaseOrderFromContractEntryRequest> entries,
+            String fbotpIdempotencyKey,
+            String fsourceExecutionId
     ) {
+        public PurchaseOrderFromContractCreateRequest(
+                String ftenantId,
+                Long fcontractId,
+                String fnumber,
+                LocalDate fdate,
+                List<PurchaseOrderFromContractEntryRequest> entries
+        ) {
+            this(ftenantId, fcontractId, fnumber, fdate, entries, null, null);
+        }
     }
 
     public record PurchaseOrderFromContractEntryRequest(
