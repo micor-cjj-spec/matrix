@@ -31,6 +31,7 @@ public class PurchaseInboundEntryEntity {
     private String fspecification;
     private Long funitId;
     private BigDecimal fquantity;
+    private BigDecimal freturnedQuantity;
     private BigDecimal funitPrice;
     private BigDecimal famount;
     private String fbatchNo;
