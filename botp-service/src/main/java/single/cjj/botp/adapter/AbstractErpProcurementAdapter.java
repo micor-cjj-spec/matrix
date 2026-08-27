@@ -42,8 +42,15 @@ abstract class AbstractErpProcurementAdapter implements BotpDocumentAdapter {
 
     @Override
     public DocumentData load(DocumentRef documentRef) {
+        return load(documentRef, tenantId);
+    }
+
+    @Override
+    public DocumentData load(DocumentRef documentRef, String requestedTenantId) {
+        String effectiveTenant = requestedTenantId == null || requestedTenantId.isBlank()
+                ? tenantId : requestedTenantId;
         BotpDocumentResponse response = requireData(
-                client.document(documentType, parseId(documentRef.documentId()), tenantId),
+                client.document(documentType, parseId(documentRef.documentId()), effectiveTenant),
                 "读取采购单据失败"
         );
         List<Map<String, Object>> entries = response.entries() == null ? List.of() : response.entries();
