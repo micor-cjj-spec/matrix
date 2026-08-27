@@ -80,6 +80,23 @@ public class ProcurementSourcingService {
         return new RfqDetail(rfq, listRfqEntries(fid), listRfqSuppliers(fid));
     }
 
+    public AwardDetail awardDetail(Long fid, String tenantId) {
+        String tenant = requireTenant(tenantId);
+        SourcingAwardEntity award = awardMapper.selectOne(
+                new LambdaQueryWrapper<SourcingAwardEntity>()
+                        .eq(SourcingAwardEntity::getFid, fid)
+                        .eq(SourcingAwardEntity::getFtenantId, tenant)
+                        .last("limit 1"));
+        if (award == null) {
+            throw new BizException("采购定标单不存在: " + fid);
+        }
+        List<SourcingAwardEntryEntity> entries = awardEntryMapper.selectList(
+                new LambdaQueryWrapper<SourcingAwardEntryEntity>()
+                        .eq(SourcingAwardEntryEntity::getFawardId, fid)
+                        .orderByAsc(SourcingAwardEntryEntity::getFlineNo));
+        return new AwardDetail(award, entries);
+    }
+
     public IPage<ProcurementRfqEntity> pageRfqs(
             String tenantId, Long orgId, String status, String number, int page, int size
     ) {
