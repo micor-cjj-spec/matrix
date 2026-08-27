@@ -15,6 +15,28 @@ public final class PaymentSettlementContracts {
     ) {
     }
 
+    public record ListItem(
+            Long fid,
+            String tenantId,
+            Long orgId,
+            String number,
+            Long paymentOrderId,
+            Long bankTransactionId,
+            String businessPartnerId,
+            String businessPartnerCode,
+            String businessPartnerName,
+            String currencyCode,
+            BigDecimal amount,
+            String status,
+            LocalDate settlementDate,
+            String businessEventId,
+            String accountingEventId,
+            Long voucherId,
+            String voucherNumber,
+            LocalDateTime createTime
+    ) {
+    }
+
     public record EntryView(
             Long fid,
             Long payableId,

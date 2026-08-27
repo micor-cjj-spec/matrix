@@ -109,6 +109,63 @@ public class PaymentApplicationRepository {
         return value == null ? BigDecimal.ZERO : value;
     }
 
+    public List<FormalPayableRow> listFormalPayables(
+            String tenantId,
+            Long orgId,
+            String status,
+            int limit
+    ) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT fid, ftenant_id, forg_id, fnumber, fdate,
+                       fbusiness_partner_id, fbusiness_partner_code, fbusiness_partner_name,
+                       fcurrency_code, famount, fopen_amount, fsettled_amount, freserved_amount,
+                       fstatus, fapproval_status, faccounting_status,
+                       fsource_document_type, fsource_document_id, fsource_document_no,
+                       faccounting_event_id, fvoucher_id, fvoucher_number, fversion
+                  FROM matrix_fi_ap_payable
+                 WHERE ftenant_id = ?
+                   AND ftype = 'FORMAL'
+                   AND fdelete_flag = 0
+                """);
+        java.util.ArrayList<Object> args = new java.util.ArrayList<>();
+        args.add(tenantId);
+        if (orgId != null) {
+            sql.append(" AND forg_id = ?");
+            args.add(orgId);
+        }
+        if (status != null && !status.isBlank()) {
+            sql.append(" AND fstatus = ?");
+            args.add(status);
+        }
+        sql.append(" ORDER BY fdate DESC, fid DESC LIMIT ?");
+        args.add(Math.max(1, Math.min(limit, 500)));
+        return jdbc.query(sql.toString(), (rs, n) -> new FormalPayableRow(
+                rs.getLong("fid"),
+                rs.getString("ftenant_id"),
+                rs.getLong("forg_id"),
+                rs.getString("fnumber"),
+                rs.getDate("fdate").toLocalDate(),
+                rs.getString("fbusiness_partner_id"),
+                rs.getString("fbusiness_partner_code"),
+                rs.getString("fbusiness_partner_name"),
+                rs.getString("fcurrency_code"),
+                rs.getBigDecimal("famount"),
+                rs.getBigDecimal("fopen_amount"),
+                rs.getBigDecimal("fsettled_amount"),
+                rs.getBigDecimal("freserved_amount"),
+                rs.getString("fstatus"),
+                rs.getString("fapproval_status"),
+                rs.getString("faccounting_status"),
+                rs.getString("fsource_document_type"),
+                rs.getString("fsource_document_id"),
+                rs.getString("fsource_document_no"),
+                rs.getString("faccounting_event_id"),
+                rs.getObject("fvoucher_id", Long.class),
+                rs.getString("fvoucher_number"),
+                rs.getInt("fversion")
+        ), args.toArray());
+    }
+
     public void insertApplication(ApplicationRow row) {
         jdbc.update("""
                 INSERT INTO matrix_fi_payment_application
@@ -411,6 +468,33 @@ public class PaymentApplicationRepository {
 
     private LocalDateTime nullableTime(Timestamp value) {
         return value == null ? null : value.toLocalDateTime();
+    }
+
+    public record FormalPayableRow(
+            Long id,
+            String tenantId,
+            Long orgId,
+            String number,
+            LocalDate date,
+            String businessPartnerId,
+            String businessPartnerCode,
+            String businessPartnerName,
+            String currencyCode,
+            BigDecimal amount,
+            BigDecimal openAmount,
+            BigDecimal settledAmount,
+            BigDecimal reservedAmount,
+            String status,
+            String approvalStatus,
+            String accountingStatus,
+            String sourceDocumentType,
+            String sourceDocumentId,
+            String sourceDocumentNo,
+            String accountingEventId,
+            Long voucherId,
+            String voucherNumber,
+            Integer version
+    ) {
     }
 
     public record PayableRow(

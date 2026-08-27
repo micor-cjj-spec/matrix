@@ -18,6 +18,7 @@ import single.cjj.fi.ap.payment.PaymentApplicationContracts.Detail;
 import single.cjj.fi.ap.payment.PaymentApplicationContracts.EvidenceRequest;
 import single.cjj.fi.ap.payment.PaymentApplicationContracts.EvidenceVerifyRequest;
 import single.cjj.fi.ap.payment.PaymentApplicationContracts.EvidenceView;
+import single.cjj.fi.ap.payment.PaymentApplicationContracts.FormalPayableView;
 import single.cjj.fi.ap.payment.PaymentApplicationContracts.PayableSnapshot;
 import single.cjj.fi.ap.payment.PaymentApplicationRepository.AllocationRow;
 import single.cjj.fi.ap.payment.PaymentApplicationRepository.ApplicationRow;
@@ -194,6 +195,43 @@ public class PaymentApplicationService {
     public List<Detail> list(String tenantId, Long orgId, String status, int limit) {
         return repository.listApplications(tenantId, orgId, status, limit).stream()
                 .map(item -> detail(item.id(), tenantId))
+                .toList();
+    }
+
+    public List<FormalPayableView> listFormalPayables(
+            String tenantId,
+            Long orgId,
+            String status,
+            int limit
+    ) {
+        return repository.listFormalPayables(tenantId, orgId, status, limit)
+                .stream()
+                .map(row -> new FormalPayableView(
+                        row.id(),
+                        row.tenantId(),
+                        row.orgId(),
+                        row.number(),
+                        row.date(),
+                        row.businessPartnerId(),
+                        row.businessPartnerCode(),
+                        row.businessPartnerName(),
+                        row.currencyCode(),
+                        row.amount(),
+                        row.openAmount(),
+                        row.settledAmount(),
+                        nz(row.reservedAmount()),
+                        money(nz(row.openAmount()).subtract(nz(row.reservedAmount()))),
+                        row.status(),
+                        row.approvalStatus(),
+                        row.accountingStatus(),
+                        row.sourceDocumentType(),
+                        row.sourceDocumentId(),
+                        row.sourceDocumentNo(),
+                        row.accountingEventId(),
+                        row.voucherId(),
+                        row.voucherNumber(),
+                        row.version()
+                ))
                 .toList();
     }
 

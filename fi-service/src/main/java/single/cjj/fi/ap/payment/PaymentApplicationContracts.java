@@ -112,6 +112,34 @@ public final class PaymentApplicationContracts {
     ) {
     }
 
+    public record FormalPayableView(
+            Long fid,
+            String tenantId,
+            Long orgId,
+            String number,
+            LocalDate date,
+            String businessPartnerId,
+            String businessPartnerCode,
+            String businessPartnerName,
+            String currencyCode,
+            BigDecimal amount,
+            BigDecimal openAmount,
+            BigDecimal settledAmount,
+            BigDecimal reservedAmount,
+            BigDecimal availableAmount,
+            String status,
+            String approvalStatus,
+            String accountingStatus,
+            String sourceDocumentType,
+            String sourceDocumentId,
+            String sourceDocumentNo,
+            String accountingEventId,
+            Long voucherId,
+            String voucherNumber,
+            Integer version
+    ) {
+    }
+
     public record AllocationView(
             Long fid,
             Long payableId,

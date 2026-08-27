@@ -18,6 +18,7 @@ import single.cjj.fi.ap.payment.PaymentApplicationContracts.CreateRequest;
 import single.cjj.fi.ap.payment.PaymentApplicationContracts.Detail;
 import single.cjj.fi.ap.payment.PaymentApplicationContracts.EvidenceRequest;
 import single.cjj.fi.ap.payment.PaymentApplicationContracts.EvidenceVerifyRequest;
+import single.cjj.fi.ap.payment.PaymentApplicationContracts.FormalPayableView;
 import single.cjj.fi.ap.payment.PaymentApplicationContracts.PayableSnapshot;
 import single.cjj.fi.integration.botp.BotpLifecycleClient;
 import single.cjj.fi.integration.botp.BotpLifecycleContracts.TargetStatusEvent;
@@ -66,6 +67,17 @@ public class PaymentApplicationController {
             @RequestParam(defaultValue = "100") int limit
     ) {
         return ApiResponse.success(service.list(tenantId, orgId, status, limit));
+    }
+
+    @GetMapping("/payables")
+    public ApiResponse<List<FormalPayableView>> formalPayables(
+            @RequestParam String tenantId,
+            @RequestParam(required = false) Long orgId,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "100") int limit
+    ) {
+        return ApiResponse.success(
+                service.listFormalPayables(tenantId, orgId, status, limit));
     }
 
     @GetMapping("/payables/{payableId}")

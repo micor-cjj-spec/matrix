@@ -10,6 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.fi.ap.settlement.PaymentSettlementContracts.Detail;
 import single.cjj.fi.ap.settlement.PaymentSettlementContracts.FinalizeRequest;
+import single.cjj.fi.ap.settlement.PaymentSettlementContracts.ListItem;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/fund/payment-settlements")
@@ -19,6 +22,16 @@ public class PaymentSettlementController {
 
     public PaymentSettlementController(PaymentSettlementService service) {
         this.service = service;
+    }
+
+    @GetMapping
+    public ApiResponse<List<ListItem>> list(
+            @RequestParam String tenantId,
+            @RequestParam(required = false) Long orgId,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "100") int limit
+    ) {
+        return ApiResponse.success(service.list(tenantId, orgId, status, limit));
     }
 
     @PostMapping("/payment-orders/{paymentOrderId}/finalize")

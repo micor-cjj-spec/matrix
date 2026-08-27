@@ -31,6 +31,29 @@ public class PaymentSettlementRepository {
         return rows.isEmpty() ? null : rows.get(0);
     }
 
+    public List<SettlementRow> listSettlements(
+            String tenantId,
+            Long orgId,
+            String status,
+            int limit
+    ) {
+        StringBuilder sql = new StringBuilder(baseSettlementSelect())
+                .append(" WHERE ftenant_id = ? AND fdelete_flag = 0");
+        java.util.ArrayList<Object> args = new java.util.ArrayList<>();
+        args.add(tenantId);
+        if (orgId != null) {
+            sql.append(" AND forg_id = ?");
+            args.add(orgId);
+        }
+        if (status != null && !status.isBlank()) {
+            sql.append(" AND fstatus = ?");
+            args.add(status);
+        }
+        sql.append(" ORDER BY fsettlement_date DESC, fid DESC LIMIT ?");
+        args.add(Math.max(1, Math.min(limit, 500)));
+        return jdbc.query(sql.toString(), this::mapSettlement, args.toArray());
+    }
+
     public SettlementRow findSettlement(Long settlementId, String tenantId) {
         List<SettlementRow> rows = jdbc.query(baseSettlementSelect() + """
                  WHERE fid = ? AND ftenant_id = ? AND fdelete_flag = 0

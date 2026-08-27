@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import single.cjj.bizfi.exception.BizException;
 import single.cjj.fi.ap.settlement.PaymentSettlementContracts.Detail;
 import single.cjj.fi.ap.settlement.PaymentSettlementContracts.EntryView;
+import single.cjj.fi.ap.settlement.PaymentSettlementContracts.ListItem;
 import single.cjj.fi.ap.settlement.PaymentSettlementRepository.ApplicationAllocationRow;
 import single.cjj.fi.ap.settlement.PaymentSettlementRepository.BankTransactionRow;
 import single.cjj.fi.ap.settlement.PaymentSettlementRepository.OrderAllocationRow;
@@ -263,6 +264,37 @@ public class PaymentSettlementService {
         );
 
         return detail(settlementId, tenantId);
+    }
+
+    public List<ListItem> list(
+            String tenantId,
+            Long orgId,
+            String status,
+            int limit
+    ) {
+        return repository.listSettlements(tenantId, orgId, status, limit)
+                .stream()
+                .map(row -> new ListItem(
+                        row.id(),
+                        row.tenantId(),
+                        row.orgId(),
+                        row.number(),
+                        row.paymentOrderId(),
+                        row.bankTransactionId(),
+                        row.businessPartnerId(),
+                        row.businessPartnerCode(),
+                        row.businessPartnerName(),
+                        row.currencyCode(),
+                        row.amount(),
+                        row.status(),
+                        row.settlementDate(),
+                        row.businessEventId(),
+                        row.accountingEventId(),
+                        row.voucherId(),
+                        row.voucherNumber(),
+                        row.createTime()
+                ))
+                .toList();
     }
 
     public Detail detail(Long settlementId, String tenantId) {
