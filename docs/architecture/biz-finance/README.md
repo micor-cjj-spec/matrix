@@ -97,6 +97,7 @@ Report
 - [P0-IMP-05 Formal AP + Estimate Reversal](./implementation/P0-IMP-05-formal-ap-estimate-reversal.md)
 - [P0-IMP-06 PaymentApplication](./implementation/P0-IMP-06-payment-application.md)
 - [P0-IMP-07 PaymentOrder + BankTransaction](./implementation/P0-IMP-07-payment-order-bank-transaction.md)
+- [P0-IMP-08 Settlement + Payment Voucher](./implementation/P0-IMP-08-payment-settlement-voucher.md)
 
 ## 5. 当前 P0 设计进度
 
@@ -166,7 +167,7 @@ P0-IMP-04 SupplierInvoice + 3-Way Match         已实现 v1
 P0-IMP-05 Formal AP                             已实现 v1
 P0-IMP-06 PaymentApplication                    已实现 v1
 P0-IMP-07 PaymentOrder + BankTransaction        已实现 v1
-P0-IMP-08 Settlement + Payment Voucher          待实现
+P0-IMP-08 Settlement + Payment Voucher          已实现 v1
 P0-IMP-09 P2P frontend E2E                      待实现
 ```
 
