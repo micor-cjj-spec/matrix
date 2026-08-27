@@ -77,6 +77,7 @@ public class BusinessEventOutboxService {
         return switch (eventType) {
             case "PURCHASE_REQUEST_APPROVED" -> "biz.procurement.purchase_request.approved";
             case "PURCHASE_SOURCING_AWARDED" -> "biz.procurement.sourcing.awarded";
+            case "PURCHASE_CONTRACT_EFFECTIVE" -> "biz.procurement.purchase_contract.effective";
             case "PURCHASE_RECEIPT_CONFIRMED" -> "biz.procurement.purchase_receipt.confirmed";
             case "PURCHASE_ACCEPTANCE_CONFIRMED" -> "biz.procurement.purchase_acceptance.confirmed";
             case "PURCHASE_INBOUND_CONFIRMED" -> "biz.procurement.purchase_inbound.confirmed";

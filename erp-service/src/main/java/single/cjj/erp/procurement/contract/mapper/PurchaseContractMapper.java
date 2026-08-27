@@ -1,23 +1,23 @@
-package single.cjj.erp.procurement.sourcing.mapper;
+package single.cjj.erp.procurement.contract.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
-import single.cjj.erp.procurement.sourcing.entity.SourcingAwardEntryEntity;
+import single.cjj.erp.procurement.contract.entity.PurchaseContractEntity;
 
 @Mapper
-public interface SourcingAwardEntryMapper extends BaseMapper<SourcingAwardEntryEntity> {
+public interface PurchaseContractMapper extends BaseMapper<PurchaseContractEntity> {
 
     @Select("""
             SELECT *
-              FROM matrix_erp_sourcing_award_entry
+              FROM matrix_erp_purchase_contract
              WHERE fid = #{fid}
                AND ftenant_id = #{tenantId}
                AND fdelete_flag = 0
              FOR UPDATE
             """)
-    SourcingAwardEntryEntity selectByIdForUpdate(
+    PurchaseContractEntity selectByIdForUpdate(
             @Param("fid") Long fid,
             @Param("tenantId") String tenantId
     );
