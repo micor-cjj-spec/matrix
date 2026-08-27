@@ -131,6 +131,7 @@ public class BotpWritebackService {
             BotpDocumentAdapter sourceAdapter = adapterRegistry.require(
                     task.sourceDocument().systemCode(), task.sourceDocument().documentType());
             Map<String, Object> context = new LinkedHashMap<>();
+            context.put("tenantId", task.tenantId());
             context.put("activeAllocatedAmount", nz(task.activeAllocatedAmount()));
             context.put("releaseReservedAmount", nz(task.releaseReservedAmount()));
             context.put("writebackTaskId", task.taskId());

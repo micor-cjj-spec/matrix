@@ -11,6 +11,7 @@ import single.cjj.botp.integration.fi.FiArapClient;
 import single.cjj.botp.integration.fi.FiArapClientContracts.FiArapDocument;
 import single.cjj.botp.integration.fi.FiArapClientContracts.PaymentApplicationCreateRequest;
 import single.cjj.botp.integration.fi.FiPaymentApplicationClient;
+import single.cjj.botp.integration.fi.FiPaymentOrderClient;
 import single.cjj.botp.integration.fi.FiPaymentApplicationClientContracts.BotpCreateRequest;
 import single.cjj.botp.integration.fi.FiPaymentApplicationClientContracts.BotpDocument;
 import single.cjj.botp.integration.fi.FiPaymentApplicationClientContracts.PaymentApplicationDetail;
@@ -31,13 +32,16 @@ public class FiPaymentApplicationAdapter implements BotpDocumentAdapter {
 
     private final FiArapClient legacyClient;
     private final FiPaymentApplicationClient canonicalClient;
+    private final FiPaymentOrderClient fundClient;
 
     public FiPaymentApplicationAdapter(
             FiArapClient legacyClient,
-            FiPaymentApplicationClient canonicalClient
+            FiPaymentApplicationClient canonicalClient,
+            FiPaymentOrderClient fundClient
     ) {
         this.legacyClient = legacyClient;
         this.canonicalClient = canonicalClient;
+        this.fundClient = fundClient;
     }
 
     @Override
@@ -48,23 +52,33 @@ public class FiPaymentApplicationAdapter implements BotpDocumentAdapter {
     @Override
     public DocumentData load(DocumentRef documentRef) {
         if (isCanonicalTarget(documentRef.documentId())) {
-            BotpDocument doc = requireData(
-                    canonicalClient.application(parseCanonicalId(documentRef.documentId())),
-                    "读取规范付款申请失败");
+            single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.BotpDocument doc =
+                    requireData(
+                            fundClient.application(parseCanonicalId(documentRef.documentId())),
+                            "读取规范付款申请执行快照失败");
             Map<String, Object> header = new LinkedHashMap<>();
             header.put("id", doc.fid());
             header.put("number", doc.number());
             header.put("tenantId", doc.tenantId());
             header.put("orgId", doc.orgId());
+            header.put("businessPartnerId", doc.businessPartnerId());
+            header.put("businessPartnerCode", doc.businessPartnerCode());
+            header.put("businessPartnerName", doc.businessPartnerName());
             header.put("counterparty", doc.businessPartnerId());
             header.put("currencyCode", doc.currencyCode());
             header.put("amount", doc.amount());
+            header.put("orderedAmount", doc.orderedAmount());
+            header.put("availableOrderAmount", doc.availableOrderAmount());
             header.put("status", doc.status());
             header.put("approvalStatus", doc.approvalStatus());
+            header.put("executionStatus", doc.executionStatus());
             header.put("paymentMethod", doc.paymentMethod());
             header.put("plannedPayDate", doc.plannedPayDate());
-            header.put("sourceDocumentType", doc.sourceDocumentType());
-            header.put("sourceDocumentId", doc.sourceDocumentId());
+            header.put("payerBankAccountId", doc.payerBankAccountId());
+            header.put("payeeBankAccountId", doc.payeeBankAccountId());
+            header.put("payeeAccountName", doc.payeeAccountName());
+            header.put("payeeBankName", doc.payeeBankName());
+            header.put("payeeBankAccountNo", doc.payeeBankAccountNo());
             return new DocumentData(documentRef, header, List.of());
         }
 
@@ -79,6 +93,52 @@ public class FiPaymentApplicationAdapter implements BotpDocumentAdapter {
         header.put("status", doc.fstatus());
         header.put("sourceBillNo", doc.fsourceBillNo());
         return new DocumentData(documentRef, header, List.of());
+    }
+
+    @Override
+    public void validateSource(DocumentData sourceDocument, Map<String, Object> context) {
+        if (!isCanonicalTarget(sourceDocument.reference().documentId())) {
+            throw new BizException("历史付款申请不参与规范付款执行链");
+        }
+        String tenantId = text(sourceDocument.header().get("tenantId"), "tenantId");
+        String requestTenant = text(context.get("tenantId"), "tenantId");
+        if (!tenantId.equals(requestTenant)) {
+            throw new BizException("BOTP租户与付款申请租户不一致");
+        }
+        if (!"APPROVED".equals(text(sourceDocument.header().get("status"), "status"))
+                || !"AUDITED".equals(text(
+                        sourceDocument.header().get("approvalStatus"),
+                        "approvalStatus"))) {
+            throw new BizException("只有已审批付款申请允许下推付款单");
+        }
+        BigDecimal pushAmount = decimal(context.get("pushAmount"), "pushAmount");
+        BigDecimal available = decimal(
+                sourceDocument.header().get("availableOrderAmount"),
+                "availableOrderAmount");
+        if (pushAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BizException("下推付款单金额必须大于0");
+        }
+        if (pushAmount.compareTo(available) > 0) {
+            throw new BizException("下推付款单金额超过付款申请可下推余额: "
+                    + available.stripTrailingZeros().toPlainString());
+        }
+    }
+
+    @Override
+    public void applyWriteback(WritebackCommand command) {
+        if (!isCanonicalTarget(command.sourceDocument().documentId())) {
+            return;
+        }
+        String tenantId = text(command.context().get("tenantId"), "tenantId");
+        Long operatorId = nullableLong(command.context().get("operatorId"));
+        requireData(
+                fundClient.recomputeApplicationOrdered(
+                        parseCanonicalId(command.sourceDocument().documentId()),
+                        tenantId,
+                        operatorId
+                ),
+                "重算付款申请已下推金额失败"
+        );
     }
 
     @Override

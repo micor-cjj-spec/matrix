@@ -13,6 +13,7 @@ import single.cjj.botp.integration.fi.FiArapClientContracts.ArapWritebackRequest
 import single.cjj.botp.integration.fi.FiArapClientContracts.FiArapDocument;
 import single.cjj.botp.integration.fi.FiArapClientContracts.PaymentApplicationCreateRequest;
 import single.cjj.botp.integration.fi.FiPaymentApplicationClient;
+import single.cjj.botp.integration.fi.FiPaymentOrderClient;
 import single.cjj.botp.integration.fi.FiPaymentApplicationClientContracts.BotpCreateRequest;
 import single.cjj.botp.integration.fi.FiPaymentApplicationClientContracts.BotpDocument;
 import single.cjj.botp.integration.fi.FiPaymentApplicationClientContracts.PayableSnapshot;
@@ -33,7 +34,7 @@ class FiArapAdaptersTest {
         FakeFiArapClient client = new FakeFiArapClient();
         FiPayableDocumentAdapter sourceAdapter = new FiPayableDocumentAdapter(client);
         FiPaymentApplicationAdapter targetAdapter = new FiPaymentApplicationAdapter(
-                client, new FakeCanonicalClient());
+                client, new FakeCanonicalClient(), new FakeFundClient());
         DocumentRef sourceRef = new DocumentRef("MATRIX", "FI_AP_DOC", "1", List.of());
 
         DocumentData source = sourceAdapter.load(sourceRef);
@@ -85,7 +86,8 @@ class FiArapAdaptersTest {
         FakeFiArapClient legacy = new FakeFiArapClient();
         FakeCanonicalClient canonical = new FakeCanonicalClient();
         FiFormalPayableDocumentAdapter sourceAdapter = new FiFormalPayableDocumentAdapter(canonical);
-        FiPaymentApplicationAdapter targetAdapter = new FiPaymentApplicationAdapter(legacy, canonical);
+        FiPaymentApplicationAdapter targetAdapter = new FiPaymentApplicationAdapter(
+                legacy, canonical, new FakeFundClient());
 
         DocumentRef sourceRef = new DocumentRef("MATRIX", "FI_AP_PAYABLE", "10", List.of());
         DocumentData source = sourceAdapter.load(sourceRef);
@@ -134,6 +136,66 @@ class FiArapAdaptersTest {
         ));
         assertEquals(10L, canonical.recomputePayableId);
         assertEquals("T1", canonical.recomputeTenantId);
+    }
+
+    @Test
+    void shouldCreatePaymentOrderFromApprovedCanonicalPaymentApplication() {
+        FakeFiArapClient legacy = new FakeFiArapClient();
+        FakeCanonicalClient canonical = new FakeCanonicalClient();
+        FakeFundClient fund = new FakeFundClient();
+        FiPaymentApplicationAdapter sourceAdapter =
+                new FiPaymentApplicationAdapter(legacy, canonical, fund);
+        FiPaymentOrderAdapter targetAdapter = new FiPaymentOrderAdapter(fund);
+
+        DocumentRef sourceRef = new DocumentRef(
+                "MATRIX", "FI_PAYMENT_APPLICATION", "PA:20", List.of());
+        DocumentData source = sourceAdapter.load(sourceRef);
+
+        sourceAdapter.validateSource(source, Map.of(
+                "tenantId", "T1",
+                "pushAmount", new BigDecimal("500")
+        ));
+        assertThrows(BizException.class, () -> sourceAdapter.validateSource(source, Map.of(
+                "tenantId", "T1",
+                "pushAmount", new BigDecimal("501")
+        )));
+
+        TargetDraft draft = new TargetDraft(
+                "MATRIX",
+                "FI_PAYMENT_ORDER",
+                Map.ofEntries(
+                        Map.entry("tenantId", "T1"),
+                        Map.entry("orgId", 1L),
+                        Map.entry("sourceSystem", "MATRIX"),
+                        Map.entry("sourceDocumentType", "FI_PAYMENT_APPLICATION"),
+                        Map.entry("sourceDocumentId", "PA:20"),
+                        Map.entry("sourceExecutionId", "BOTP-PAY-1"),
+                        Map.entry("amount", new BigDecimal("500")),
+                        Map.entry("paymentMethod", "BANK_DIRECT"),
+                        Map.entry("plannedPayDate", "2026-08-30"),
+                        Map.entry("payerBankAccountId", "BANK-001"),
+                        Map.entry("operatorId", 99L)
+                ),
+                List.of()
+        );
+
+        TargetResult target = targetAdapter.createTarget(
+                draft, "botp:T1:BOTP-PAY-1:0");
+
+        assertEquals("PAYORD:40", target.documentId());
+        assertEquals(20L, fund.createRequest.paymentApplicationId());
+        assertEquals(new BigDecimal("500"), fund.createRequest.amount());
+
+        sourceAdapter.applyWriteback(new WritebackCommand(
+                "BOTP-PAY-1",
+                sourceRef,
+                target,
+                List.of(),
+                Map.of("tenantId", "T1", "operatorId", 99L)
+        ));
+
+        assertEquals(20L, fund.recomputeApplicationId);
+        assertEquals("T1", fund.recomputeTenantId);
     }
 
     private static class FakeFiArapClient implements FiArapClient {
@@ -266,6 +328,79 @@ class FiArapAdaptersTest {
                     new BigDecimal("600"), new BigDecimal("400"),
                     "OPEN", "AUDITED", "VOUCHER_GENERATED", 1
             ));
+        }
+    }
+    private static class FakeFundClient implements FiPaymentOrderClient {
+
+        private single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.BotpCreateRequest createRequest;
+        private Long recomputeApplicationId;
+        private String recomputeTenantId;
+
+        @Override
+        public ApiResponse<single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.BotpDocument>
+        application(Long fid) {
+            return ApiResponse.success(
+                    new single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.BotpDocument(
+                            "PA:20", 20L, "PAYAPP-001", LocalDate.of(2026, 8, 27),
+                            "T1", 1L, "BP-1", "SUP-1", "供应商1", "CNY",
+                            new BigDecimal("600"), new BigDecimal("100"),
+                            new BigDecimal("500"),
+                            "APPROVED", "AUDITED", "PARTIAL",
+                            "BANK_DIRECT", LocalDate.of(2026, 8, 30),
+                            null, "PAYEE-1", "供应商1", "招商银行", "622200001",
+                            "FI_AP_PAYABLE", "10", "BOTP-AP-1",
+                            "botp:T1:BOTP-AP-1:0", 1
+                    )
+            );
+        }
+
+        @Override
+        public ApiResponse<single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.BotpDocument>
+        order(Long fid) {
+            return ApiResponse.success(
+                    new single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.BotpDocument(
+                            "PAYORD:40", 40L, "PAYORD-001", LocalDate.of(2026, 8, 27),
+                            "T1", 1L, "BP-1", "SUP-1", "供应商1", "CNY",
+                            new BigDecimal("500"), null, null,
+                            "DRAFT", "DRAFT", null,
+                            "BANK_DIRECT", LocalDate.of(2026, 8, 30),
+                            "BANK-001", "PAYEE-1", "供应商1", "招商银行", "622200001",
+                            "FI_PAYMENT_APPLICATION", "PA:20", "BOTP-PAY-1",
+                            "botp:T1:BOTP-PAY-1:0", 0
+                    )
+            );
+        }
+
+        @Override
+        public ApiResponse<single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.PaymentOrderDetail>
+        findByIdempotency(String tenantId, String key) {
+            return ApiResponse.success(null);
+        }
+
+        @Override
+        public ApiResponse<single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.PaymentOrderDetail>
+        create(single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.BotpCreateRequest request) {
+            this.createRequest = request;
+            return ApiResponse.success(
+                    new single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.PaymentOrderDetail(
+                            40L, request.tenantId(), request.orgId(), "PAYORD-001",
+                            LocalDate.of(2026, 8, 27),
+                            "BP-1", "SUP-1", "供应商1", "CNY", request.amount(),
+                            request.paymentMethod(), request.payerBankAccountId(),
+                            "PAYEE-1", "供应商1", "招商银行", "622200001",
+                            "DRAFT", "DRAFT", request.idempotencyKey(),
+                            request.sourceDocumentType(), request.sourceDocumentId(),
+                            request.sourceExecutionId(), 0
+                    )
+            );
+        }
+
+        @Override
+        public ApiResponse<single.cjj.botp.integration.fi.FiPaymentOrderClientContracts.BotpDocument>
+        recomputeApplicationOrdered(Long fid, String tenantId, Long operatorId) {
+            this.recomputeApplicationId = fid;
+            this.recomputeTenantId = tenantId;
+            return application(fid);
         }
     }
 }
