@@ -106,6 +106,7 @@ Report
 - [P1-IMP-04 Contract → PurchaseOrder](./implementation/P1-IMP-04-contract-to-purchase-order.md)
 - [P1-IMP-05 DeliveryPlan / Supplier Collaboration](./implementation/P1-IMP-05-delivery-plan-supplier-collaboration.md)
 - [P1-IMP-06 Purchase Return / Claim / Deduction](./implementation/P1-IMP-06-purchase-return-claim-deduction.md)
+- [P1-IMP-07 Procurement BOTP Completion](./implementation/P1-IMP-07-procurement-botp-completion.md)
 
 ## 5. 当前 P0 设计进度
 
@@ -180,7 +181,7 @@ P0-IMP-09 P2P frontend E2E                      已实现 v1
 ```
 
 P0 第一条 P2P 主链已完成代码级闭环；部署环境 runtime smoke / integration test 仍是进入生产验收前置条件。
-采购履约段 P0 v1 使用领域 API 创建下游单据，尚未冒充 BOTP 转换；采购 BOTP 化进入 P1。
+采购履约段 P0 v1 最初由领域 API 创建下游单据；P1-IMP-07 已完成采购 BOTP 收口：确定性转换进入 BOTP Execution，非自动生成业务事实通过 Relation Sync 进入统一 Relation / Entry Relation / Graph。
 
 P0-IMP-03 当前完成：
 
@@ -230,10 +231,10 @@ P1-IMP-03 PurchaseContract                       已实现 v1
 P1-IMP-04 Request/Sourcing/Contract → PO         已实现 v1
 P1-IMP-05 DeliveryPlan / Supplier Collaboration  已实现 v1
 P1-IMP-06 Purchase Return / Claim / Deduction    已实现 v1
-P1-IMP-07 Procurement BOTP Completion            待实现
+P1-IMP-07 Procurement BOTP Completion            已实现 v1
 ```
 
-P1 不再扩张平台级抽象，优先补齐采购业务覆盖。
+P1 采购业务覆盖已完成 v1 收口，不再继续无边界扩张 Procurement。下一阶段应重新依据业务设计文档选择新的业务域主链，并先完成范围与边界设计。
 
 ## 10. 数据库命名
 
