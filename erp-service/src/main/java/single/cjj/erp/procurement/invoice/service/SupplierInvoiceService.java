@@ -269,9 +269,11 @@ public class SupplierInvoiceService {
         List<SupplierInvoiceEntryEntity> orderedInvoiceEntries = invoiceEntries.stream()
                 .sorted(Comparator.comparing(SupplierInvoiceEntryEntity::getFpurchaseOrderEntryId))
                 .toList();
+        Map<Long, PurchaseOrderEntryEntity> lockedOrderEntries = new LinkedHashMap<>();
         for (SupplierInvoiceEntryEntity invoiceEntry : orderedInvoiceEntries) {
             PurchaseOrderEntryEntity poEntry = orderEntryMapper.selectByIdForUpdate(invoiceEntry.getFpurchaseOrderEntryId(), tenant);
             if (poEntry == null) throw new BizException("采购订单分录不存在: " + invoiceEntry.getFpurchaseOrderEntryId());
+            lockedOrderEntries.put(poEntry.getFid(), poEntry);
             BigDecimal inbound = nvl(poEntry.getFinboundQuantity());
             BigDecimal invoiced = nvl(poEntry.getFinvoicedQuantity());
             BigDecimal after = invoiced.add(invoiceEntry.getFquantity());
@@ -306,7 +308,7 @@ public class SupplierInvoiceService {
                 invoice.getFnumber(),
                 invoice.getFinvoiceDate(),
                 operatorId,
-                buildConfirmedPayload(invoice, invoiceEntries)
+                buildConfirmedPayload(invoice, invoiceEntries, lockedOrderEntries)
         );
         return detail(fid, tenant);
     }
@@ -541,7 +543,11 @@ public class SupplierInvoiceService {
         requireUpdated(orderMapper.updateById(order));
     }
 
-    private Map<String, Object> buildConfirmedPayload(SupplierInvoiceEntity invoice, List<SupplierInvoiceEntryEntity> entries) {
+    private Map<String, Object> buildConfirmedPayload(
+            SupplierInvoiceEntity invoice,
+            List<SupplierInvoiceEntryEntity> entries,
+            Map<Long, PurchaseOrderEntryEntity> purchaseOrderEntries
+    ) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("supplierInvoiceId", invoice.getFid());
         payload.put("supplierInvoiceNo", invoice.getFnumber());
@@ -571,6 +577,9 @@ public class SupplierInvoiceService {
             line.put("taxRate", entry.getFtaxRate());
             line.put("taxAmount", entry.getFtaxAmount());
             line.put("grossAmount", entry.getFgrossAmount());
+            PurchaseOrderEntryEntity poEntry = purchaseOrderEntries.get(entry.getFpurchaseOrderEntryId());
+            line.put("projectId", poEntry == null ? null : poEntry.getFprojectId());
+            line.put("costCenterId", poEntry == null ? null : poEntry.getFcostCenterId());
             line.put("reconciliationCaseId", entry.getFreconciliationCaseId());
             return line;
         }).toList());

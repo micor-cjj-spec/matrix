@@ -60,7 +60,7 @@ erp:
       batch-size: ${ERP_BUSINESS_EVENT_BATCH_SIZE:100}
       fixed-delay-ms: ${ERP_BUSINESS_EVENT_DELAY_MS:3000}
       stale-claim-minutes: ${ERP_BUSINESS_EVENT_STALE_CLAIM_MINUTES:10}
-      required-routing-keys: ${ERP_BUSINESS_EVENT_REQUIRED_ROUTING_KEYS:biz.procurement.purchase_inbound.confirmed}
+      required-routing-keys: ${ERP_BUSINESS_EVENT_REQUIRED_ROUTING_KEYS:biz.procurement.purchase_inbound.confirmed,biz.procurement.supplier_invoice.confirmed}
 
 management:
   endpoints:

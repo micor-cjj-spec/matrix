@@ -47,12 +47,20 @@ public class AccountingRuleEngine {
                     throw new BizException("AMOUNT_INVALID: 业务事件缺少 entries");
                 }
                 for (JsonNode entry : entries) {
-                    result.add(buildLine(lineNo++, definition, dimensionsByEntry.getOrDefault(
-                            definition.ruleEntryId(), List.of()), context, entry));
+                    AccountingLine line = buildLine(lineNo, definition, dimensionsByEntry.getOrDefault(
+                            definition.ruleEntryId(), List.of()), context, entry);
+                    if (line != null) {
+                        result.add(line);
+                        lineNo++;
+                    }
                 }
             } else if ("HEADER".equals(definition.scope())) {
-                result.add(buildLine(lineNo++, definition, dimensionsByEntry.getOrDefault(
-                        definition.ruleEntryId(), List.of()), context, null));
+                AccountingLine line = buildLine(lineNo, definition, dimensionsByEntry.getOrDefault(
+                        definition.ruleEntryId(), List.of()), context, null);
+                if (line != null) {
+                    result.add(line);
+                    lineNo++;
+                }
             } else {
                 throw new BizException("ACCOUNTING_RULE_SCOPE_UNSUPPORTED: " + definition.scope());
             }
@@ -95,6 +103,9 @@ public class AccountingRuleEngine {
     ) {
         BigDecimal amount = resolveAmount(definition.amountExpression(), context.payload(), entry)
                 .setScale(2, RoundingMode.HALF_UP);
+        if (amount.compareTo(BigDecimal.ZERO) == 0 && definition.skipZeroAmount()) {
+            return null;
+        }
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BizException("AMOUNT_INVALID: accounting line amount must be > 0");
         }
@@ -113,7 +124,7 @@ public class AccountingRuleEngine {
         return new AccountingLine(
                 lineNo,
                 definition.ruleEntryId(),
-                entry == null ? null : text(entry.get("inboundEntryId")),
+                sourceEntryId(entry),
                 definition.direction(),
                 definition.accountKey(),
                 accountCode,
@@ -207,6 +218,19 @@ public class AccountingRuleEngine {
             valueName = text(payload.get("businessPartnerName"));
         }
         return new DimensionValue(definition.dimensionCode(), value, valueCode, valueName);
+    }
+
+    private String sourceEntryId(JsonNode entry) {
+        if (entry == null) {
+            return null;
+        }
+        for (String field : List.of("sourceEntryId", "inboundEntryId", "supplierInvoiceEntryId")) {
+            String value = text(entry.get(field));
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private JsonNode readPath(String path, JsonNode payload, JsonNode entry) {

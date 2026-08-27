@@ -32,6 +32,7 @@ public final class AccountingModels {
             String accountKey,
             String accountCode,
             String amountExpression,
+            boolean skipZeroAmount,
             String summaryTemplate,
             String currencyExpression
     ) {

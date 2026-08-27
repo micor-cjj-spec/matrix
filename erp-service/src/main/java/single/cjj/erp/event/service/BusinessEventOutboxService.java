@@ -78,6 +78,7 @@ public class BusinessEventOutboxService {
             case "PURCHASE_RECEIPT_CONFIRMED" -> "biz.procurement.purchase_receipt.confirmed";
             case "PURCHASE_ACCEPTANCE_CONFIRMED" -> "biz.procurement.purchase_acceptance.confirmed";
             case "PURCHASE_INBOUND_CONFIRMED" -> "biz.procurement.purchase_inbound.confirmed";
+            case "SUPPLIER_INVOICE_CONFIRMED" -> "biz.procurement.supplier_invoice.confirmed";
             default -> "biz.procurement.event";
         };
     }

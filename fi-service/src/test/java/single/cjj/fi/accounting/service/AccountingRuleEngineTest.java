@@ -62,6 +62,46 @@ class AccountingRuleEngineTest {
     }
 
     @Test
+    void shouldSkipExplicitZeroAmountRuleEntry() throws Exception {
+        InboundAccountingRepository repository = mock(InboundAccountingRepository.class);
+        AccountingRuleEngine engine = new AccountingRuleEngine(repository);
+        LocalDate date = LocalDate.of(2026, 8, 27);
+        JsonNode payload = objectMapper.readTree("""
+                {
+                  "grossAmount":100,
+                  "currencyCode":"CNY",
+                  "entries":[{"supplierInvoiceEntryId":"S1","netAmount":100,"taxAmount":0}]
+                }
+                """);
+        EventContext context = new EventContext("T001", 1L, "DEFAULT", date, "SI001", payload);
+        RuleHeader header = new RuleHeader(1L, 11L, "PURCHASE_AP", 1, 10, 3, "FORMAL", "DEFAULT");
+
+        when(repository.findPublishedRules("T001", 1L, "PURCHASE_AP_RECOGNITION", "DEFAULT", date))
+                .thenReturn(List.of(header));
+        when(repository.findRuleEntries(11L)).thenReturn(List.of(
+                new RuleEntry(101L, 1, "ENTRY", "DEBIT", "MAPPING", "PURCHASE_INVOICE_DEBIT", null,
+                        "FIELD(entry.netAmount)", false, "采购发票", "FIELD(payload.currencyCode)"),
+                new RuleEntry(102L, 2, "ENTRY", "DEBIT", "MAPPING", "INPUT_VAT", null,
+                        "FIELD(entry.taxAmount)", true, "进项税", "FIELD(payload.currencyCode)"),
+                new RuleEntry(103L, 3, "HEADER", "CREDIT", "MAPPING", "FORMAL_AP", null,
+                        "FIELD(payload.grossAmount)", false, "正式应付", "FIELD(payload.currencyCode)")
+        ));
+        when(repository.findRuleDimensions(11L)).thenReturn(List.of());
+        when(repository.findAccountMappings(anyString(), any(), anyString(), anyString(), any()))
+                .thenAnswer(invocation -> {
+                    String accountKey = invocation.getArgument(3);
+                    String accountCode = "FORMAL_AP".equals(accountKey) ? "2202" : "1405";
+                    return List.of(new AccountMappingCandidate(1L, accountCode, 10, 3, "TEST"));
+                });
+
+        RuleEvaluation result = engine.evaluate("PURCHASE_AP_RECOGNITION", context);
+
+        assertEquals(2, result.lines().size());
+        assertEquals(0, result.debitTotal().compareTo(new BigDecimal("100.00")));
+        assertEquals(0, result.creditTotal().compareTo(new BigDecimal("100.00")));
+    }
+
+    @Test
     void shouldBuildBalancedEntryDebitAndHeaderCredit() throws Exception {
         InboundAccountingRepository repository = mock(InboundAccountingRepository.class);
         AccountingRuleEngine engine = new AccountingRuleEngine(repository);
@@ -83,9 +123,9 @@ class AccountingRuleEngineTest {
                 .thenReturn(List.of(header));
         when(repository.findRuleEntries(11L)).thenReturn(List.of(
                 new RuleEntry(101L, 1, "ENTRY", "DEBIT", "MAPPING", "PURCHASE_INBOUND_DEBIT", null,
-                        "FIELD(entry.amount)", "入库-${materialName}", "FIELD(payload.currencyCode)"),
+                        "FIELD(entry.amount)", false, "入库-${materialName}", "FIELD(payload.currencyCode)"),
                 new RuleEntry(102L, 2, "HEADER", "CREDIT", "MAPPING", "ESTIMATED_AP", null,
-                        "FIELD(payload.totalAmount)", "暂估-${sourceDocumentNo}", "FIELD(payload.currencyCode)")
+                        "FIELD(payload.totalAmount)", false, "暂估-${sourceDocumentNo}", "FIELD(payload.currencyCode)")
         ));
         when(repository.findRuleDimensions(11L)).thenReturn(List.of());
         when(repository.findAccountMappings(anyString(), any(), anyString(), anyString(), any()))

@@ -267,14 +267,15 @@ public class InboundAccountingRepository {
     public List<RuleEntry> findRuleEntries(Long versionId) {
         return jdbc.query("""
                 SELECT fid, fline_no, fscope, fdirection, faccount_source_type, faccount_key, faccount_code,
-                       famount_expression, fsummary_template, fcurrency_expression
+                       famount_expression, fskip_zero_amount, fsummary_template, fcurrency_expression
                   FROM matrix_fi_accounting_rule_entry
                  WHERE frule_version_id = ? AND fstatus = 'ACTIVE' AND fdelete_flag = 0
                  ORDER BY fline_no, fid
                 """, (rs, n) -> new RuleEntry(
                 rs.getLong("fid"), rs.getInt("fline_no"), rs.getString("fscope"), rs.getString("fdirection"),
                 rs.getString("faccount_source_type"), rs.getString("faccount_key"), rs.getString("faccount_code"),
-                rs.getString("famount_expression"), rs.getString("fsummary_template"), rs.getString("fcurrency_expression")
+                rs.getString("famount_expression"), rs.getBoolean("fskip_zero_amount"),
+                rs.getString("fsummary_template"), rs.getString("fcurrency_expression")
         ), versionId);
     }
 
