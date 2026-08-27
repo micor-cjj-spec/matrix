@@ -2,7 +2,6 @@ package single.cjj.botp.rule;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import single.cjj.botp.domain.BotpContracts.FieldMapping;
 import single.cjj.botp.domain.BotpContracts.MappingSourceType;
@@ -11,7 +10,6 @@ import single.cjj.botp.domain.BotpContracts.WritebackMapping;
 import java.util.List;
 
 @Component
-@ConditionalOnProperty(name = "botp.persistence.mode", havingValue = "mysql", matchIfMissing = true)
 public class BotpBuiltInRuleInitializer implements ApplicationRunner {
 
     private final BotpRuleRepository repository;
