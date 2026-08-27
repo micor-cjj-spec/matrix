@@ -7,6 +7,7 @@ import single.cjj.botp.domain.BotpContracts.DocumentData;
 import single.cjj.botp.domain.BotpContracts.DocumentRef;
 import single.cjj.botp.domain.BotpContracts.TargetDraft;
 import single.cjj.botp.domain.BotpContracts.TargetResult;
+import single.cjj.botp.domain.BotpContracts.WritebackCommand;
 import single.cjj.botp.integration.fi.FiArapClient;
 import single.cjj.botp.integration.fi.FiArapClientContracts.FiArapDocument;
 import single.cjj.botp.integration.fi.FiArapClientContracts.PaymentApplicationCreateRequest;
