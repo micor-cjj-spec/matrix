@@ -119,8 +119,15 @@ public class BusinessPartnerService {
                 throw new BizException(roleLabel(role) + "已存在: " + partner.getFcode());
             }
             if (creditCode != null
-                    && partner.getFunifiedSocialCreditCode() == null
-                    && !APPROVAL_AUDITED.equals(partner.getFapprovalStatus())) {
+                    && partner.getFunifiedSocialCreditCode() != null
+                    && !creditCode.equals(partner.getFunifiedSocialCreditCode())) {
+                throw new BizException("同一客商编码的统一社会信用代码不一致，拒绝自动合并");
+            }
+            if (creditCode != null
+                    && partner.getFunifiedSocialCreditCode() == null) {
+                if (APPROVAL_AUDITED.equals(partner.getFapprovalStatus())) {
+                    throw new BizException("已审核 BusinessPartner 不能通过兼容接口补录统一社会信用代码");
+                }
                 partner.setFunifiedSocialCreditCode(creditCode);
                 touch(partner, operatorId);
                 requireOne(partnerMapper.updateById(partner), "BusinessPartner");
