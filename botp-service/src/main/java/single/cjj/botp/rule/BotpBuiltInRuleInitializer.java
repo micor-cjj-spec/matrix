@@ -22,9 +22,106 @@ public class BotpBuiltInRuleInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        ensureProcurementOrderToReceiptRule();
+        ensureProcurementReceiptToAcceptanceRule();
+        ensureProcurementAcceptanceToInboundRule();
         ensureLegacyApRule();
         ensureFormalApRule();
         ensurePaymentApplicationToOrderRule();
+    }
+
+    private void ensureProcurementOrderToReceiptRule() {
+        if (repository.findPublishedByCode("PURCHASE_ORDER_TO_RECEIPT").isPresent()) {
+            return;
+        }
+        repository.saveDraft(new RuleSaveRequest(
+                "PURCHASE_ORDER_TO_RECEIPT",
+                "采购订单下推收货单",
+                "MATRIX",
+                "ERP_PURCHASE_ORDER",
+                "MATRIX",
+                "ERP_PURCHASE_RECEIPT",
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "tenantId", "tenantId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "orgId", "orgId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "date", "date", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerId", "businessPartnerId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerCode", "businessPartnerCode", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerName", "businessPartnerName", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "currencyCode", "currencyCode", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "warehouseId", "warehouseId", null, false),
+                        new FieldMapping(MappingSourceType.CONTEXT, "supplierDeliveryNo", "supplierDeliveryNo", null, false)
+                ),
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "entryId", "purchaseOrderEntryId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "availableQuantity", "quantity", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "warehouseId", "warehouseId", null, false)
+                ),
+                List.of()
+        ));
+        repository.publish("PURCHASE_ORDER_TO_RECEIPT");
+    }
+
+    private void ensureProcurementReceiptToAcceptanceRule() {
+        if (repository.findPublishedByCode("PURCHASE_RECEIPT_TO_ACCEPTANCE").isPresent()) {
+            return;
+        }
+        repository.saveDraft(new RuleSaveRequest(
+                "PURCHASE_RECEIPT_TO_ACCEPTANCE",
+                "采购收货下推验收单",
+                "MATRIX",
+                "ERP_PURCHASE_RECEIPT",
+                "MATRIX",
+                "ERP_PURCHASE_ACCEPTANCE",
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "tenantId", "tenantId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "orgId", "orgId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "date", "date", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "purchaseReceiptId", "purchaseReceiptId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerId", "businessPartnerId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerCode", "businessPartnerCode", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerName", "businessPartnerName", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "currencyCode", "currencyCode", null, true)
+                ),
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "entryId", "purchaseReceiptEntryId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "availableQuantity", "inspectionQuantity", null, true)
+                ),
+                List.of()
+        ));
+        repository.publish("PURCHASE_RECEIPT_TO_ACCEPTANCE");
+    }
+
+    private void ensureProcurementAcceptanceToInboundRule() {
+        if (repository.findPublishedByCode("PURCHASE_ACCEPTANCE_TO_INBOUND").isPresent()) {
+            return;
+        }
+        repository.saveDraft(new RuleSaveRequest(
+                "PURCHASE_ACCEPTANCE_TO_INBOUND",
+                "采购验收下推入库单",
+                "MATRIX",
+                "ERP_PURCHASE_ACCEPTANCE",
+                "MATRIX",
+                "ERP_PURCHASE_INBOUND",
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "tenantId", "tenantId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "orgId", "orgId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "date", "date", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "purchaseAcceptanceId", "purchaseAcceptanceId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerId", "businessPartnerId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerCode", "businessPartnerCode", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerName", "businessPartnerName", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "currencyCode", "currencyCode", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "warehouseId", "warehouseId", null, false)
+                ),
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "entryId", "purchaseAcceptanceEntryId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "availableQuantity", "quantity", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "batchNo", "batchNo", null, false)
+                ),
+                List.of()
+        ));
+        repository.publish("PURCHASE_ACCEPTANCE_TO_INBOUND");
     }
 
     private void ensureLegacyApRule() {
