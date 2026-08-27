@@ -55,6 +55,8 @@ matrix:
       initialize-schema: true
 
 fi:
+  reconciliation:
+    internal-token: ${FI_RECONCILIATION_INTERNAL_TOKEN:change-me-before-production}
   accounting:
     default-book-id: ${FI_ACCOUNTING_DEFAULT_BOOK_ID:DEFAULT}
     purchase-inbound-consumer-code: ${FI_PURCHASE_INBOUND_CONSUMER_CODE:FI_PURCHASE_INBOUND_ACCOUNTING_V1}

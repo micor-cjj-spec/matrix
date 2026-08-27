@@ -51,6 +51,9 @@ mybatis-plus:
       logic-not-delete-value: 0
 
 erp:
+  fi-reconciliation:
+    base-url: ${ERP_FI_RECONCILIATION_BASE_URL:http://127.0.0.1:10003/api}
+    internal-token: ${FI_RECONCILIATION_INTERNAL_TOKEN:change-me-before-production}
   business-event:
     publisher:
       enabled: ${ERP_BUSINESS_EVENT_PUBLISHER_ENABLED:true}
