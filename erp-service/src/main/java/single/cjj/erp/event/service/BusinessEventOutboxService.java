@@ -38,6 +38,28 @@ public class BusinessEventOutboxService {
             Long operatorId,
             Object payload
     ) {
+        return append(
+                tenantId, orgId, "PROCUREMENT", eventType,
+                aggregateType, aggregateId, aggregateVersion,
+                documentType, documentNo, businessDate,
+                operatorId, payload);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public BusinessEventOutboxEntity append(
+            String tenantId,
+            Long orgId,
+            String domainCode,
+            String eventType,
+            String aggregateType,
+            Long aggregateId,
+            Long aggregateVersion,
+            String documentType,
+            String documentNo,
+            LocalDate businessDate,
+            Long operatorId,
+            Object payload
+    ) {
         String eventId = "BE-" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
         LocalDateTime now = LocalDateTime.now();
 
@@ -48,7 +70,7 @@ public class BusinessEventOutboxService {
         entity.setFeventType(eventType);
         entity.setFeventVersion(1);
         entity.setFproducerService("erp-service");
-        entity.setFdomainCode("PROCUREMENT");
+        entity.setFdomainCode(domainCode);
         entity.setFaggregateType(aggregateType);
         entity.setFaggregateId(String.valueOf(aggregateId));
         entity.setFaggregateVersion(aggregateVersion == null ? 0L : aggregateVersion);
@@ -58,7 +80,7 @@ public class BusinessEventOutboxService {
         entity.setFsourceDocumentNo(documentNo);
         entity.setFbusinessDate(businessDate);
         entity.setFoperatorId(operatorId);
-        entity.setFroutingKey(routingKey(eventType));
+        entity.setFroutingKey(routingKey(domainCode, eventType));
         entity.setFpayloadJson(toJson(payload));
         entity.setFstatus("PENDING");
         entity.setFretryCount(0);
@@ -73,7 +95,17 @@ public class BusinessEventOutboxService {
         return entity;
     }
 
-    private String routingKey(String eventType) {
+    private String routingKey(String domainCode, String eventType) {
+        if ("CRM".equalsIgnoreCase(domainCode)) {
+            return switch (eventType) {
+                case "CRM_LEAD_QUALIFIED" -> "biz.crm.lead.qualified";
+                case "CRM_LEAD_CONVERTED" -> "biz.crm.lead.converted";
+                case "CRM_OPPORTUNITY_CREATED" -> "biz.crm.opportunity.created";
+                case "CRM_OPPORTUNITY_WON" -> "biz.crm.opportunity.won";
+                case "CRM_OPPORTUNITY_LOST" -> "biz.crm.opportunity.lost";
+                default -> "biz.crm.event";
+            };
+        }
         return switch (eventType) {
             case "PURCHASE_REQUEST_APPROVED" -> "biz.procurement.purchase_request.approved";
             case "PURCHASE_SOURCING_AWARDED" -> "biz.procurement.sourcing.awarded";
