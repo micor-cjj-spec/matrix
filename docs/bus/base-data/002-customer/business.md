@@ -4,10 +4,19 @@
 客户
 
 ## 2. 业务定位
-客户模块用于维护基础主数据中的客户信息，支持创建、编辑、提交审核、审核通过、驳回和删除。
+客户模块用于维护统一 BusinessPartner 主体的 CUSTOMER 角色，支持创建、编辑、提交审核、审核通过、驳回和删除。
 
-## 3. 代码对齐结论
-- 前端已接入页面：`CustomerView.vue`
-- 前端复用逻辑：`useSimpleData.js`
-- 前端已接入接口：`src/api/customer.js`
-- 本轮仓库检索中未定位到对应后端 controller/service 实现文件，因此当前文档仅描述前端已接入行为与接口口径。
+## 3. 当前实现
+- 前端页面：`CustomerView.vue`
+- 前端通用逻辑：`useSimpleData.js`
+- 前端 API：`src/api/customer.js`
+- 后端兼容入口：`PartnerCompatibilityController`
+- 后端领域服务：`BusinessPartnerService`
+- 权威主体：`matrix_base_business_partner`
+- 客户角色：`matrix_base_business_partner_role(role=CUSTOMER)`
+
+Customer 不再由 `BaseDataWorkflowController` 的内存 Map 保存。
+
+同一法人同时是客户和供应商时，共用一个 BusinessPartner，只增加不同 Role。
+
+内部生命周期与审批状态分离；为兼容现有页面，兼容接口的 `fstatus` 继续返回审批状态。
