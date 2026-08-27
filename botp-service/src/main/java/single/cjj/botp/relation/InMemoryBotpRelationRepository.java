@@ -106,6 +106,21 @@ public class InMemoryBotpRelationRepository implements BotpRelationRepository {
     }
 
     @Override
+    public synchronized List<DocumentRelation> findBySource(
+            String tenantId,
+            String sourceSystemCode,
+            String sourceDocumentType,
+            String sourceDocumentId
+    ) {
+        return relations.stream()
+                .filter(item -> tenantId.equals(item.tenantId()))
+                .filter(item -> sourceSystemCode.equals(item.sourceDocument().systemCode()))
+                .filter(item -> sourceDocumentType.equals(item.sourceDocument().documentType()))
+                .filter(item -> sourceDocumentId.equals(item.sourceDocument().documentId()))
+                .toList();
+    }
+
+    @Override
     public synchronized List<DocumentRelation> findByTarget(
             String tenantId,
             String targetSystemCode,
