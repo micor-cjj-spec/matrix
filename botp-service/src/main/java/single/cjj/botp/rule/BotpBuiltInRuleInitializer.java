@@ -22,12 +22,40 @@ public class BotpBuiltInRuleInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        ensureProcurementContractToOrderRule();
         ensureProcurementOrderToReceiptRule();
         ensureProcurementReceiptToAcceptanceRule();
         ensureProcurementAcceptanceToInboundRule();
         ensureLegacyApRule();
         ensureFormalApRule();
         ensurePaymentApplicationToOrderRule();
+    }
+
+    private void ensureProcurementContractToOrderRule() {
+        if (repository.findPublishedByCode("PURCHASE_CONTRACT_TO_ORDER").isPresent()) {
+            return;
+        }
+        repository.saveDraft(new RuleSaveRequest(
+                "PURCHASE_CONTRACT_TO_ORDER",
+                "采购合同下推采购订单",
+                "MATRIX",
+                "ERP_PURCHASE_CONTRACT",
+                "MATRIX",
+                "ERP_PURCHASE_ORDER",
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "tenantId", "tenantId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "sourceDocumentId", "contractId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "orderNumber", "number", null, false),
+                        new FieldMapping(MappingSourceType.CONTEXT, "orderDate", "date", null, false)
+                ),
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "entryId", "contractEntryId", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "availableQuantity", "quantity", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "plannedDeliveryDate", "plannedDeliveryDate", null, false)
+                ),
+                List.of()
+        ));
+        repository.publish("PURCHASE_CONTRACT_TO_ORDER");
     }
 
     private void ensureProcurementOrderToReceiptRule() {
