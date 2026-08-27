@@ -69,10 +69,13 @@ fi:
     purchase-inbound-consumer-code: ${FI_PURCHASE_INBOUND_CONSUMER_CODE:FI_PURCHASE_INBOUND_ACCOUNTING_V1}
     supplier-invoice-consumer-code: ${FI_SUPPLIER_INVOICE_CONSUMER_CODE:FI_SUPPLIER_INVOICE_ACCOUNTING_V1}
     payment-completed-consumer-code: ${FI_PAYMENT_COMPLETED_CONSUMER_CODE:FI_PAYMENT_COMPLETED_ACCOUNTING_V1}
+    purchase-deduction-consumer-code: ${FI_PURCHASE_DEDUCTION_CONSUMER_CODE:FI_PURCHASE_DEDUCTION_ACCOUNTING_V1}
     supplier-invoice:
       enabled: ${FI_SUPPLIER_INVOICE_ACCOUNTING_ENABLED:false}
     payment-completed:
       enabled: ${FI_PAYMENT_COMPLETED_ACCOUNTING_ENABLED:false}
+    purchase-deduction:
+      enabled: ${FI_PURCHASE_DEDUCTION_ACCOUNTING_ENABLED:false}
   workflow:
     base-url: ${FI_WORKFLOW_BASE_URL:http://localhost:10006/api}
     callback-url: ${FI_WORKFLOW_CALLBACK_URL:http://localhost:10003/api/fi/expense/workflow/events}
