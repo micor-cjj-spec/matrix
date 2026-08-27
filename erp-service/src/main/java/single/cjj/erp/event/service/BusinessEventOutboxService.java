@@ -78,6 +78,9 @@ public class BusinessEventOutboxService {
             case "PURCHASE_REQUEST_APPROVED" -> "biz.procurement.purchase_request.approved";
             case "PURCHASE_SOURCING_AWARDED" -> "biz.procurement.sourcing.awarded";
             case "PURCHASE_CONTRACT_EFFECTIVE" -> "biz.procurement.purchase_contract.effective";
+            case "PURCHASE_DELIVERY_PLAN_PUBLISHED" -> "biz.procurement.delivery_plan.published";
+            case "SUPPLIER_DELIVERY_RESPONSE_RECORDED" -> "biz.procurement.delivery_response.recorded";
+            case "PURCHASE_DELIVERY_PLAN_CONFIRMED" -> "biz.procurement.delivery_plan.confirmed";
             case "PURCHASE_RECEIPT_CONFIRMED" -> "biz.procurement.purchase_receipt.confirmed";
             case "PURCHASE_ACCEPTANCE_CONFIRMED" -> "biz.procurement.purchase_acceptance.confirmed";
             case "PURCHASE_INBOUND_CONFIRMED" -> "biz.procurement.purchase_inbound.confirmed";
