@@ -19,6 +19,11 @@ public class ErpPurchaseOrderAdapter extends AbstractErpProcurementAdapter {
     }
 
     @Override
+    protected boolean canCreateTarget() {
+        return true;
+    }
+
+    @Override
     public void validateSource(DocumentData sourceDocument, Map<String, Object> context) {
         if (!"EFFECTIVE".equals(status(sourceDocument)) || !"AUDITED".equals(approvalStatus(sourceDocument))) {
             throw new BizException("仅已审核且已生效采购订单允许下推收货单");

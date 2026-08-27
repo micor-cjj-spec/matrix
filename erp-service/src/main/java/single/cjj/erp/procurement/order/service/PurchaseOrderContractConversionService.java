@@ -67,12 +67,40 @@ public class PurchaseOrderContractConversionService {
         this.requestEntryMapper = requestEntryMapper;
     }
 
+    public PurchaseOrderDetail findByIdempotencyKey(String key) {
+        if (!StringUtils.hasText(key)) {
+            return null;
+        }
+        PurchaseOrderEntity order = orderMapper.selectOne(
+                new LambdaQueryWrapper<PurchaseOrderEntity>()
+                        .eq(PurchaseOrderEntity::getFbotpIdempotencyKey, key)
+                        .last("limit 1"));
+        if (order == null) {
+            return null;
+        }
+        List<PurchaseOrderEntryEntity> entries = orderEntryMapper.selectList(
+                new LambdaQueryWrapper<PurchaseOrderEntryEntity>()
+                        .eq(PurchaseOrderEntryEntity::getFpurchaseOrderId, order.getFid())
+                        .orderByAsc(PurchaseOrderEntryEntity::getFlineNo));
+        return new PurchaseOrderDetail(order, entries);
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public PurchaseOrderDetail createFromContract(
             PurchaseOrderFromContractCreateRequest request,
             Long operatorId
     ) {
         String tenantId = requireTenant(request.ftenantId());
+        if (StringUtils.hasText(request.fbotpIdempotencyKey())) {
+            PurchaseOrderDetail existing =
+                    findByIdempotencyKey(request.fbotpIdempotencyKey());
+            if (existing != null) {
+                if (!tenantId.equals(existing.order().getFtenantId())) {
+                    throw new BizException("BOTP 幂等键已被其他租户占用");
+                }
+                return existing;
+            }
+        }
         PurchaseContractEntity contract =
                 contractMapper.selectByIdForUpdate(request.fcontractId(), tenantId);
         if (contract == null) {
@@ -241,6 +269,12 @@ public class PurchaseOrderContractConversionService {
         order.setFinvoiceStatus("NONE");
         order.setFsettlementStatus("NONE");
         order.setFcloseStatus("OPEN");
+        order.setFbotpIdempotencyKey(
+                StringUtils.hasText(request.fbotpIdempotencyKey())
+                        ? request.fbotpIdempotencyKey().trim() : null);
+        order.setFsourceExecutionId(
+                StringUtils.hasText(request.fsourceExecutionId())
+                        ? request.fsourceExecutionId().trim() : null);
         order.setFcreateBy(operatorId);
         order.setFcreateTime(now);
         order.setFmodifyBy(operatorId);

@@ -39,6 +39,8 @@ public class PurchaseOrderEntity {
     private String finvoiceStatus;
     private String fsettlementStatus;
     private String fcloseStatus;
+    private String fbotpIdempotencyKey;
+    private String fsourceExecutionId;
     private Long fcreateBy;
     private LocalDateTime fcreateTime;
     private Long fmodifyBy;

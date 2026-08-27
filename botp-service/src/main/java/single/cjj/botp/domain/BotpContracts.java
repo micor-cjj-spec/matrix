@@ -125,6 +125,14 @@ public final class BotpContracts {
         }
     }
 
+    public record DocumentKey(
+            @NotBlank String tenantId,
+            @NotBlank String systemCode,
+            @NotBlank String documentType,
+            @NotBlank String documentId
+    ) {
+    }
+
     public record DocumentRef(
             @NotBlank String systemCode,
             @NotBlank String documentType,
@@ -133,6 +141,39 @@ public final class BotpContracts {
     ) {
         public DocumentRef {
             entryIds = immutable(entryIds);
+        }
+
+        public DocumentKey key(String tenantId) {
+            return new DocumentKey(tenantId, systemCode, documentType, documentId);
+        }
+    }
+
+    public record DocumentGraphNode(
+            DocumentKey key,
+            String documentNo
+    ) {
+    }
+
+    public record DocumentGraphEdge(
+            Long relationId,
+            DocumentKey source,
+            DocumentKey target,
+            RelationStatus status,
+            BigDecimal quantity,
+            BigDecimal amount
+    ) {
+    }
+
+    public record DocumentGraph(
+            DocumentKey root,
+            List<DocumentGraphNode> nodes,
+            List<DocumentGraphEdge> edges,
+            int depth,
+            boolean truncated
+    ) {
+        public DocumentGraph {
+            nodes = immutable(nodes);
+            edges = immutable(edges);
         }
     }
 

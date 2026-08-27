@@ -24,8 +24,32 @@ import single.cjj.erp.procurement.inbound.dto.PurchaseInboundContracts.PurchaseI
 import single.cjj.erp.procurement.inbound.dto.PurchaseInboundContracts.PurchaseInboundEntryRequest;
 import single.cjj.erp.procurement.inbound.entity.PurchaseInboundEntryEntity;
 import single.cjj.erp.procurement.inbound.service.PurchaseInboundService;
+import single.cjj.erp.procurement.request.dto.PurchaseRequestContracts;
+import single.cjj.erp.procurement.request.entity.PurchaseRequestEntryEntity;
+import single.cjj.erp.procurement.request.service.PurchaseRequestService;
+import single.cjj.erp.procurement.sourcing.dto.SourcingContracts.AwardDetail;
+import single.cjj.erp.procurement.sourcing.dto.SourcingContracts.RfqDetail;
+import single.cjj.erp.procurement.sourcing.entity.ProcurementRfqEntryEntity;
+import single.cjj.erp.procurement.sourcing.entity.SourcingAwardEntryEntity;
+import single.cjj.erp.procurement.sourcing.service.ProcurementSourcingService;
+import single.cjj.erp.procurement.contract.dto.PurchaseContractContracts;
+import single.cjj.erp.procurement.contract.entity.PurchaseContractEntryEntity;
+import single.cjj.erp.procurement.contract.service.PurchaseContractService;
+import single.cjj.erp.procurement.delivery.dto.PurchaseDeliveryPlanContracts;
+import single.cjj.erp.procurement.delivery.entity.PurchaseDeliveryPlanEntryEntity;
+import single.cjj.erp.procurement.delivery.service.PurchaseDeliveryPlanService;
+import single.cjj.erp.procurement.reverse.dto.PurchaseReverseContracts;
+import single.cjj.erp.procurement.reverse.entity.PurchaseDeductionEntryEntity;
+import single.cjj.erp.procurement.reverse.entity.PurchaseReturnEntryEntity;
+import single.cjj.erp.procurement.reverse.entity.SupplierClaimEntryEntity;
+import single.cjj.erp.procurement.reverse.service.PurchaseDeductionService;
+import single.cjj.erp.procurement.reverse.service.PurchaseReturnService;
+import single.cjj.erp.procurement.reverse.service.SupplierClaimService;
 import single.cjj.erp.procurement.order.dto.PurchaseOrderContracts.PurchaseOrderDetail;
+import single.cjj.erp.procurement.order.dto.PurchaseOrderContracts.PurchaseOrderFromContractCreateRequest;
+import single.cjj.erp.procurement.order.dto.PurchaseOrderContracts.PurchaseOrderFromContractEntryRequest;
 import single.cjj.erp.procurement.order.entity.PurchaseOrderEntryEntity;
+import single.cjj.erp.procurement.order.service.PurchaseOrderContractConversionService;
 import single.cjj.erp.procurement.order.service.PurchaseOrderService;
 import single.cjj.erp.procurement.receipt.dto.PurchaseReceiptContracts.PurchaseReceiptCreateRequest;
 import single.cjj.erp.procurement.receipt.dto.PurchaseReceiptContracts.PurchaseReceiptDetail;
@@ -45,26 +69,58 @@ import java.util.Map;
 public class ProcurementBotpController {
 
     public static final String SYSTEM = "MATRIX";
+    public static final String REQUEST = "ERP_PURCHASE_REQUEST";
+    public static final String RFQ = "ERP_PROCUREMENT_RFQ";
+    public static final String AWARD = "ERP_SOURCING_AWARD";
+    public static final String CONTRACT = "ERP_PURCHASE_CONTRACT";
     public static final String ORDER = "ERP_PURCHASE_ORDER";
+    public static final String DELIVERY_PLAN = "ERP_PURCHASE_DELIVERY_PLAN";
     public static final String RECEIPT = "ERP_PURCHASE_RECEIPT";
     public static final String ACCEPTANCE = "ERP_PURCHASE_ACCEPTANCE";
     public static final String INBOUND = "ERP_PURCHASE_INBOUND";
+    public static final String PURCHASE_RETURN = "ERP_PURCHASE_RETURN";
+    public static final String SUPPLIER_CLAIM = "ERP_SUPPLIER_CLAIM";
+    public static final String PURCHASE_DEDUCTION = "ERP_PURCHASE_DEDUCTION";
 
+    private final PurchaseRequestService requestService;
+    private final ProcurementSourcingService sourcingService;
+    private final PurchaseContractService contractService;
     private final PurchaseOrderService orderService;
+    private final PurchaseOrderContractConversionService orderContractConversionService;
+    private final PurchaseDeliveryPlanService deliveryPlanService;
     private final PurchaseReceiptService receiptService;
     private final PurchaseAcceptanceService acceptanceService;
     private final PurchaseInboundService inboundService;
+    private final PurchaseReturnService returnService;
+    private final SupplierClaimService claimService;
+    private final PurchaseDeductionService deductionService;
 
     public ProcurementBotpController(
+            PurchaseRequestService requestService,
+            ProcurementSourcingService sourcingService,
+            PurchaseContractService contractService,
             PurchaseOrderService orderService,
+            PurchaseOrderContractConversionService orderContractConversionService,
+            PurchaseDeliveryPlanService deliveryPlanService,
             PurchaseReceiptService receiptService,
             PurchaseAcceptanceService acceptanceService,
-            PurchaseInboundService inboundService
+            PurchaseInboundService inboundService,
+            PurchaseReturnService returnService,
+            SupplierClaimService claimService,
+            PurchaseDeductionService deductionService
     ) {
+        this.requestService = requestService;
+        this.sourcingService = sourcingService;
+        this.contractService = contractService;
         this.orderService = orderService;
+        this.orderContractConversionService = orderContractConversionService;
+        this.deliveryPlanService = deliveryPlanService;
         this.receiptService = receiptService;
         this.acceptanceService = acceptanceService;
         this.inboundService = inboundService;
+        this.returnService = returnService;
+        this.claimService = claimService;
+        this.deductionService = deductionService;
     }
 
     @GetMapping("/documents/{documentType}/{fid}")
@@ -74,10 +130,18 @@ public class ProcurementBotpController {
             @RequestParam("tenantId") String tenantId
     ) {
         return ApiResponse.success(switch (documentType) {
+            case REQUEST -> requestDocument(requestService.detail(fid, tenantId));
+            case RFQ -> rfqDocument(sourcingService.rfqDetail(fid, tenantId));
+            case AWARD -> awardDocument(sourcingService.awardDetail(fid, tenantId));
+            case CONTRACT -> contractDocument(contractService.detail(fid, tenantId));
             case ORDER -> orderDocument(orderService.detail(fid, tenantId));
+            case DELIVERY_PLAN -> deliveryPlanDocument(deliveryPlanService.detail(fid, tenantId));
             case RECEIPT -> receiptDocument(receiptService.detail(fid, tenantId));
             case ACCEPTANCE -> acceptanceDocument(acceptanceService.detail(fid, tenantId));
             case INBOUND -> inboundDocument(inboundService.detail(fid, tenantId));
+            case PURCHASE_RETURN -> returnDocument(returnService.detail(fid, tenantId));
+            case SUPPLIER_CLAIM -> claimDocument(claimService.detail(fid, tenantId));
+            case PURCHASE_DEDUCTION -> deductionDocument(deductionService.detail(fid, tenantId));
             default -> throw new BizException("不支持的采购 BOTP 单据类型: " + documentType);
         });
     }
@@ -88,6 +152,7 @@ public class ProcurementBotpController {
             @RequestParam("key") String key
     ) {
         return ApiResponse.success(switch (documentType) {
+            case ORDER -> toRecoveredTarget(orderContractConversionService.findByIdempotencyKey(key), ORDER);
             case RECEIPT -> toRecoveredTarget(receiptService.findByIdempotencyKey(key), RECEIPT);
             case ACCEPTANCE -> toRecoveredTarget(acceptanceService.findByIdempotencyKey(key), ACCEPTANCE);
             case INBOUND -> toRecoveredTarget(inboundService.findByIdempotencyKey(key), INBOUND);
@@ -104,6 +169,11 @@ public class ProcurementBotpController {
         List<Map<String, Object>> entries = request.entries() == null ? List.of() : request.entries();
         Long operatorId = optionalLong(header.get("operatorId"));
         return ApiResponse.success(switch (documentType) {
+            case ORDER -> {
+                PurchaseOrderDetail detail = orderContractConversionService.createFromContract(
+                        toOrderFromContractCreate(request, header, entries), operatorId);
+                yield toTarget(detail, correlationKeys(entries), ORDER);
+            }
             case RECEIPT -> {
                 PurchaseReceiptDetail detail = receiptService.create(toReceiptCreate(request, header, entries), operatorId);
                 yield toTarget(detail, correlationKeys(entries), RECEIPT);
@@ -120,12 +190,271 @@ public class ProcurementBotpController {
         });
     }
 
+    private BotpDocumentResponse requestDocument(PurchaseRequestContracts.Detail detail) {
+        var request = detail.request();
+        Map<String, Object> header = commonHeader(
+                request.getFtenantId(), request.getForgId(), request.getFnumber(), request.getFdate(),
+                null, null, null, request.getFcurrencyCode(), request.getFstatus(), request.getFapprovalStatus());
+        header.put("executionStatus", request.getFexecutionStatus());
+        header.put("requesterId", request.getFrequesterId());
+        header.put("requestDepartmentId", request.getFrequestDepartmentId());
+        header.put("requiredDate", request.getFrequiredDate());
+        header.put("projectId", request.getFprojectId());
+        header.put("costCenterId", request.getFcostCenterId());
+        List<Map<String, Object>> entries = detail.entries().stream().map(this::requestEntry).toList();
+        return new BotpDocumentResponse(SYSTEM, REQUEST, String.valueOf(request.getFid()), request.getFnumber(), header, entries);
+    }
+
+    private Map<String, Object> requestEntry(PurchaseRequestEntryEntity entry) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("entryId", String.valueOf(entry.getFid()));
+        line.put("purchaseRequestId", entry.getFpurchaseRequestId());
+        line.put("purchaseRequestEntryId", entry.getFid());
+        line.put("materialId", entry.getFmaterialId());
+        line.put("materialCode", entry.getFmaterialCode());
+        line.put("materialName", entry.getFmaterialName());
+        line.put("specification", entry.getFspecification());
+        line.put("unitId", entry.getFunitId());
+        line.put("quantity", entry.getFquantity());
+        line.put("availableQuantity", nz(entry.getFquantity()).subtract(nz(entry.getFsourcedQuantity())));
+        line.put("estimatedUnitPrice", entry.getFestimatedUnitPrice());
+        line.put("estimatedAmount", entry.getFestimatedAmount());
+        line.put("requiredDate", entry.getFrequiredDate());
+        line.put("projectId", entry.getFprojectId());
+        line.put("costCenterId", entry.getFcostCenterId());
+        return line;
+    }
+
+    private BotpDocumentResponse rfqDocument(RfqDetail detail) {
+        var rfq = detail.rfq();
+        Map<String, Object> header = commonHeader(
+                rfq.getFtenantId(), rfq.getForgId(), rfq.getFnumber(), rfq.getFdate(),
+                null, null, null, rfq.getFcurrencyCode(), rfq.getFstatus(), null);
+        header.put("title", rfq.getFtitle());
+        header.put("quotationDeadline", rfq.getFquotationDeadline());
+        header.put("supplierCount", detail.suppliers().size());
+        List<Map<String, Object>> entries = detail.entries().stream().map(this::rfqEntry).toList();
+        return new BotpDocumentResponse(SYSTEM, RFQ, String.valueOf(rfq.getFid()), rfq.getFnumber(), header, entries);
+    }
+
+    private Map<String, Object> rfqEntry(ProcurementRfqEntryEntity entry) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("entryId", String.valueOf(entry.getFid()));
+        line.put("rfqId", entry.getFrfqId());
+        line.put("rfqEntryId", entry.getFid());
+        line.put("purchaseRequestId", entry.getFpurchaseRequestId());
+        line.put("purchaseRequestEntryId", entry.getFpurchaseRequestEntryId());
+        line.put("materialId", entry.getFmaterialId());
+        line.put("materialCode", entry.getFmaterialCode());
+        line.put("materialName", entry.getFmaterialName());
+        line.put("specification", entry.getFspecification());
+        line.put("unitId", entry.getFunitId());
+        line.put("quantity", entry.getFquantity());
+        line.put("availableQuantity", nz(entry.getFquantity()).subtract(nz(entry.getFawardedQuantity())));
+        line.put("requiredDate", entry.getFrequiredDate());
+        line.put("projectId", entry.getFprojectId());
+        line.put("costCenterId", entry.getFcostCenterId());
+        return line;
+    }
+
+    private BotpDocumentResponse awardDocument(AwardDetail detail) {
+        var award = detail.award();
+        Map<String, Object> header = commonHeader(
+                award.getFtenantId(), award.getForgId(), award.getFnumber(), award.getFdate(),
+                null, null, null, null, award.getFstatus(), null);
+        header.put("rfqId", award.getFrfqId());
+        header.put("grossAmount", award.getFgrossAmount());
+        List<Map<String, Object>> entries = detail.entries().stream().map(this::awardEntry).toList();
+        return new BotpDocumentResponse(SYSTEM, AWARD, String.valueOf(award.getFid()), award.getFnumber(), header, entries);
+    }
+
+    private Map<String, Object> awardEntry(SourcingAwardEntryEntity entry) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("entryId", String.valueOf(entry.getFid()));
+        line.put("sourcingAwardId", entry.getFawardId());
+        line.put("sourcingAwardEntryId", entry.getFid());
+        line.put("rfqEntryId", entry.getFrfqEntryId());
+        line.put("quoteId", entry.getFquoteId());
+        line.put("quoteEntryId", entry.getFquoteEntryId());
+        line.put("businessPartnerId", entry.getFbusinessPartnerId());
+        line.put("businessPartnerCode", entry.getFbusinessPartnerCode());
+        line.put("businessPartnerName", entry.getFbusinessPartnerName());
+        line.put("quantity", entry.getFawardedQuantity());
+        line.put("availableQuantity", entry.getFawardedQuantity());
+        line.put("unitPrice", entry.getFunitPrice());
+        line.put("taxRate", entry.getFtaxRate());
+        line.put("netAmount", entry.getFnetAmount());
+        line.put("taxAmount", entry.getFtaxAmount());
+        line.put("amount", entry.getFgrossAmount());
+        return line;
+    }
+
+    private BotpDocumentResponse contractDocument(PurchaseContractContracts.Detail detail) {
+        var contract = detail.contract();
+        Map<String, Object> header = commonHeader(
+                contract.getFtenantId(), contract.getForgId(), contract.getFnumber(), contract.getFdate(),
+                contract.getFbusinessPartnerId(), contract.getFbusinessPartnerCode(), contract.getFbusinessPartnerName(),
+                contract.getFcurrencyCode(), contract.getFstatus(), contract.getFapprovalStatus());
+        header.put("sourcingAwardId", contract.getFsourcingAwardId());
+        header.put("executionStatus", contract.getFexecutionStatus());
+        header.put("startDate", contract.getFstartDate());
+        header.put("endDate", contract.getFendDate());
+        header.put("paymentTermCode", contract.getFpaymentTermCode());
+        header.put("deliveryTermCode", contract.getFdeliveryTermCode());
+        List<Map<String, Object>> entries = detail.entries().stream().map(this::contractEntry).toList();
+        return new BotpDocumentResponse(SYSTEM, CONTRACT, String.valueOf(contract.getFid()), contract.getFnumber(), header, entries);
+    }
+
+    private Map<String, Object> contractEntry(PurchaseContractEntryEntity entry) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("entryId", String.valueOf(entry.getFid()));
+        line.put("purchaseContractId", entry.getFpurchaseContractId());
+        line.put("contractEntryId", entry.getFid());
+        line.put("sourcingAwardEntryId", entry.getFsourcingAwardEntryId());
+        line.put("rfqEntryId", entry.getFrfqEntryId());
+        line.put("purchaseRequestId", entry.getFpurchaseRequestId());
+        line.put("purchaseRequestEntryId", entry.getFpurchaseRequestEntryId());
+        line.put("materialId", entry.getFmaterialId());
+        line.put("materialCode", entry.getFmaterialCode());
+        line.put("materialName", entry.getFmaterialName());
+        line.put("specification", entry.getFspecification());
+        line.put("unitId", entry.getFunitId());
+        line.put("quantity", entry.getFquantity());
+        line.put("availableQuantity", nz(entry.getFquantity()).subtract(nz(entry.getForderedQuantity())));
+        line.put("unitPrice", entry.getFunitPrice());
+        line.put("taxRate", entry.getFtaxRate());
+        line.put("amount", entry.getFgrossAmount());
+        line.put("plannedDeliveryDate", entry.getFplannedDeliveryDate());
+        line.put("projectId", entry.getFprojectId());
+        line.put("costCenterId", entry.getFcostCenterId());
+        return line;
+    }
+
+    private BotpDocumentResponse deliveryPlanDocument(PurchaseDeliveryPlanContracts.Detail detail) {
+        var plan = detail.plan();
+        Map<String, Object> header = commonHeader(
+                plan.getFtenantId(), plan.getForgId(), plan.getFnumber(), plan.getFdate(),
+                plan.getFbusinessPartnerId(), plan.getFbusinessPartnerCode(), plan.getFbusinessPartnerName(),
+                plan.getFcurrencyCode(), plan.getFstatus(), null);
+        header.put("purchaseOrderId", plan.getFpurchaseOrderId());
+        header.put("purchaseOrderNo", plan.getFpurchaseOrderNo());
+        List<Map<String, Object>> entries = detail.entries().stream().map(this::deliveryPlanEntry).toList();
+        return new BotpDocumentResponse(SYSTEM, DELIVERY_PLAN, String.valueOf(plan.getFid()), plan.getFnumber(), header, entries);
+    }
+
+    private Map<String, Object> deliveryPlanEntry(PurchaseDeliveryPlanEntryEntity entry) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("entryId", String.valueOf(entry.getFid()));
+        line.put("deliveryPlanId", entry.getFdeliveryPlanId());
+        line.put("deliveryPlanEntryId", entry.getFid());
+        line.put("purchaseOrderId", entry.getFpurchaseOrderId());
+        line.put("purchaseOrderEntryId", entry.getFpurchaseOrderEntryId());
+        line.put("materialId", entry.getFmaterialId());
+        line.put("materialCode", entry.getFmaterialCode());
+        line.put("materialName", entry.getFmaterialName());
+        line.put("quantity", entry.getFplannedQuantity());
+        line.put("plannedDeliveryDate", entry.getFplannedDeliveryDate());
+        line.put("committedQuantity", entry.getFcommittedQuantity());
+        line.put("committedDeliveryDate", entry.getFcommittedDeliveryDate());
+        line.put("receivedQuantity", entry.getFreceivedQuantity());
+        return line;
+    }
+
+    private BotpDocumentResponse returnDocument(PurchaseReverseContracts.ReturnDetail detail) {
+        var headerEntity = detail.header();
+        Map<String, Object> header = commonHeader(
+                headerEntity.getFtenantId(), headerEntity.getForgId(), headerEntity.getFnumber(), headerEntity.getFdate(),
+                headerEntity.getFbusinessPartnerId(), headerEntity.getFbusinessPartnerCode(), headerEntity.getFbusinessPartnerName(),
+                headerEntity.getFcurrencyCode(), headerEntity.getFstatus(), headerEntity.getFapprovalStatus());
+        header.put("purchaseInboundId", headerEntity.getFpurchaseInboundId());
+        header.put("purchaseOrderId", headerEntity.getFpurchaseOrderId());
+        header.put("reasonType", headerEntity.getFreasonType());
+        List<Map<String, Object>> entries = detail.entries().stream().map(this::returnEntry).toList();
+        return new BotpDocumentResponse(SYSTEM, PURCHASE_RETURN, String.valueOf(headerEntity.getFid()), headerEntity.getFnumber(), header, entries);
+    }
+
+    private Map<String, Object> returnEntry(PurchaseReturnEntryEntity entry) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("entryId", String.valueOf(entry.getFid()));
+        line.put("purchaseReturnId", entry.getFpurchaseReturnId());
+        line.put("purchaseInboundId", entry.getFpurchaseInboundId());
+        line.put("purchaseInboundEntryId", entry.getFpurchaseInboundEntryId());
+        line.put("purchaseOrderId", entry.getFpurchaseOrderId());
+        line.put("purchaseOrderEntryId", entry.getFpurchaseOrderEntryId());
+        line.put("materialId", entry.getFmaterialId());
+        line.put("materialCode", entry.getFmaterialCode());
+        line.put("materialName", entry.getFmaterialName());
+        line.put("quantity", entry.getFquantity());
+        line.put("unitPrice", entry.getFunitPrice());
+        line.put("amount", entry.getFamount());
+        return line;
+    }
+
+    private BotpDocumentResponse claimDocument(PurchaseReverseContracts.ClaimDetail detail) {
+        var headerEntity = detail.header();
+        Map<String, Object> header = commonHeader(
+                headerEntity.getFtenantId(), headerEntity.getForgId(), headerEntity.getFnumber(), headerEntity.getFdate(),
+                headerEntity.getFbusinessPartnerId(), headerEntity.getFbusinessPartnerCode(), headerEntity.getFbusinessPartnerName(),
+                headerEntity.getFcurrencyCode(), headerEntity.getFstatus(), headerEntity.getFapprovalStatus());
+        header.put("purchaseOrderId", headerEntity.getFpurchaseOrderId());
+        header.put("purchaseReturnId", headerEntity.getFpurchaseReturnId());
+        header.put("claimType", headerEntity.getFclaimType());
+        header.put("requestedAmount", headerEntity.getFrequestedAmount());
+        header.put("agreedAmount", headerEntity.getFagreedAmount());
+        List<Map<String, Object>> entries = detail.entries().stream().map(this::claimEntry).toList();
+        return new BotpDocumentResponse(SYSTEM, SUPPLIER_CLAIM, String.valueOf(headerEntity.getFid()), headerEntity.getFnumber(), header, entries);
+    }
+
+    private Map<String, Object> claimEntry(SupplierClaimEntryEntity entry) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("entryId", String.valueOf(entry.getFid()));
+        line.put("supplierClaimId", entry.getFsupplierClaimId());
+        line.put("purchaseOrderId", entry.getFpurchaseOrderId());
+        line.put("purchaseOrderEntryId", entry.getFpurchaseOrderEntryId());
+        line.put("purchaseReturnEntryId", entry.getFpurchaseReturnEntryId());
+        line.put("materialId", entry.getFmaterialId());
+        line.put("materialCode", entry.getFmaterialCode());
+        line.put("materialName", entry.getFmaterialName());
+        line.put("requestedAmount", entry.getFrequestedAmount());
+        line.put("agreedAmount", entry.getFagreedAmount());
+        line.put("amount", entry.getFagreedAmount());
+        return line;
+    }
+
+    private BotpDocumentResponse deductionDocument(PurchaseReverseContracts.DeductionDetail detail) {
+        var headerEntity = detail.header();
+        Map<String, Object> header = commonHeader(
+                headerEntity.getFtenantId(), headerEntity.getForgId(), headerEntity.getFnumber(), headerEntity.getFdate(),
+                headerEntity.getFbusinessPartnerId(), headerEntity.getFbusinessPartnerCode(), headerEntity.getFbusinessPartnerName(),
+                headerEntity.getFcurrencyCode(), headerEntity.getFstatus(), headerEntity.getFapprovalStatus());
+        header.put("supplierClaimId", headerEntity.getFsupplierClaimId());
+        header.put("purchaseOrderId", headerEntity.getFpurchaseOrderId());
+        header.put("amount", headerEntity.getFamount());
+        List<Map<String, Object>> entries = detail.entries().stream().map(this::deductionEntry).toList();
+        return new BotpDocumentResponse(SYSTEM, PURCHASE_DEDUCTION, String.valueOf(headerEntity.getFid()), headerEntity.getFnumber(), header, entries);
+    }
+
+    private Map<String, Object> deductionEntry(PurchaseDeductionEntryEntity entry) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("entryId", String.valueOf(entry.getFid()));
+        line.put("purchaseDeductionId", entry.getFpurchaseDeductionId());
+        line.put("supplierClaimEntryId", entry.getFsupplierClaimEntryId());
+        line.put("purchaseOrderId", entry.getFpurchaseOrderId());
+        line.put("purchaseOrderEntryId", entry.getFpurchaseOrderEntryId());
+        line.put("materialId", entry.getFmaterialId());
+        line.put("materialCode", entry.getFmaterialCode());
+        line.put("materialName", entry.getFmaterialName());
+        line.put("amount", entry.getFamount());
+        return line;
+    }
+
     private BotpDocumentResponse orderDocument(PurchaseOrderDetail detail) {
         var order = detail.order();
         Map<String, Object> header = commonHeader(
                 order.getFtenantId(), order.getForgId(), order.getFnumber(), order.getFdate(),
                 order.getFbusinessPartnerId(), order.getFbusinessPartnerCode(), order.getFbusinessPartnerName(),
                 order.getFcurrencyCode(), order.getFstatus(), order.getFapprovalStatus());
+        header.put("contractId", order.getFcontractId());
         header.put("paymentTermCode", order.getFpaymentTermCode());
         header.put("plannedDeliveryDate", order.getFplannedDeliveryDate());
         List<Map<String, Object>> entries = detail.entries().stream().map(this::orderEntry).toList();
@@ -273,6 +602,26 @@ public class ProcurementBotpController {
         return line;
     }
 
+    private PurchaseOrderFromContractCreateRequest toOrderFromContractCreate(
+            BotpTargetCreateRequest request,
+            Map<String, Object> header,
+            List<Map<String, Object>> entries
+    ) {
+        return new PurchaseOrderFromContractCreateRequest(
+                text(header, "tenantId"),
+                requiredLong(header, "contractId"),
+                optionalText(header.get("number")),
+                localDate(header.get("date")),
+                entries.stream().map(item -> new PurchaseOrderFromContractEntryRequest(
+                        requiredLong(item, "contractEntryId"),
+                        decimal(item.get("quantity"), "quantity"),
+                        localDateOrNull(item.get("plannedDeliveryDate"))
+                )).toList(),
+                request.idempotencyKey(),
+                optionalText(header.get("sourceExecutionId"))
+        );
+    }
+
     private PurchaseReceiptCreateRequest toReceiptCreate(
             BotpTargetCreateRequest request,
             Map<String, Object> header,
@@ -356,6 +705,17 @@ public class ProcurementBotpController {
         );
     }
 
+    private BotpTargetResponse toRecoveredTarget(PurchaseOrderDetail detail, String type) {
+        if (detail == null) {
+            return null;
+        }
+        List<String> keys = detail.entries().stream()
+                .map(PurchaseOrderEntryEntity::getFcontractEntryId)
+                .map(String::valueOf)
+                .toList();
+        return toTarget(detail, keys, type);
+    }
+
     private BotpTargetResponse toRecoveredTarget(PurchaseReceiptDetail detail, String type) {
         if (detail == null) {
             return null;
@@ -387,6 +747,16 @@ public class ProcurementBotpController {
                 .map(String::valueOf)
                 .toList();
         return toTarget(detail, keys, type);
+    }
+
+    private BotpTargetResponse toTarget(PurchaseOrderDetail detail, List<String> correlationKeys, String type) {
+        if (detail == null) {
+            return null;
+        }
+        return new BotpTargetResponse(
+                SYSTEM, type, String.valueOf(detail.order().getFid()), detail.order().getFnumber(),
+                targetEntries(correlationKeys, detail.entries().stream().map(PurchaseOrderEntryEntity::getFid).toList())
+        );
     }
 
     private BotpTargetResponse toTarget(PurchaseReceiptDetail detail, List<String> correlationKeys, String type) {
@@ -515,6 +885,20 @@ public class ProcurementBotpController {
             return new BigDecimal(String.valueOf(value));
         } catch (NumberFormatException exception) {
             throw new BizException("无效数值: " + value);
+        }
+    }
+
+    private LocalDate localDateOrNull(Object value) {
+        if (value == null || String.valueOf(value).isBlank()) {
+            return null;
+        }
+        if (value instanceof LocalDate date) {
+            return date;
+        }
+        try {
+            return LocalDate.parse(String.valueOf(value));
+        } catch (RuntimeException exception) {
+            throw new BizException("plannedDeliveryDate 必须是 yyyy-MM-dd");
         }
     }
 
