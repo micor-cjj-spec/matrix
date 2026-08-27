@@ -87,6 +87,35 @@ class BusinessPartnerServiceTest {
     }
 
     @Test
+    void conflictingCreditCodeShouldRejectAutomaticMerge() {
+        BusinessPartnerEntity existing = partner(
+                30L, "T1", "BP003", "法人C", "DRAFT", "DRAFT");
+        existing.setFunifiedSocialCreditCode("913300001111111111");
+
+        when(partnerMapper.selectOne(any(Wrapper.class)))
+                .thenReturn(existing, null);
+        when(roleMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+
+        BusinessPartnerService service =
+                new BusinessPartnerService(partnerMapper, roleMapper);
+
+        var error = assertThrows(
+                single.cjj.bizfi.exception.BizException.class,
+                () -> service.createLegacyRole(
+                        "T1",
+                        BusinessPartnerService.ROLE_SUPPLIER,
+                        new LegacyPartyRequest(
+                                null,
+                                "法人C",
+                                "BP003",
+                                "913300002222222222"),
+                        100L));
+
+        assertTrue(error.getMessage().contains("统一社会信用代码不一致"));
+        verify(roleMapper, never()).insert(any(BusinessPartnerRoleEntity.class));
+    }
+
+    @Test
     void auditShouldActivateLifecycleButKeepLegacyAuditedStatus() {
         BusinessPartnerEntity existing = partner(
                 20L, "T1", "BP002", "客户B", "SUBMITTED", "DRAFT");
