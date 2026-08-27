@@ -442,6 +442,7 @@ public class ProcurementBotpController {
                 order.getFtenantId(), order.getForgId(), order.getFnumber(), order.getFdate(),
                 order.getFbusinessPartnerId(), order.getFbusinessPartnerCode(), order.getFbusinessPartnerName(),
                 order.getFcurrencyCode(), order.getFstatus(), order.getFapprovalStatus());
+        header.put("contractId", order.getFcontractId());
         header.put("paymentTermCode", order.getFpaymentTermCode());
         header.put("plannedDeliveryDate", order.getFplannedDeliveryDate());
         List<Map<String, Object>> entries = detail.entries().stream().map(this::orderEntry).toList();
