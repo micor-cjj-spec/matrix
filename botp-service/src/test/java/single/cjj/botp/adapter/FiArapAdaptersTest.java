@@ -101,19 +101,19 @@ class FiArapAdaptersTest {
         TargetDraft draft = new TargetDraft(
                 "MATRIX",
                 "FI_PAYMENT_APPLICATION",
-                Map.of(
-                        "tenantId", "T1",
-                        "orgId", 1L,
-                        "sourceSystem", "MATRIX",
-                        "sourceDocumentType", "FI_AP_PAYABLE",
-                        "sourceDocumentId", "10",
-                        "sourceExecutionId", "BOTP-NEW-1",
-                        "sourceBillNo", "AP-FORMAL-001",
-                        "counterparty", "BP-1",
-                        "amount", new BigDecimal("600"),
-                        "payMethod", "BANK_DIRECT",
-                        "plannedPayDate", "2026-08-30",
-                        "operatorId", 99L
+                Map.ofEntries(
+                        Map.entry("tenantId", "T1"),
+                        Map.entry("orgId", 1L),
+                        Map.entry("sourceSystem", "MATRIX"),
+                        Map.entry("sourceDocumentType", "FI_AP_PAYABLE"),
+                        Map.entry("sourceDocumentId", "10"),
+                        Map.entry("sourceExecutionId", "BOTP-NEW-1"),
+                        Map.entry("sourceBillNo", "AP-FORMAL-001"),
+                        Map.entry("counterparty", "BP-1"),
+                        Map.entry("amount", new BigDecimal("600")),
+                        Map.entry("payMethod", "BANK_DIRECT"),
+                        Map.entry("plannedPayDate", "2026-08-30"),
+                        Map.entry("operatorId", 99L)
                 ),
                 List.of()
         );
