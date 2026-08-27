@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS matrix_erp_purchase_delivery_plan (
     fversion INT NOT NULL DEFAULT 0 COMMENT '乐观锁版本',
     PRIMARY KEY (fid),
     UNIQUE KEY uk_matrix_erp_purchase_delivery_plan_number (ftenant_id, fnumber),
-    UNIQUE KEY uk_matrix_erp_purchase_delivery_plan_order (ftenant_id, fpurchase_order_id),
+    KEY idx_matrix_erp_purchase_delivery_plan_order (ftenant_id, fpurchase_order_id),
     KEY idx_matrix_erp_purchase_delivery_plan_status (ftenant_id, forg_id, fstatus, fdate)
 ) COMMENT='采购交付计划';
 
