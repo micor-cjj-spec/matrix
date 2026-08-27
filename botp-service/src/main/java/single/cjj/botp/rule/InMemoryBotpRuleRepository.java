@@ -27,6 +27,7 @@ public class InMemoryBotpRuleRepository implements BotpRuleRepository {
     public InMemoryBotpRuleRepository() {
         registerPublished(demoRule());
         registerPublished(apToPaymentApplicationRule());
+        registerPublished(formalApToPaymentApplicationRule());
     }
 
     @Override
@@ -135,6 +136,35 @@ public class InMemoryBotpRuleRepository implements BotpRuleRepository {
                         new FieldMapping(MappingSourceType.SOURCE_FIELD, "amount", "deliveryAmount", null, false)
                 ),
                 List.of(new WritebackMapping("documentNo", "lastTargetNo", "OVERWRITE"))
+        );
+    }
+
+    private RuleDefinition formalApToPaymentApplicationRule() {
+        return new RuleDefinition(
+                "FORMAL_AP_TO_PAYMENT_APPLICATION",
+                "正式应付下推付款申请",
+                1,
+                RuleStatus.PUBLISHED,
+                "MATRIX",
+                "FI_AP_PAYABLE",
+                "MATRIX",
+                "FI_PAYMENT_APPLICATION",
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "number", "sourceBillNo", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerId", "counterparty", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "orgId", "orgId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "tenantId", "tenantId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "sourceSystemCode", "sourceSystem", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "sourceDocumentType", "sourceDocumentType", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "sourceDocumentId", "sourceDocumentId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "executionId", "sourceExecutionId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "pushAmount", "amount", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "payMethod", "payMethod", null, false),
+                        new FieldMapping(MappingSourceType.CONTEXT, "plannedPayDate", "plannedPayDate", null, false),
+                        new FieldMapping(MappingSourceType.CONTEXT, "operatorId", "operatorId", null, false)
+                ),
+                List.of(),
+                List.of(new WritebackMapping("allocatedAmount", "reservedAmount", "RECOMPUTE"))
         );
     }
 

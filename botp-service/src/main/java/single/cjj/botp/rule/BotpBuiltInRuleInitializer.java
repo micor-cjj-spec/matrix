@@ -22,6 +22,11 @@ public class BotpBuiltInRuleInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
+        ensureLegacyApRule();
+        ensureFormalApRule();
+    }
+
+    private void ensureLegacyApRule() {
         if (repository.findPublishedByCode("AP_TO_PAYMENT_APPLICATION").isPresent()) {
             return;
         }
@@ -49,5 +54,36 @@ public class BotpBuiltInRuleInitializer implements ApplicationRunner {
                 List.of(new WritebackMapping("allocatedAmount", "appliedAmount", "RECOMPUTE"))
         ));
         repository.publish("AP_TO_PAYMENT_APPLICATION");
+    }
+
+    private void ensureFormalApRule() {
+        if (repository.findPublishedByCode("FORMAL_AP_TO_PAYMENT_APPLICATION").isPresent()) {
+            return;
+        }
+        repository.saveDraft(new RuleSaveRequest(
+                "FORMAL_AP_TO_PAYMENT_APPLICATION",
+                "正式应付下推付款申请",
+                "MATRIX",
+                "FI_AP_PAYABLE",
+                "MATRIX",
+                "FI_PAYMENT_APPLICATION",
+                List.of(
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "number", "sourceBillNo", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "businessPartnerId", "counterparty", null, true),
+                        new FieldMapping(MappingSourceType.SOURCE_FIELD, "orgId", "orgId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "tenantId", "tenantId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "sourceSystemCode", "sourceSystem", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "sourceDocumentType", "sourceDocumentType", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "sourceDocumentId", "sourceDocumentId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "executionId", "sourceExecutionId", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "pushAmount", "amount", null, true),
+                        new FieldMapping(MappingSourceType.CONTEXT, "payMethod", "payMethod", null, false),
+                        new FieldMapping(MappingSourceType.CONTEXT, "plannedPayDate", "plannedPayDate", null, false),
+                        new FieldMapping(MappingSourceType.CONTEXT, "operatorId", "operatorId", null, false)
+                ),
+                List.of(),
+                List.of(new WritebackMapping("allocatedAmount", "reservedAmount", "RECOMPUTE"))
+        ));
+        repository.publish("FORMAL_AP_TO_PAYMENT_APPLICATION");
     }
 }

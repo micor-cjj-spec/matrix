@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'erp-service/**'
+      - 'botp-service/**'
       - 'fi-service/**'
       - 'deliverables/fi/**'
       - 'deliverables/erp/**'
@@ -16,6 +17,7 @@ on:
       - 'dev'
     paths:
       - 'erp-service/**'
+      - 'botp-service/**'
       - 'fi-service/**'
       - 'deliverables/fi/**'
       - 'deliverables/erp/**'
@@ -42,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          mvn -q -Dstyle.color=never -pl erp-service,fi-service -am test > /tmp/biz-finance-p0-maven.log 2>&1
+          mvn -q -Dstyle.color=never -pl erp-service,fi-service,botp-service -am test > /tmp/biz-finance-p0-maven.log 2>&1
           status=$?
           cat /tmp/biz-finance-p0-maven.log
           exit $status

@@ -55,6 +55,13 @@ matrix:
       initialize-schema: true
 
 fi:
+  business-event:
+    publisher:
+      enabled: ${FI_BUSINESS_EVENT_PUBLISHER_ENABLED:true}
+      batch-size: ${FI_BUSINESS_EVENT_PUBLISHER_BATCH_SIZE:100}
+      fixed-delay-ms: ${FI_BUSINESS_EVENT_PUBLISHER_FIXED_DELAY_MS:3000}
+      stale-claim-minutes: ${FI_BUSINESS_EVENT_PUBLISHER_STALE_CLAIM_MINUTES:10}
+      required-routing-keys: ${FI_BUSINESS_EVENT_REQUIRED_ROUTING_KEYS:biz.finance.payment_application.approved}
   reconciliation:
     internal-token: ${FI_RECONCILIATION_INTERNAL_TOKEN:change-me-before-production}
   accounting:
