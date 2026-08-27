@@ -103,6 +103,7 @@ Report
 - [P1-IMP-01 PurchaseRequest](./implementation/P1-IMP-01-purchase-request.md)
 - [P1-IMP-02 RFQ / 采购询价与比价](./implementation/P1-IMP-02-rfq-sourcing.md)
 - [P1-IMP-03 PurchaseContract](./implementation/P1-IMP-03-purchase-contract.md)
+- [P1-IMP-04 Contract → PurchaseOrder](./implementation/P1-IMP-04-contract-to-purchase-order.md)
 
 ## 5. 当前 P0 设计进度
 
@@ -224,7 +225,7 @@ trace
 P1-IMP-01 PurchaseRequest                         已实现 v1
 P1-IMP-02 RFQ / 采购询价与比价                   已实现 v1
 P1-IMP-03 PurchaseContract                       已实现 v1
-P1-IMP-04 Request/Sourcing/Contract → PO         待实现
+P1-IMP-04 Request/Sourcing/Contract → PO         已实现 v1
 P1-IMP-05 DeliveryPlan / Supplier Collaboration  待实现
 P1-IMP-06 Purchase Return / Claim / Deduction    待实现
 P1-IMP-07 Procurement BOTP Completion            待实现
