@@ -46,7 +46,10 @@ import single.cjj.erp.procurement.reverse.service.PurchaseDeductionService;
 import single.cjj.erp.procurement.reverse.service.PurchaseReturnService;
 import single.cjj.erp.procurement.reverse.service.SupplierClaimService;
 import single.cjj.erp.procurement.order.dto.PurchaseOrderContracts.PurchaseOrderDetail;
+import single.cjj.erp.procurement.order.dto.PurchaseOrderContracts.PurchaseOrderFromContractCreateRequest;
+import single.cjj.erp.procurement.order.dto.PurchaseOrderContracts.PurchaseOrderFromContractEntryRequest;
 import single.cjj.erp.procurement.order.entity.PurchaseOrderEntryEntity;
+import single.cjj.erp.procurement.order.service.PurchaseOrderContractConversionService;
 import single.cjj.erp.procurement.order.service.PurchaseOrderService;
 import single.cjj.erp.procurement.receipt.dto.PurchaseReceiptContracts.PurchaseReceiptCreateRequest;
 import single.cjj.erp.procurement.receipt.dto.PurchaseReceiptContracts.PurchaseReceiptDetail;
@@ -83,6 +86,7 @@ public class ProcurementBotpController {
     private final ProcurementSourcingService sourcingService;
     private final PurchaseContractService contractService;
     private final PurchaseOrderService orderService;
+    private final PurchaseOrderContractConversionService orderContractConversionService;
     private final PurchaseDeliveryPlanService deliveryPlanService;
     private final PurchaseReceiptService receiptService;
     private final PurchaseAcceptanceService acceptanceService;
@@ -96,6 +100,7 @@ public class ProcurementBotpController {
             ProcurementSourcingService sourcingService,
             PurchaseContractService contractService,
             PurchaseOrderService orderService,
+            PurchaseOrderContractConversionService orderContractConversionService,
             PurchaseDeliveryPlanService deliveryPlanService,
             PurchaseReceiptService receiptService,
             PurchaseAcceptanceService acceptanceService,
@@ -108,6 +113,7 @@ public class ProcurementBotpController {
         this.sourcingService = sourcingService;
         this.contractService = contractService;
         this.orderService = orderService;
+        this.orderContractConversionService = orderContractConversionService;
         this.deliveryPlanService = deliveryPlanService;
         this.receiptService = receiptService;
         this.acceptanceService = acceptanceService;
@@ -146,6 +152,7 @@ public class ProcurementBotpController {
             @RequestParam("key") String key
     ) {
         return ApiResponse.success(switch (documentType) {
+            case ORDER -> toRecoveredTarget(orderContractConversionService.findByIdempotencyKey(key), ORDER);
             case RECEIPT -> toRecoveredTarget(receiptService.findByIdempotencyKey(key), RECEIPT);
             case ACCEPTANCE -> toRecoveredTarget(acceptanceService.findByIdempotencyKey(key), ACCEPTANCE);
             case INBOUND -> toRecoveredTarget(inboundService.findByIdempotencyKey(key), INBOUND);
@@ -162,6 +169,11 @@ public class ProcurementBotpController {
         List<Map<String, Object>> entries = request.entries() == null ? List.of() : request.entries();
         Long operatorId = optionalLong(header.get("operatorId"));
         return ApiResponse.success(switch (documentType) {
+            case ORDER -> {
+                PurchaseOrderDetail detail = orderContractConversionService.createFromContract(
+                        toOrderFromContractCreate(request, header, entries), operatorId);
+                yield toTarget(detail, correlationKeys(entries), ORDER);
+            }
             case RECEIPT -> {
                 PurchaseReceiptDetail detail = receiptService.create(toReceiptCreate(request, header, entries), operatorId);
                 yield toTarget(detail, correlationKeys(entries), RECEIPT);
@@ -590,6 +602,26 @@ public class ProcurementBotpController {
         return line;
     }
 
+    private PurchaseOrderFromContractCreateRequest toOrderFromContractCreate(
+            BotpTargetCreateRequest request,
+            Map<String, Object> header,
+            List<Map<String, Object>> entries
+    ) {
+        return new PurchaseOrderFromContractCreateRequest(
+                text(header, "tenantId"),
+                requiredLong(header, "contractId"),
+                optionalText(header.get("number")),
+                localDate(header.get("date")),
+                entries.stream().map(item -> new PurchaseOrderFromContractEntryRequest(
+                        requiredLong(item, "contractEntryId"),
+                        decimal(item.get("quantity"), "quantity"),
+                        localDateOrNull(item.get("plannedDeliveryDate"))
+                )).toList(),
+                request.idempotencyKey(),
+                optionalText(header.get("sourceExecutionId"))
+        );
+    }
+
     private PurchaseReceiptCreateRequest toReceiptCreate(
             BotpTargetCreateRequest request,
             Map<String, Object> header,
@@ -673,6 +705,17 @@ public class ProcurementBotpController {
         );
     }
 
+    private BotpTargetResponse toRecoveredTarget(PurchaseOrderDetail detail, String type) {
+        if (detail == null) {
+            return null;
+        }
+        List<String> keys = detail.entries().stream()
+                .map(PurchaseOrderEntryEntity::getFcontractEntryId)
+                .map(String::valueOf)
+                .toList();
+        return toTarget(detail, keys, type);
+    }
+
     private BotpTargetResponse toRecoveredTarget(PurchaseReceiptDetail detail, String type) {
         if (detail == null) {
             return null;
@@ -704,6 +747,16 @@ public class ProcurementBotpController {
                 .map(String::valueOf)
                 .toList();
         return toTarget(detail, keys, type);
+    }
+
+    private BotpTargetResponse toTarget(PurchaseOrderDetail detail, List<String> correlationKeys, String type) {
+        if (detail == null) {
+            return null;
+        }
+        return new BotpTargetResponse(
+                SYSTEM, type, String.valueOf(detail.order().getFid()), detail.order().getFnumber(),
+                targetEntries(correlationKeys, detail.entries().stream().map(PurchaseOrderEntryEntity::getFid).toList())
+        );
     }
 
     private BotpTargetResponse toTarget(PurchaseReceiptDetail detail, List<String> correlationKeys, String type) {
@@ -832,6 +885,20 @@ public class ProcurementBotpController {
             return new BigDecimal(String.valueOf(value));
         } catch (NumberFormatException exception) {
             throw new BizException("无效数值: " + value);
+        }
+    }
+
+    private LocalDate localDateOrNull(Object value) {
+        if (value == null || String.valueOf(value).isBlank()) {
+            return null;
+        }
+        if (value instanceof LocalDate date) {
+            return date;
+        }
+        try {
+            return LocalDate.parse(String.valueOf(value));
+        } catch (RuntimeException exception) {
+            throw new BizException("plannedDeliveryDate 必须是 yyyy-MM-dd");
         }
     }
 
