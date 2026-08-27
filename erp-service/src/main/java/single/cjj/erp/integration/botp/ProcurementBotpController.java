@@ -137,6 +137,11 @@ public class ProcurementBotpController {
         line.put("entryId", String.valueOf(entry.getFid()));
         line.put("purchaseOrderId", entry.getFpurchaseOrderId());
         line.put("purchaseOrderEntryId", entry.getFid());
+        line.put("contractEntryId", entry.getFcontractEntryId());
+        line.put("sourcingAwardEntryId", entry.getFsourcingAwardEntryId());
+        line.put("rfqEntryId", entry.getFrfqEntryId());
+        line.put("purchaseRequestId", entry.getFpurchaseRequestId());
+        line.put("purchaseRequestEntryId", entry.getFpurchaseRequestEntryId());
         line.put("materialId", entry.getFmaterialId());
         line.put("materialCode", entry.getFmaterialCode());
         line.put("materialName", entry.getFmaterialName());

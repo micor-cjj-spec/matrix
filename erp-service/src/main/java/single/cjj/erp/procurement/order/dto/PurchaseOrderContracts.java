@@ -65,6 +65,22 @@ public final class PurchaseOrderContracts {
     ) {
     }
 
+    public record PurchaseOrderFromContractCreateRequest(
+            @NotBlank String ftenantId,
+            @NotNull Long fcontractId,
+            String fnumber,
+            LocalDate fdate,
+            @NotEmpty List<@Valid PurchaseOrderFromContractEntryRequest> entries
+    ) {
+    }
+
+    public record PurchaseOrderFromContractEntryRequest(
+            @NotNull Long fcontractEntryId,
+            @NotNull @DecimalMin(value = "0.000001") BigDecimal fquantity,
+            LocalDate fplannedDeliveryDate
+    ) {
+    }
+
     public record PurchaseOrderDetail(
             PurchaseOrderEntity order,
             List<PurchaseOrderEntryEntity> entries

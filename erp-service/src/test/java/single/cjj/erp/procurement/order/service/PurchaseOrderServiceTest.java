@@ -31,6 +31,8 @@ class PurchaseOrderServiceTest {
     private PurchaseOrderMapper orderMapper;
     @Mock
     private PurchaseOrderEntryMapper entryMapper;
+    @Mock
+    private PurchaseOrderContractConversionService contractConversionService;
 
     @Test
     void shouldCalculateTotalsOnCreate() {
@@ -49,7 +51,7 @@ class PurchaseOrderServiceTest {
         when(orderMapper.selectOne(any())).thenAnswer(invocation -> savedOrder.get());
         when(entryMapper.selectList(any())).thenAnswer(invocation -> savedEntries);
 
-        PurchaseOrderService service = new PurchaseOrderService(orderMapper, entryMapper);
+        PurchaseOrderService service = new PurchaseOrderService(orderMapper, entryMapper, contractConversionService);
         PurchaseOrderDetail detail = service.create(new PurchaseOrderCreateRequest(
                 "tenant-a",
                 100L,
@@ -106,7 +108,7 @@ class PurchaseOrderServiceTest {
         when(entryMapper.selectList(any())).thenReturn(List.of(entry));
         when(orderMapper.updateById(any())).thenReturn(1);
 
-        PurchaseOrderService service = new PurchaseOrderService(orderMapper, entryMapper);
+        PurchaseOrderService service = new PurchaseOrderService(orderMapper, entryMapper, contractConversionService);
         service.submit(1L, "tenant-a", 88L);
         assertEquals("SUBMITTED", order.getFapprovalStatus());
 

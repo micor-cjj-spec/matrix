@@ -41,10 +41,16 @@ public class PurchaseOrderService {
 
     private final PurchaseOrderMapper orderMapper;
     private final PurchaseOrderEntryMapper entryMapper;
+    private final PurchaseOrderContractConversionService contractConversionService;
 
-    public PurchaseOrderService(PurchaseOrderMapper orderMapper, PurchaseOrderEntryMapper entryMapper) {
+    public PurchaseOrderService(
+            PurchaseOrderMapper orderMapper,
+            PurchaseOrderEntryMapper entryMapper,
+            PurchaseOrderContractConversionService contractConversionService
+    ) {
         this.orderMapper = orderMapper;
         this.entryMapper = entryMapper;
+        this.contractConversionService = contractConversionService;
     }
 
     public PurchaseOrderDetail detail(Long fid, String tenantId) {
@@ -72,6 +78,9 @@ public class PurchaseOrderService {
     @Transactional(rollbackFor = Exception.class)
     public PurchaseOrderDetail create(PurchaseOrderCreateRequest request, Long operatorId) {
         String tenantId = requireTenant(request.ftenantId());
+        if (request.fcontractId() != null) {
+            throw new BizException("合同来源采购订单必须使用 from-contract 专用接口创建");
+        }
         LocalDate orderDate = request.fdate() == null ? LocalDate.now() : request.fdate();
         Long orderId = IdWorker.getId();
         String number = StringUtils.hasText(request.fnumber()) ? request.fnumber().trim() : buildNumber(orderDate, orderId);
@@ -116,6 +125,9 @@ public class PurchaseOrderService {
         String tenantId = requireTenant(request.ftenantId());
         PurchaseOrderEntity order = requireOrder(fid, tenantId);
         ensureEditable(order);
+        if (request.fcontractId() != null || contractConversionService.isContractSourced(listEntries(fid))) {
+            throw new BizException("合同来源采购订单不允许通过通用编辑接口修改，请删除草稿后重新从合同生成");
+        }
         CalculatedEntries calculated = calculateEntries(fid, tenantId, request.forgId(),
                 request.fplannedDeliveryDate(), request.entries(), operatorId);
         order.setForgId(request.forgId());
@@ -186,6 +198,10 @@ public class PurchaseOrderService {
         if (!NONE.equals(order.getFreceiptStatus())) {
             throw new BizException("已发生收货的采购订单不能直接取消，请走后续退货/关闭流程");
         }
+        List<PurchaseOrderEntryEntity> sourceEntries = listEntries(fid);
+        if (contractConversionService.isContractSourced(sourceEntries)) {
+            contractConversionService.releaseOrderAllocation(order, sourceEntries, operatorId);
+        }
         order.setFstatus(STATUS_CANCELLED);
         order.setFcloseStatus(CLOSE_CLOSED);
         touch(order, operatorId);
@@ -197,6 +213,10 @@ public class PurchaseOrderService {
     public boolean delete(Long fid, String tenantId) {
         PurchaseOrderEntity order = requireOrder(fid, tenantId);
         ensureEditable(order);
+        List<PurchaseOrderEntryEntity> sourceEntries = listEntries(fid);
+        if (contractConversionService.isContractSourced(sourceEntries)) {
+            contractConversionService.releaseOrderAllocation(order, sourceEntries, order.getFmodifyBy());
+        }
         entryMapper.delete(new LambdaQueryWrapper<PurchaseOrderEntryEntity>()
                 .eq(PurchaseOrderEntryEntity::getFpurchaseOrderId, fid));
         return orderMapper.deleteById(fid) > 0;
