@@ -18,6 +18,7 @@ import single.cjj.botp.domain.BotpContracts.TargetStatusEvent;
 import single.cjj.botp.domain.BotpContracts.WritebackTask;
 import single.cjj.botp.relation.BotpDocumentGraphService;
 import single.cjj.botp.relation.BotpRelationLifecycleService;
+import single.cjj.botp.relation.ProcurementRelationSyncService;
 import single.cjj.botp.relation.BotpRelationRepository;
 
 import java.util.List;
@@ -29,15 +30,18 @@ public class BotpRelationController {
     private final BotpRelationRepository repository;
     private final BotpRelationLifecycleService lifecycleService;
     private final BotpDocumentGraphService graphService;
+    private final ProcurementRelationSyncService procurementRelationSyncService;
 
     public BotpRelationController(
             BotpRelationRepository repository,
             BotpRelationLifecycleService lifecycleService,
-            BotpDocumentGraphService graphService
+            BotpDocumentGraphService graphService,
+            ProcurementRelationSyncService procurementRelationSyncService
     ) {
         this.repository = repository;
         this.lifecycleService = lifecycleService;
         this.graphService = graphService;
+        this.procurementRelationSyncService = procurementRelationSyncService;
     }
 
     @GetMapping
@@ -82,6 +86,16 @@ public class BotpRelationController {
     ) {
         return ApiResponse.success(
                 graphService.graph(tenantId, system, type, id, depth));
+    }
+
+    @PostMapping("/procurement/documents/{type}/{id}/sync")
+    public ApiResponse<List<DocumentRelation>> syncProcurementDocument(
+            @PathVariable String type,
+            @PathVariable String id,
+            @RequestParam String tenantId
+    ) {
+        return ApiResponse.success(
+                procurementRelationSyncService.sync(tenantId, type, id));
     }
 
     @GetMapping("/{relationId}")
