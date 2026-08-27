@@ -9,11 +9,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import single.cjj.bizfi.entity.ApiResponse;
+import single.cjj.botp.domain.BotpContracts.DocumentGraph;
+import single.cjj.botp.domain.BotpContracts.DocumentKey;
 import single.cjj.botp.domain.BotpContracts.DocumentRelation;
 import single.cjj.botp.domain.BotpContracts.DocumentRelationEntry;
 import single.cjj.botp.domain.BotpContracts.RelationInvalidateRequest;
 import single.cjj.botp.domain.BotpContracts.TargetStatusEvent;
 import single.cjj.botp.domain.BotpContracts.WritebackTask;
+import single.cjj.botp.relation.BotpDocumentGraphService;
 import single.cjj.botp.relation.BotpRelationLifecycleService;
 import single.cjj.botp.relation.BotpRelationRepository;
 
@@ -25,13 +28,16 @@ public class BotpRelationController {
 
     private final BotpRelationRepository repository;
     private final BotpRelationLifecycleService lifecycleService;
+    private final BotpDocumentGraphService graphService;
 
     public BotpRelationController(
             BotpRelationRepository repository,
-            BotpRelationLifecycleService lifecycleService
+            BotpRelationLifecycleService lifecycleService,
+            BotpDocumentGraphService graphService
     ) {
         this.repository = repository;
         this.lifecycleService = lifecycleService;
+        this.graphService = graphService;
     }
 
     @GetMapping
@@ -42,6 +48,40 @@ public class BotpRelationController {
             @RequestParam(value = "limit", defaultValue = "50") int limit
     ) {
         return ApiResponse.success(repository.find(tenantId, sourceDocumentId, targetDocumentId, limit));
+    }
+
+    @GetMapping("/documents/{system}/{type}/{id}/upstream")
+    public ApiResponse<List<DocumentRelation>> upstream(
+            @PathVariable String system,
+            @PathVariable String type,
+            @PathVariable String id,
+            @RequestParam String tenantId
+    ) {
+        return ApiResponse.success(graphService.upstream(
+                new DocumentKey(tenantId, system, type, id)));
+    }
+
+    @GetMapping("/documents/{system}/{type}/{id}/downstream")
+    public ApiResponse<List<DocumentRelation>> downstream(
+            @PathVariable String system,
+            @PathVariable String type,
+            @PathVariable String id,
+            @RequestParam String tenantId
+    ) {
+        return ApiResponse.success(graphService.downstream(
+                new DocumentKey(tenantId, system, type, id)));
+    }
+
+    @GetMapping("/documents/{system}/{type}/{id}/graph")
+    public ApiResponse<DocumentGraph> graph(
+            @PathVariable String system,
+            @PathVariable String type,
+            @PathVariable String id,
+            @RequestParam String tenantId,
+            @RequestParam(defaultValue = "10") int depth
+    ) {
+        return ApiResponse.success(
+                graphService.graph(tenantId, system, type, id, depth));
     }
 
     @GetMapping("/{relationId}")
