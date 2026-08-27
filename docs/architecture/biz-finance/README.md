@@ -109,6 +109,7 @@ Report
 - [P1-IMP-06 Purchase Return / Claim / Deduction](./implementation/P1-IMP-06-purchase-return-claim-deduction.md)
 - [P1-IMP-07 Procurement BOTP Completion](./implementation/P1-IMP-07-procurement-botp-completion.md)
 - [P2-IMP-01 BusinessPartner + Customer/Supplier Persistence](./implementation/P2-IMP-01-business-partner.md)
+- [P2-IMP-02 Lead / Opportunity](./implementation/P2-IMP-02-lead-opportunity.md)
 
 ## 5. 当前 P0 设计进度
 
@@ -242,7 +243,7 @@ P1 采购业务覆盖已完成 v1 收口，不再继续无边界扩张 Procureme
 
 ```text
 P2-IMP-01 BusinessPartner + Customer/Supplier Persistence  已实现 v1
-P2-IMP-02 Lead / Opportunity                               待实现
+P2-IMP-02 Lead / Opportunity                               已实现 v1
 P2-IMP-03 Quote / Tender + SalesContract                   待实现
 P2-IMP-04 SalesOrder                                       待实现
 P2-IMP-05 Delivery / CustomerAcceptance                    待实现
@@ -251,7 +252,7 @@ P2-IMP-07 Collection / BankTransaction / AR Settlement    待实现
 P2-IMP-08 O2C BOTP Completion + Frontend E2E              待实现
 ```
 
-P2 已进入 O2C 实现阶段，当前下一项为 Lead / Opportunity。
+P2 已进入 O2C 实现阶段，当前下一项为 Quote / Tender + SalesContract。
 
 ## 11. 数据库命名
 
