@@ -206,7 +206,7 @@ public class DefaultBotpExecutionService implements BotpExecutionService {
             validateSourceRef(rule, sourceRef);
             BotpDocumentAdapter sourceAdapter = adapterRegistry.require(
                     sourceRef.systemCode(), sourceRef.documentType());
-            DocumentData sourceDocument = sourceAdapter.load(sourceRef);
+            DocumentData sourceDocument = sourceAdapter.load(sourceRef, request.tenantId());
             Map<String, Object> context = enrichContext(request, sourceRef, executionId);
             sourceAdapter.validateSource(sourceDocument, context);
             TargetDraft targetDraft = mappingEngine.transform(rule, sourceDocument, context);
