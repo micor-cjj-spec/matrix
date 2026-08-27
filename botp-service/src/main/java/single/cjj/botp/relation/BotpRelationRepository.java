@@ -31,6 +31,13 @@ public interface BotpRelationRepository {
 
     List<DocumentRelation> findByTarget(String tenantId, String targetDocumentId);
 
+    List<DocumentRelation> findBySource(
+            String tenantId,
+            String sourceSystemCode,
+            String sourceDocumentType,
+            String sourceDocumentId
+    );
+
     List<DocumentRelation> findByTarget(
             String tenantId,
             String targetSystemCode,
