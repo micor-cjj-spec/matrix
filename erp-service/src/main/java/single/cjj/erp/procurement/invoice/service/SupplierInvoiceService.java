@@ -615,6 +615,12 @@ public class SupplierInvoiceService {
         invoice.setFmatchTime(null);
     }
 
+    private void insertEntries(List<SupplierInvoiceEntryEntity> entries) {
+        for (SupplierInvoiceEntryEntity entry : entries) {
+            entryMapper.insert(entry);
+        }
+    }
+
     private void applyTotals(SupplierInvoiceEntity invoice, CalculatedEntries calculated) {
         invoice.setFnetAmount(calculated.netAmount());
         invoice.setFtaxAmount(calculated.taxAmount());
