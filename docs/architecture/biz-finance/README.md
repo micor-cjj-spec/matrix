@@ -77,6 +77,7 @@ Report
 - [06-accounting-voucher-gl.md](./06-accounting-voucher-gl.md)：Accounting Event → Voucher → GL 设计。
 - [07-reconciliation-framework.md](./07-reconciliation-framework.md)：Reconciliation 对账 / 勾稽中心设计。
 - [08-p2p-e2e.md](./08-p2p-e2e.md)：P2P 第一条真实端到端链路设计。
+- [09-p1-procurement-upstream.md](./09-p1-procurement-upstream.md)：P1 采购申请、寻源、合同到采购订单前置链设计。
 
 架构决策记录：
 
@@ -99,6 +100,7 @@ Report
 - [P0-IMP-07 PaymentOrder + BankTransaction](./implementation/P0-IMP-07-payment-order-bank-transaction.md)
 - [P0-IMP-08 Settlement + Payment Voucher](./implementation/P0-IMP-08-payment-settlement-voucher.md)
 - [P0-IMP-09 P2P Frontend E2E](./implementation/P0-IMP-09-p2p-frontend-e2e.md)
+- [P1-IMP-01 PurchaseRequest](./implementation/P1-IMP-01-purchase-request.md)
 
 ## 5. 当前 P0 设计进度
 
@@ -214,7 +216,21 @@ trace
 
 需要页面时同步考虑 `matrix-web`。
 
-## 9. 数据库命名
+## 9. P1 实现进度
+
+```text
+P1-IMP-01 PurchaseRequest                         已实现 v1
+P1-IMP-02 RFQ / 采购询价与比价                   待实现
+P1-IMP-03 PurchaseContract                       待实现
+P1-IMP-04 Request/Sourcing/Contract → PO         待实现
+P1-IMP-05 DeliveryPlan / Supplier Collaboration  待实现
+P1-IMP-06 Purchase Return / Claim / Deduction    待实现
+P1-IMP-07 Procurement BOTP Completion            待实现
+```
+
+P1 不再扩张平台级抽象，优先补齐采购业务覆盖。
+
+## 10. 数据库命名
 
 所有新增数据库对象必须遵守 `docs/specs/database-naming-convention.md`：
 
