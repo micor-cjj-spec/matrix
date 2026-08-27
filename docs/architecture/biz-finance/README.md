@@ -98,6 +98,7 @@ Report
 - [P0-IMP-06 PaymentApplication](./implementation/P0-IMP-06-payment-application.md)
 - [P0-IMP-07 PaymentOrder + BankTransaction](./implementation/P0-IMP-07-payment-order-bank-transaction.md)
 - [P0-IMP-08 Settlement + Payment Voucher](./implementation/P0-IMP-08-payment-settlement-voucher.md)
+- [P0-IMP-09 P2P Frontend E2E](./implementation/P0-IMP-09-p2p-frontend-e2e.md)
 
 ## 5. 当前 P0 设计进度
 
@@ -168,8 +169,11 @@ P0-IMP-05 Formal AP                             已实现 v1
 P0-IMP-06 PaymentApplication                    已实现 v1
 P0-IMP-07 PaymentOrder + BankTransaction        已实现 v1
 P0-IMP-08 Settlement + Payment Voucher          已实现 v1
-P0-IMP-09 P2P frontend E2E                      待实现
+P0-IMP-09 P2P frontend E2E                      已实现 v1
 ```
+
+P0 第一条 P2P 主链已完成代码级闭环；部署环境 runtime smoke / integration test 仍是进入生产验收前置条件。
+采购履约段 P0 v1 使用领域 API 创建下游单据，尚未冒充 BOTP 转换；采购 BOTP 化进入 P1。
 
 P0-IMP-03 当前完成：
 
