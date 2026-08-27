@@ -148,6 +148,22 @@ public class MybatisBotpRelationRepository implements BotpRelationRepository {
     }
 
     @Override
+    public List<DocumentRelation> findBySource(
+            String tenantId,
+            String sourceSystemCode,
+            String sourceDocumentType,
+            String sourceDocumentId
+    ) {
+        return mapper.selectList(new LambdaQueryWrapper<BotpDocumentRelationEntity>()
+                        .eq(BotpDocumentRelationEntity::getFtenantId, tenantId)
+                        .eq(BotpDocumentRelationEntity::getFsourceSystemCode, sourceSystemCode)
+                        .eq(BotpDocumentRelationEntity::getFsourceDocumentType, sourceDocumentType)
+                        .eq(BotpDocumentRelationEntity::getFsourceDocumentId, sourceDocumentId)
+                        .orderByDesc(BotpDocumentRelationEntity::getFcreateTime))
+                .stream().map(this::toRelation).toList();
+    }
+
+    @Override
     public List<DocumentRelation> findByTarget(
             String tenantId,
             String targetSystemCode,
