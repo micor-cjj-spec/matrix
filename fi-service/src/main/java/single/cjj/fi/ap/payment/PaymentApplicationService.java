@@ -152,7 +152,8 @@ public class PaymentApplicationService {
         repository.insertApplication(row);
         repository.insertAllocation(new AllocationRow(
                 IdWorker.getId(), request.tenantId(), request.orgId(), id,
-                source.id(), source.number(), amount, amount, ALLOCATION_RESERVED,
+                source.id(), source.number(), amount, amount,
+                BigDecimal.ZERO.setScale(2), ALLOCATION_RESERVED,
                 request.operatorId(), now, 0
         ));
         return detail(id, request.tenantId());
@@ -163,7 +164,10 @@ public class PaymentApplicationService {
         List<AllocationView> allocations = repository.findAllocations(fid, tenantId).stream()
                 .map(item -> new AllocationView(
                         item.id(), item.payableId(), item.payableNumber(),
-                        item.appliedAmount(), item.reservedAmount(), item.status()))
+                        item.appliedAmount(), item.reservedAmount(),
+                        nz(item.consumedAmount()),
+                        money(nz(item.reservedAmount()).subtract(nz(item.consumedAmount()))),
+                        item.status()))
                 .toList();
         List<EvidenceView> evidence = repository.findEvidence(fid, tenantId).stream()
                 .map(item -> new EvidenceView(
@@ -453,7 +457,7 @@ public class PaymentApplicationService {
             repository.insertAllocation(new AllocationRow(
                     IdWorker.getId(), tenantId, orgId, applicationId,
                     item.getKey(), payable == null ? null : payable.number(),
-                    item.getValue(), item.getValue(), ALLOCATION_RESERVED,
+                    item.getValue(), item.getValue(), BigDecimal.ZERO.setScale(2), ALLOCATION_RESERVED,
                     operatorId, now, 0
             ));
         }

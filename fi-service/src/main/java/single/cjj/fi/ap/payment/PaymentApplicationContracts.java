@@ -118,6 +118,8 @@ public final class PaymentApplicationContracts {
             String payableNumber,
             BigDecimal appliedAmount,
             BigDecimal reservedAmount,
+            BigDecimal consumedAmount,
+            BigDecimal remainingReservedAmount,
             String status
     ) {
     }

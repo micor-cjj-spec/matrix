@@ -142,4 +142,74 @@ class AccountingRuleEngineTest {
         assertEquals(0, result.creditTotal().compareTo(new BigDecimal("100.00")));
         assertEquals(List.of("1405", "1405", "2202"), result.lines().stream().map(line -> line.accountCode()).toList());
     }
+    @Test
+    void shouldBuildBalancedPurchasePaymentRecognition() throws Exception {
+        InboundAccountingRepository repository = mock(InboundAccountingRepository.class);
+        AccountingRuleEngine engine = new AccountingRuleEngine(repository);
+        LocalDate date = LocalDate.of(2026, 8, 27);
+        JsonNode payload = objectMapper.readTree("""
+                {
+                  "paymentOrderId":40,
+                  "paymentOrderNo":"PAYORD-001",
+                  "businessPartnerId":"BP-1",
+                  "currencyCode":"CNY",
+                  "amount":600,
+                  "payerBankAccountId":"BANK-001",
+                  "entries":[
+                    {"payableId":101,"settledAmount":400},
+                    {"payableId":102,"settledAmount":200}
+                  ]
+                }
+                """);
+        EventContext context = new EventContext(
+                "T001", 1L, "DEFAULT", date, "PAYORD-001", payload);
+        RuleHeader header = new RuleHeader(
+                1L, 11L, "P0_PURCHASE_PAYMENT_RECOGNITION",
+                1, 100, 1, "FORMAL", "DEFAULT");
+
+        when(repository.findPublishedRules(
+                "T001", 1L, "PURCHASE_PAYMENT_RECOGNITION", "DEFAULT", date))
+                .thenReturn(List.of(header));
+        when(repository.findRuleEntries(11L)).thenReturn(List.of(
+                new RuleEntry(
+                        101L, 10, "HEADER", "DEBIT",
+                        "MAPPING", "FORMAL_AP", null,
+                        "FIELD(payload.amount)", false,
+                        "采购付款-${sourceDocumentNo}",
+                        "FIELD(payload.currencyCode)"),
+                new RuleEntry(
+                        102L, 20, "HEADER", "CREDIT",
+                        "MAPPING", "BANK_DEPOSIT", null,
+                        "FIELD(payload.amount)", false,
+                        "采购付款-${sourceDocumentNo}",
+                        "FIELD(payload.currencyCode)")
+        ));
+        when(repository.findRuleDimensions(11L)).thenReturn(List.of());
+        when(repository.findAccountMappings(
+                anyString(), any(), anyString(), anyString(), any()))
+                .thenAnswer(invocation -> {
+                    String accountKey = invocation.getArgument(3);
+                    String accountCode = "FORMAL_AP".equals(accountKey)
+                            ? "2202"
+                            : "1002";
+                    return List.of(new AccountMappingCandidate(
+                            1L, accountCode, 10, 3, "TEST"));
+                });
+
+        RuleEvaluation result = engine.evaluate(
+                "PURCHASE_PAYMENT_RECOGNITION", context);
+
+        assertEquals(2, result.lines().size());
+        assertEquals("DEBIT", result.lines().get(0).direction());
+        assertEquals("2202", result.lines().get(0).accountCode());
+        assertEquals("CREDIT", result.lines().get(1).direction());
+        assertEquals("1002", result.lines().get(1).accountCode());
+        assertEquals(
+                0,
+                result.debitTotal().compareTo(new BigDecimal("600.00")));
+        assertEquals(
+                0,
+                result.creditTotal().compareTo(new BigDecimal("600.00")));
+    }
+
 }

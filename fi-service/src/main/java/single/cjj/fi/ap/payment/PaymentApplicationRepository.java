@@ -101,7 +101,7 @@ public class PaymentApplicationRepository {
 
     public BigDecimal sumReservedByPayable(Long payableId, String tenantId) {
         BigDecimal value = jdbc.queryForObject("""
-                SELECT COALESCE(SUM(freserved_amount), 0)
+                SELECT COALESCE(SUM(freserved_amount - fconsumed_amount), 0)
                   FROM matrix_fi_payment_application_allocation
                  WHERE ftenant_id = ? AND fpayable_id = ?
                    AND fstatus = 'RESERVED' AND fdelete_flag = 0
@@ -192,13 +192,13 @@ public class PaymentApplicationRepository {
         jdbc.update("""
                 INSERT INTO matrix_fi_payment_application_allocation
                 (fid, ftenant_id, forg_id, fpayment_application_id, fpayable_id,
-                 fapplied_amount, freserved_amount, fstatus,
+                 fapplied_amount, freserved_amount, fconsumed_amount, fstatus,
                  fcreate_by, fcreate_time, fmodify_by, fmodify_time,
                  fdelete_flag, fversion)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0)
                 """,
                 row.id(), row.tenantId(), row.orgId(), row.applicationId(), row.payableId(),
-                row.appliedAmount(), row.reservedAmount(), row.status(),
+                row.appliedAmount(), row.reservedAmount(), row.consumedAmount(), row.status(),
                 row.createBy(), ts(row.createTime()), row.createBy(), ts(row.createTime()));
     }
 
@@ -206,7 +206,7 @@ public class PaymentApplicationRepository {
         return jdbc.query("""
                 SELECT a.fid, a.ftenant_id, a.forg_id, a.fpayment_application_id,
                        a.fpayable_id, p.fnumber AS payable_number,
-                       a.fapplied_amount, a.freserved_amount, a.fstatus,
+                       a.fapplied_amount, a.freserved_amount, a.fconsumed_amount, a.fstatus,
                        a.fcreate_by, a.fcreate_time, a.fversion
                   FROM matrix_fi_payment_application_allocation a
                   JOIN matrix_fi_ap_payable p ON p.fid = a.fpayable_id AND p.fdelete_flag = 0
@@ -217,7 +217,7 @@ public class PaymentApplicationRepository {
                 rs.getLong("fid"), rs.getString("ftenant_id"), rs.getLong("forg_id"),
                 rs.getLong("fpayment_application_id"), rs.getLong("fpayable_id"),
                 rs.getString("payable_number"), rs.getBigDecimal("fapplied_amount"),
-                rs.getBigDecimal("freserved_amount"), rs.getString("fstatus"),
+                rs.getBigDecimal("freserved_amount"), rs.getBigDecimal("fconsumed_amount"), rs.getString("fstatus"),
                 rs.getObject("fcreate_by", Long.class), rs.getTimestamp("fcreate_time").toLocalDateTime(),
                 rs.getInt("fversion")
         ), applicationId, tenantId);
@@ -486,6 +486,7 @@ public class PaymentApplicationRepository {
             String payableNumber,
             BigDecimal appliedAmount,
             BigDecimal reservedAmount,
+            BigDecimal consumedAmount,
             String status,
             Long createBy,
             LocalDateTime createTime,

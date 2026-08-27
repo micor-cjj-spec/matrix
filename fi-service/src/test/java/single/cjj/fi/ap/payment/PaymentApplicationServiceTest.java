@@ -150,7 +150,8 @@ class PaymentApplicationServiceTest {
     private AllocationRow allocation(String status, BigDecimal amount) {
         return new AllocationRow(
                 30L, "T1", 1L, 20L, 10L, "AP-001",
-                amount, amount, status, 99L, LocalDateTime.of(2026, 8, 27, 9, 0), 0
+                amount, amount, BigDecimal.ZERO.setScale(2), status,
+                99L, LocalDateTime.of(2026, 8, 27, 9, 0), 0
         );
     }
 

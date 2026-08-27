@@ -104,19 +104,36 @@ public class InboundAccountingRepository {
             String rawJson,
             String error
     ) {
+        recordInboxFailure(
+                id, consumerCode, eventId, tenantId, orgId,
+                eventType, "erp-service", rawJson, error);
+    }
+
+    public void recordInboxFailure(
+            Long id,
+            String consumerCode,
+            String eventId,
+            String tenantId,
+            Long orgId,
+            String eventType,
+            String producerService,
+            String rawJson,
+            String error
+    ) {
         LocalDateTime now = LocalDateTime.now();
         jdbc.update("""
                 INSERT INTO matrix_fi_inbox_event
                 (fid, ftenant_id, forg_id, fconsumer_code, fevent_id, fevent_type, fevent_version,
                  fproducer_service, fpayload_json, fstatus, ferror_message,
                  freceived_time, fcreate_time, fmodify_time, fdelete_flag, fversion)
-                VALUES (?, ?, ?, ?, ?, ?, 1, 'erp-service', CAST(? AS JSON), 'FAILED', ?, ?, ?, ?, 0, 0)
+                VALUES (?, ?, ?, ?, ?, ?, 1, ?, CAST(? AS JSON), 'FAILED', ?, ?, ?, ?, 0, 0)
                 ON DUPLICATE KEY UPDATE
                     fstatus = IF(fstatus = 'PROCESSED', fstatus, 'FAILED'),
                     ferror_message = IF(fstatus = 'PROCESSED', ferror_message, VALUES(ferror_message)),
                     fmodify_time = VALUES(fmodify_time),
                     fversion = fversion + 1
                 """, id, tenantId, orgId, consumerCode, eventId, eventType,
+                producerService,
                 rawJson == null || rawJson.isBlank() ? "{}" : rawJson, truncate(error, 1000),
                 ts(now), ts(now), ts(now));
     }

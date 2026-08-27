@@ -61,15 +61,18 @@ fi:
       batch-size: ${FI_BUSINESS_EVENT_PUBLISHER_BATCH_SIZE:100}
       fixed-delay-ms: ${FI_BUSINESS_EVENT_PUBLISHER_FIXED_DELAY_MS:3000}
       stale-claim-minutes: ${FI_BUSINESS_EVENT_PUBLISHER_STALE_CLAIM_MINUTES:10}
-      required-routing-keys: ${FI_BUSINESS_EVENT_REQUIRED_ROUTING_KEYS:biz.finance.payment_application.approved}
+      required-routing-keys: ${FI_BUSINESS_EVENT_REQUIRED_ROUTING_KEYS:biz.finance.payment_application.approved,biz.finance.payment.completed}
   reconciliation:
     internal-token: ${FI_RECONCILIATION_INTERNAL_TOKEN:change-me-before-production}
   accounting:
     default-book-id: ${FI_ACCOUNTING_DEFAULT_BOOK_ID:DEFAULT}
     purchase-inbound-consumer-code: ${FI_PURCHASE_INBOUND_CONSUMER_CODE:FI_PURCHASE_INBOUND_ACCOUNTING_V1}
     supplier-invoice-consumer-code: ${FI_SUPPLIER_INVOICE_CONSUMER_CODE:FI_SUPPLIER_INVOICE_ACCOUNTING_V1}
+    payment-completed-consumer-code: ${FI_PAYMENT_COMPLETED_CONSUMER_CODE:FI_PAYMENT_COMPLETED_ACCOUNTING_V1}
     supplier-invoice:
       enabled: ${FI_SUPPLIER_INVOICE_ACCOUNTING_ENABLED:false}
+    payment-completed:
+      enabled: ${FI_PAYMENT_COMPLETED_ACCOUNTING_ENABLED:false}
   workflow:
     base-url: ${FI_WORKFLOW_BASE_URL:http://localhost:10006/api}
     callback-url: ${FI_WORKFLOW_CALLBACK_URL:http://localhost:10003/api/fi/expense/workflow/events}

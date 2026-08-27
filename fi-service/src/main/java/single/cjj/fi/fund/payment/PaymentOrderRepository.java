@@ -97,7 +97,7 @@ public class PaymentOrderRepository {
                   FROM matrix_fi_payment_order_allocation
                  WHERE ftenant_id = ?
                    AND fpayment_application_id = ?
-                   AND fstatus = 'ORDERED'
+                   AND fstatus IN ('ORDERED', 'CONSUMED')
                    AND fdelete_flag = 0
                 """, BigDecimal.class, tenantId, applicationId);
         return value == null ? BigDecimal.ZERO : value;
