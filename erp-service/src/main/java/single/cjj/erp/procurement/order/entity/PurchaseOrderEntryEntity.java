@@ -44,6 +44,7 @@ public class PurchaseOrderEntryEntity {
     private BigDecimal freceivedQuantity;
     private BigDecimal facceptedQuantity;
     private BigDecimal finboundQuantity;
+    private BigDecimal freturnedQuantity;
     private BigDecimal finvoicedQuantity;
     private BigDecimal fsettledAmount;
     private Long fcreateBy;
