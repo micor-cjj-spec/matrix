@@ -15,8 +15,10 @@ import org.springframework.web.bind.annotation.RestController;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.erp.procurement.order.dto.PurchaseOrderContracts.PurchaseOrderCreateRequest;
 import single.cjj.erp.procurement.order.dto.PurchaseOrderContracts.PurchaseOrderDetail;
+import single.cjj.erp.procurement.order.dto.PurchaseOrderContracts.PurchaseOrderFromContractCreateRequest;
 import single.cjj.erp.procurement.order.dto.PurchaseOrderContracts.PurchaseOrderUpdateRequest;
 import single.cjj.erp.procurement.order.entity.PurchaseOrderEntity;
+import single.cjj.erp.procurement.order.service.PurchaseOrderContractConversionService;
 import single.cjj.erp.procurement.order.service.PurchaseOrderService;
 
 @RestController
@@ -24,9 +26,14 @@ import single.cjj.erp.procurement.order.service.PurchaseOrderService;
 public class PurchaseOrderController {
 
     private final PurchaseOrderService service;
+    private final PurchaseOrderContractConversionService contractConversionService;
 
-    public PurchaseOrderController(PurchaseOrderService service) {
+    public PurchaseOrderController(
+            PurchaseOrderService service,
+            PurchaseOrderContractConversionService contractConversionService
+    ) {
         this.service = service;
+        this.contractConversionService = contractConversionService;
     }
 
     @PostMapping
@@ -35,6 +42,15 @@ public class PurchaseOrderController {
             @RequestHeader(value = "X-User-Id", required = false) Long operatorId
     ) {
         return ApiResponse.success(service.create(request, operatorId));
+    }
+
+    @PostMapping("/from-contract")
+    public ApiResponse<PurchaseOrderDetail> createFromContract(
+            @Valid @RequestBody PurchaseOrderFromContractCreateRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) Long operatorId
+    ) {
+        return ApiResponse.success(
+                contractConversionService.createFromContract(request, operatorId));
     }
 
     @PutMapping("/{fid}")
