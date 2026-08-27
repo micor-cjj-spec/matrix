@@ -5,6 +5,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import single.cjj.bizfi.exception.BizException;
+import single.cjj.erp.procurement.delivery.service.DeliveryPlanFulfillmentService;
 import single.cjj.erp.procurement.order.entity.PurchaseOrderEntity;
 import single.cjj.erp.procurement.order.entity.PurchaseOrderEntryEntity;
 import single.cjj.erp.procurement.order.mapper.PurchaseOrderEntryMapper;
@@ -24,6 +25,8 @@ class PurchaseOrderFulfillmentServiceTest {
     private PurchaseOrderMapper orderMapper;
     @Mock
     private PurchaseOrderEntryMapper entryMapper;
+    @Mock
+    private DeliveryPlanFulfillmentService deliveryPlanFulfillmentService;
 
     @Test
     void shouldReserveReceiptQuantityAndRejectOverReservation() {
@@ -33,7 +36,7 @@ class PurchaseOrderFulfillmentServiceTest {
         when(orderMapper.selectByIdForUpdate(1L, "tenant-a")).thenReturn(order);
         when(entryMapper.updateById(any())).thenReturn(1);
 
-        PurchaseOrderFulfillmentService service = new PurchaseOrderFulfillmentService(orderMapper, entryMapper);
+        PurchaseOrderFulfillmentService service = new PurchaseOrderFulfillmentService(orderMapper, entryMapper, deliveryPlanFulfillmentService);
         var reserved = service.reserveReceipt(
                 "tenant-a", 11L, new BigDecimal("30"), 9001L, 100L, 88L);
 
@@ -54,7 +57,7 @@ class PurchaseOrderFulfillmentServiceTest {
         when(entryMapper.selectList(any())).thenReturn(java.util.List.of(entry));
         when(orderMapper.updateById(any())).thenReturn(1);
 
-        PurchaseOrderFulfillmentService service = new PurchaseOrderFulfillmentService(orderMapper, entryMapper);
+        PurchaseOrderFulfillmentService service = new PurchaseOrderFulfillmentService(orderMapper, entryMapper, deliveryPlanFulfillmentService);
         service.confirmReceipt("tenant-a", 11L, new BigDecimal("30"), 88L);
 
         assertEquals(BigDecimal.ZERO, entry.getFreceiptReservedQuantity());

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import single.cjj.bizfi.exception.BizException;
+import single.cjj.erp.procurement.delivery.service.DeliveryPlanFulfillmentService;
 import single.cjj.erp.procurement.order.entity.PurchaseOrderEntity;
 import single.cjj.erp.procurement.order.entity.PurchaseOrderEntryEntity;
 import single.cjj.erp.procurement.order.mapper.PurchaseOrderEntryMapper;
@@ -21,13 +22,16 @@ public class PurchaseOrderFulfillmentService {
 
     private final PurchaseOrderMapper orderMapper;
     private final PurchaseOrderEntryMapper entryMapper;
+    private final DeliveryPlanFulfillmentService deliveryPlanFulfillmentService;
 
     public PurchaseOrderFulfillmentService(
             PurchaseOrderMapper orderMapper,
-            PurchaseOrderEntryMapper entryMapper
+            PurchaseOrderEntryMapper entryMapper,
+            DeliveryPlanFulfillmentService deliveryPlanFulfillmentService
     ) {
         this.orderMapper = orderMapper;
         this.entryMapper = entryMapper;
+        this.deliveryPlanFulfillmentService = deliveryPlanFulfillmentService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -50,6 +54,12 @@ public class PurchaseOrderFulfillmentService {
         if (quantity.compareTo(available) > 0) {
             throw new BizException("采购订单分录可收货数量不足，当前可用: " + plain(available));
         }
+        deliveryPlanFulfillmentService.validateReceiptReservation(
+                tenantId,
+                orderEntryId,
+                quantity,
+                nz(entry.getFreceiptReservedQuantity())
+        );
 
         entry.setFreceiptReservedQuantity(nz(entry.getFreceiptReservedQuantity()).add(quantity));
         touch(entry, operatorId);
@@ -100,6 +110,8 @@ public class PurchaseOrderFulfillmentService {
         entry.setFreceivedQuantity(received);
         touch(entry, operatorId);
         requireUpdated(entryMapper.updateById(entry), "采购订单收货反写");
+        deliveryPlanFulfillmentService.confirmReceipt(
+                tenantId, orderEntryId, quantity, operatorId);
         refreshReceiptStatus(order, operatorId);
     }
 
