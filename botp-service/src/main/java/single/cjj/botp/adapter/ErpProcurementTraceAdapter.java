@@ -78,6 +78,24 @@ public class ErpProcurementTraceAdapter implements BotpDocumentAdapter {
     }
 
     @Override
+    public void validateSource(DocumentData sourceDocument, Map<String, Object> context) {
+        if (!"ERP_PURCHASE_CONTRACT".equals(
+                sourceDocument.reference().documentType())) {
+            return;
+        }
+        if (!"EFFECTIVE".equals(String.valueOf(sourceDocument.header().get("status")))
+                || !"APPROVED".equals(String.valueOf(sourceDocument.header().get("approvalStatus")))) {
+            throw new BizException("仅已审批生效采购合同允许 BOTP 下推采购订单");
+        }
+        boolean available = sourceDocument.entries().stream()
+                .map(item -> item.get("availableQuantity"))
+                .anyMatch(this::positive);
+        if (!available) {
+            throw new BizException("采购合同没有剩余可下单数量");
+        }
+    }
+
+    @Override
     public TargetResult createTarget(
             TargetDraft targetDraft,
             String idempotencyKey
@@ -85,6 +103,18 @@ public class ErpProcurementTraceAdapter implements BotpDocumentAdapter {
         throw new BizException(
                 targetDraft.documentType()
                         + " 当前作为采购追溯单据注册，不支持通用 BOTP 自动创建");
+    }
+
+    private boolean positive(Object value) {
+        if (value == null) {
+            return false;
+        }
+        try {
+            return new java.math.BigDecimal(String.valueOf(value))
+                    .compareTo(java.math.BigDecimal.ZERO) > 0;
+        } catch (NumberFormatException exception) {
+            return false;
+        }
     }
 
     private Long parseId(String value) {
