@@ -106,6 +106,13 @@ public class BusinessEventOutboxService {
                 default -> "biz.crm.event";
             };
         }
+        if ("SALES".equalsIgnoreCase(domainCode)) {
+            return switch (eventType) {
+                case "SALES_QUOTATION_ACCEPTED" -> "biz.sales.quotation.accepted";
+                case "SALES_CONTRACT_EFFECTIVE" -> "biz.sales.contract.effective";
+                default -> "biz.sales.event";
+            };
+        }
         return switch (eventType) {
             case "PURCHASE_REQUEST_APPROVED" -> "biz.procurement.purchase_request.approved";
             case "PURCHASE_SOURCING_AWARDED" -> "biz.procurement.sourcing.awarded";
