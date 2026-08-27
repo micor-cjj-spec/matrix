@@ -94,6 +94,7 @@ Report
 - [P0-IMP-02 Receipt / Acceptance / Inbound](./implementation/P0-IMP-02-purchase-fulfillment.md)
 - [P0-IMP-03 Inbound → AP Estimate → Voucher](./implementation/P0-IMP-03-inbound-accounting.md)
 - [P0-IMP-04 SupplierInvoice + 3-Way Match](./implementation/P0-IMP-04-supplier-invoice-three-way-match.md)
+- [P0-IMP-05 Formal AP + Estimate Reversal](./implementation/P0-IMP-05-formal-ap-estimate-reversal.md)
 
 ## 5. 当前 P0 设计进度
 
@@ -160,7 +161,7 @@ P0-IMP-01 erp-service + PurchaseOrder           已实现 v1
 P0-IMP-02 Receipt / Acceptance / Inbound        已实现 v1
 P0-IMP-03 Inbound → AP Estimate → Voucher       已实现 v1
 P0-IMP-04 SupplierInvoice + 3-Way Match         已实现 v1
-P0-IMP-05 Formal AP                             待实现
+P0-IMP-05 Formal AP                             已实现 v1
 P0-IMP-06 PaymentApplication                    待实现
 P0-IMP-07 PaymentOrder + BankTransaction        待实现
 P0-IMP-08 Settlement + Payment Voucher          待实现
@@ -183,6 +184,11 @@ SupplierInvoice
 → Reconciliation Batch / Case / Difference
 → Invoice Audit
 → SUPPLIER_INVOICE_CONFIRMED
+→ Full Estimate Reversal
+→ Residual Estimate (if any)
+→ Formal AP
+→ PURCHASE_AP_RECOGNITION
+→ Voucher / Accounting Trace
 ```
 
 每个实现阶段至少包含：
