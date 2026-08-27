@@ -13,13 +13,13 @@ import java.util.concurrent.atomic.AtomicLong;
 public class BaseDataWorkflowController {
 
     private static final Set<String> TYPES = new HashSet<>(Arrays.asList(
-            "material", "customer", "supplier", "currency", "exchange-rate", "bank-info", "country", "region", "unit"
+            "material", "currency", "exchange-rate", "bank-info", "country", "region", "unit"
     ));
 
     private static final Map<String, Map<Long, BaseDataItem>> STORE = new ConcurrentHashMap<>();
     private static final AtomicLong ID_GEN = new AtomicLong(1000);
 
-    @GetMapping({"/material/list", "/customer/list", "/supplier/list", "/currency/list", "/exchange-rate/list", "/bank-info/list", "/country/list", "/region/list", "/unit/list"})
+    @GetMapping({"/material/list", "/currency/list", "/exchange-rate/list", "/bank-info/list", "/country/list", "/region/list", "/unit/list"})
     public ApiResponse<Map<String, Object>> list(HttpServletRequest request) {
         String type = resolveType(request.getRequestURI());
         List<BaseDataItem> records = new ArrayList<>(store(type).values());
@@ -30,7 +30,7 @@ public class BaseDataWorkflowController {
         return ApiResponse.success(data);
     }
 
-    @PostMapping({"/material", "/customer", "/supplier", "/currency", "/exchange-rate", "/bank-info", "/country", "/region", "/unit"})
+    @PostMapping({"/material", "/currency", "/exchange-rate", "/bank-info", "/country", "/region", "/unit"})
     public ApiResponse<BaseDataItem> create(HttpServletRequest request, @RequestBody BaseDataItem item) {
         String type = resolveType(request.getRequestURI());
         item.setFid(ID_GEN.incrementAndGet());
@@ -41,7 +41,7 @@ public class BaseDataWorkflowController {
         return ApiResponse.success("创建成功", item);
     }
 
-    @PutMapping({"/material", "/customer", "/supplier", "/currency", "/exchange-rate", "/bank-info", "/country", "/region", "/unit"})
+    @PutMapping({"/material", "/currency", "/exchange-rate", "/bank-info", "/country", "/region", "/unit"})
     public ApiResponse<BaseDataItem> update(HttpServletRequest request, @RequestBody BaseDataItem item) {
         String type = resolveType(request.getRequestURI());
         BaseDataItem db = store(type).get(item.getFid());
@@ -52,7 +52,7 @@ public class BaseDataWorkflowController {
         return ApiResponse.success("更新成功", db);
     }
 
-    @DeleteMapping({"/material/{fid}", "/customer/{fid}", "/supplier/{fid}", "/currency/{fid}", "/exchange-rate/{fid}", "/bank-info/{fid}", "/country/{fid}", "/region/{fid}", "/unit/{fid}"})
+    @DeleteMapping({"/material/{fid}", "/currency/{fid}", "/exchange-rate/{fid}", "/bank-info/{fid}", "/country/{fid}", "/region/{fid}", "/unit/{fid}"})
     public ApiResponse<Boolean> delete(HttpServletRequest request, @PathVariable("fid") Long fid) {
         String type = resolveType(request.getRequestURI());
         BaseDataItem db = store(type).get(fid);
@@ -62,7 +62,7 @@ public class BaseDataWorkflowController {
         return ApiResponse.success(true);
     }
 
-    @PostMapping({"/material/{fid}/submit", "/customer/{fid}/submit", "/supplier/{fid}/submit", "/currency/{fid}/submit", "/exchange-rate/{fid}/submit", "/bank-info/{fid}/submit", "/country/{fid}/submit", "/region/{fid}/submit", "/unit/{fid}/submit"})
+    @PostMapping({"/material/{fid}/submit", "/currency/{fid}/submit", "/exchange-rate/{fid}/submit", "/bank-info/{fid}/submit", "/country/{fid}/submit", "/region/{fid}/submit", "/unit/{fid}/submit"})
     public ApiResponse<BaseDataItem> submit(HttpServletRequest request, @PathVariable("fid") Long fid) {
         String type = resolveType(request.getRequestURI());
         BaseDataItem db = store(type).get(fid);
@@ -76,7 +76,7 @@ public class BaseDataWorkflowController {
         return ApiResponse.success("提交审核成功", db);
     }
 
-    @PostMapping({"/material/{fid}/audit", "/customer/{fid}/audit", "/supplier/{fid}/audit", "/currency/{fid}/audit", "/exchange-rate/{fid}/audit", "/bank-info/{fid}/audit", "/country/{fid}/audit", "/region/{fid}/audit", "/unit/{fid}/audit"})
+    @PostMapping({"/material/{fid}/audit", "/currency/{fid}/audit", "/exchange-rate/{fid}/audit", "/bank-info/{fid}/audit", "/country/{fid}/audit", "/region/{fid}/audit", "/unit/{fid}/audit"})
     public ApiResponse<BaseDataItem> audit(HttpServletRequest request, @PathVariable("fid") Long fid) {
         String type = resolveType(request.getRequestURI());
         BaseDataItem db = store(type).get(fid);
@@ -89,7 +89,7 @@ public class BaseDataWorkflowController {
         return ApiResponse.success("审核通过", db);
     }
 
-    @PostMapping({"/material/{fid}/reject", "/customer/{fid}/reject", "/supplier/{fid}/reject", "/currency/{fid}/reject", "/exchange-rate/{fid}/reject", "/bank-info/{fid}/reject", "/country/{fid}/reject", "/region/{fid}/reject", "/unit/{fid}/reject"})
+    @PostMapping({"/material/{fid}/reject", "/currency/{fid}/reject", "/exchange-rate/{fid}/reject", "/bank-info/{fid}/reject", "/country/{fid}/reject", "/region/{fid}/reject", "/unit/{fid}/reject"})
     public ApiResponse<BaseDataItem> reject(HttpServletRequest request, @PathVariable("fid") Long fid) {
         String type = resolveType(request.getRequestURI());
         BaseDataItem db = store(type).get(fid);
