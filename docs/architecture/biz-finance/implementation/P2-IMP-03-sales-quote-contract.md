@@ -16,6 +16,10 @@
 ## SQL
 部署时先执行 `deliverables/erp/012-sales-quotation-contract/schema.sql` 到 `matrix_erp`，其后启动含新模块的 ERP 服务。
 
+## 功能开关与授权约束
+
+销售模块 Controller 默认关闭。完成审批权限校验、租户上下文鉴权、数据库脚本与灰度验收后才可设置 `matrix.sales.commercial-enabled=true`。仅开启功能开关并不等于完成授权审查。
+
 ## API
 ```
 POST /sales/quotes
