@@ -202,9 +202,7 @@ class SalesCommercialServiceTest {
 
     @Test
     void directApprovalIsNeverAllowedWithoutWorkflowCallback() {
-        SalesQuoteEntity q=quote("SUBMITTED");
         SalesCommercialService target=service();
-        when(workflow.enabled()).thenReturn(false);
         assertThrows(BizException.class,()->
                 target.transitionQuote(10L,"T1","approve",8L));
         verifyNoInteractions(audits);
