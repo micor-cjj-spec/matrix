@@ -79,3 +79,17 @@ management:
   endpoint:
     health:
       show-details: always
+
+# Disabled until schema 014, published Workflow definitions, HTTPS/mTLS gateway
+# and cross-service credentials are explicitly provisioned and E2E tested.
+matrix:
+  sales:
+    workflow:
+      enabled: ${MATRIX_SALES_WORKFLOW_ENABLED:false}
+      quote-definition: ${MATRIX_SALES_QUOTE_WORKFLOW_KEY:}
+      contract-definition: ${MATRIX_SALES_CONTRACT_WORKFLOW_KEY:}
+      start-url: ${MATRIX_SALES_WORKFLOW_START_URL:}
+      internal-secret: ${MATRIX_SALES_WORKFLOW_INTERNAL_SECRET:}
+      callback-secret: ${WORKFLOW_CALLBACK_SECRET:}
+      system-actor-id: ${MATRIX_SALES_WORKFLOW_SYSTEM_ACTOR_ID:0}
+      dispatch-delay-ms: ${MATRIX_SALES_WORKFLOW_DISPATCH_DELAY_MS:5000}

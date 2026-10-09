@@ -2,6 +2,10 @@ package single.cjj.workflow.controller;
 
 import jakarta.validation.Valid;
 import org.springframework.util.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import single.cjj.workflow.security.SalesWorkflowTaskGuard;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +28,9 @@ public class WorkflowTaskController {
 
     private final WorkflowService workflowService;
 
+    @Autowired(required=false)
+    private SalesWorkflowTaskGuard salesTaskGuard;
+
     public WorkflowTaskController(WorkflowService workflowService) {
         this.workflowService = workflowService;
     }
@@ -40,13 +47,23 @@ public class WorkflowTaskController {
             @RequestHeader(value = "X-Request-Id", required = false) String requestId,
             @RequestHeader(value = "X-User-Id", required = false) String trustedUserId,
             @RequestHeader(value = "X-User-Roles", required = false) String roleHeader,
+            @RequestHeader(value = "Authorization", required = false) String bearer,
             @Valid @RequestBody WorkflowContracts.TaskActionRequest request) {
         if (StringUtils.hasText(trustedUserId)
                 && !trustedUserId.trim().equals(request.operatorId())) {
             throw new BizException("请求用户与任务操作人不一致");
         }
+        Set<String> roles=parseRoles(roleHeader);
+        WorkflowContracts.TaskResponse task=workflowService.getTask(taskId);
+        WorkflowContracts.InstanceResponse instance=workflowService.getInstance(task.instanceId());
+        if ("MATRIX_ERP".equals(instance.sourceSystem())
+                && Set.of("SALES_QUOTE","SALES_CONTRACT").contains(instance.businessType())) {
+            if(salesTaskGuard==null)throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,"Sales workflow authorization is disabled");
+            roles=salesTaskGuard.authorize(bearer,instance,request.operatorId());
+        }
         return ApiResponse.success(workflowService.actOnTask(
-                taskId, request, requestId, parseRoles(roleHeader)));
+                taskId, request, requestId, roles));
     }
 
     private Set<String> parseRoles(String roleHeader) {

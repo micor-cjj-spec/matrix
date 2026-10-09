@@ -16,6 +16,7 @@ import single.cjj.erp.integration.base.BaseBusinessPartnerContracts.BusinessPart
 import single.cjj.erp.sales.commercial.dto.SalesCommercialContracts.*;
 import single.cjj.erp.sales.commercial.entity.*;
 import single.cjj.erp.sales.commercial.mapper.*;
+import single.cjj.erp.sales.commercial.workflow.SalesWorkflowCoordinator;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -34,13 +35,15 @@ public class SalesCommercialService {
     private final CustomerPartnerValidator customers;
     private final BusinessEventOutboxService outbox;
     private final SalesCommercialActionAuditMapper audits;
+    private final SalesWorkflowCoordinator workflow;
 
     public SalesCommercialService(
             SalesQuoteMapper quotes, SalesQuoteEntryMapper quoteEntries,
             SalesContractMapper contracts, SalesContractEntryMapper contractEntries,
             CrmOpportunityMapper opportunities, CustomerPartnerValidator customers,
             BusinessEventOutboxService outbox,
-            SalesCommercialActionAuditMapper audits) {
+            SalesCommercialActionAuditMapper audits,
+            SalesWorkflowCoordinator workflow) {
         this.quotes = quotes;
         this.quoteEntries = quoteEntries;
         this.contracts = contracts;
@@ -49,6 +52,7 @@ public class SalesCommercialService {
         this.customers = customers;
         this.outbox = outbox;
         this.audits = audits;
+        this.workflow = workflow;
     }
 
     public IPage<SalesQuoteEntity> quotePage(String tenantId, Long orgId, String status, int page, int size) {
@@ -198,6 +202,24 @@ public class SalesCommercialService {
 
     @Transactional(rollbackFor = Exception.class)
     public SalesQuoteEntity transitionQuote(Long id, String tenantId, String action, Long operator) {
+        if ("workflowReject".equals(action) || "approve".equals(action)) {
+            throw new BizException("流程审批结果只能由 Workflow 可信回调写入");
+        }
+        if (workflow.enabled() && "withdraw".equals(action)) {
+            throw new BizException("流程撤回需要先撤销 Workflow 实例，当前暂不支持");
+        }
+        return transitionQuoteInternal(id, tenantId, action, operator);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public SalesQuoteEntity transitionQuoteFromWorkflow(Long id, String tenantId,
+                                                         boolean approved, Long operator) {
+        if (!workflow.enabled()) throw new BizException("销售 Workflow 未开启");
+        return transitionQuoteInternal(id, tenantId, approved ? "approve" : "workflowReject", operator);
+    }
+
+    private SalesQuoteEntity transitionQuoteInternal(Long id, String tenantId,
+                                                      String action, Long operator) {
         SalesQuoteEntity q = requireQuote(id, tenantId, true);
         String before = q.getFstatus();
         if ("approve".equals(action)
@@ -211,6 +233,7 @@ public class SalesCommercialService {
             case "accept" -> next(q.getFstatus(), "SENT", "ACCEPTED");
             case "reject" -> next(q.getFstatus(), "SENT", "REJECTED");
             case "withdraw" -> next(q.getFstatus(), "SUBMITTED", "DRAFT");
+            case "workflowReject" -> next(q.getFstatus(), "SUBMITTED", "APPROVAL_REJECTED");
             case "cancel" -> next(q.getFstatus(), "DRAFT", "CANCELLED");
             case "expire" -> {
                 if (!"SENT".equals(q.getFstatus()) || !q.getFvalidUntil().isBefore(LocalDate.now())) {
@@ -231,6 +254,9 @@ public class SalesCommercialService {
         one(quotes.updateById(q), "销售报价");
         recordAudit(q.getFtenantId(), q.getForgId(), "SALES_QUOTE", q.getFid(),
                 action.toUpperCase(Locale.ROOT), before, next, operator);
+        if ("submit".equals(action)) {
+            workflow.enqueue(q.getFtenantId(), q.getForgId(), "SALES_QUOTE", q.getFid(), operator);
+        }
         if ("ACCEPTED".equals(next)) {
             outbox.append(q.getFtenantId(), q.getForgId(), "SALES", "SALES_QUOTE_ACCEPTED",
                     "SALES_QUOTE", q.getFid(), version(q.getFversion()),
@@ -328,6 +354,21 @@ public class SalesCommercialService {
 
     @Transactional(rollbackFor = Exception.class)
     public SalesContractEntity transitionContract(Long id, String tenantId, String action, Long operator) {
+        if ("workflowReject".equals(action) || "approve".equals(action)) {
+            throw new BizException("流程审批结果只能由 Workflow 可信回调写入");
+        }
+        return transitionContractInternal(id, tenantId, action, operator);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public SalesContractEntity transitionContractFromWorkflow(Long id, String tenantId,
+                                                                boolean approved, Long operator) {
+        if (!workflow.enabled()) throw new BizException("销售 Workflow 未开启");
+        return transitionContractInternal(id, tenantId, approved ? "approve" : "workflowReject", operator);
+    }
+
+    private SalesContractEntity transitionContractInternal(Long id, String tenantId,
+                                                            String action, Long operator) {
         SalesContractEntity c = requireContract(id, tenantId, true);
         String before = c.getFstatus() + "/" + c.getFapprovalStatus();
         if ("approve".equals(action)
@@ -340,6 +381,9 @@ public class SalesCommercialService {
                 c.setFapprovalStatus(next(c.getFapprovalStatus(), "SUBMITTED", "APPROVED"));
                 c.setFstatus("EFFECTIVE"); c.setFapprovedBy(operator); c.setFapprovedTime(LocalDateTime.now());
             }
+            case "workflowReject" -> {
+                c.setFapprovalStatus(next(c.getFapprovalStatus(), "SUBMITTED", "REJECTED"));
+            }
             default -> throw new BizException("不支持的合同动作");
         }
         c.setFmodifyBy(operator); c.setFmodifyTime(LocalDateTime.now());
@@ -347,6 +391,9 @@ public class SalesCommercialService {
         recordAudit(c.getFtenantId(), c.getForgId(), "SALES_CONTRACT", c.getFid(),
                 action.toUpperCase(Locale.ROOT), before,
                 c.getFstatus() + "/" + c.getFapprovalStatus(), operator);
+        if ("submit".equals(action)) {
+            workflow.enqueue(c.getFtenantId(), c.getForgId(), "SALES_CONTRACT", c.getFid(), operator);
+        }
         if ("approve".equals(action)) {
             outbox.append(c.getFtenantId(), c.getForgId(), "SALES", "SALES_CONTRACT_EFFECTIVE",
                     "SALES_CONTRACT", c.getFid(), version(c.getFversion()),

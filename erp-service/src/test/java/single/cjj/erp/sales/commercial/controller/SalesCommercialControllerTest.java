@@ -11,6 +11,7 @@ import single.cjj.erp.sales.commercial.entity.SalesQuoteEntity;
 import single.cjj.erp.sales.commercial.security.SalesAccessGuard;
 import single.cjj.erp.sales.commercial.security.SalesAccessGuard.Permission;
 import single.cjj.erp.sales.commercial.service.SalesCommercialService;
+import single.cjj.erp.sales.commercial.workflow.SalesWorkflowCoordinator;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,9 +25,10 @@ import static org.mockito.Mockito.*;
 class SalesCommercialControllerTest {
     @Mock SalesCommercialService service;
     @Mock SalesAccessGuard guard;
+    @Mock SalesWorkflowCoordinator workflow;
 
     private SalesCommercialController controller() {
-        return new SalesCommercialController(service, guard);
+        return new SalesCommercialController(service, guard, workflow);
     }
 
     private CreateQuote createQuote() {
@@ -63,6 +65,19 @@ class SalesCommercialControllerTest {
         assertThrows(ResponseStatusException.class,
                 () -> controller().changeQuote("Bearer token", 42L, "approve", "T1"));
         verify(service, never()).transitionQuote(anyLong(), anyString(), anyString(), any());
+    }
+
+    @Test
+    void workflowModeNeverAllowsDirectQuoteApproval() {
+        SalesQuoteEntity quote=new SalesQuoteEntity();
+        quote.setFid(42L); quote.setFtenantId("T1"); quote.setForgId(3L);
+        when(service.quoteDetail(42L, "T1")).thenReturn(new QuoteDetail(quote,List.of()));
+        when(workflow.enabled()).thenReturn(true);
+        org.junit.jupiter.api.Assertions.assertEquals(403,
+                assertThrows(ResponseStatusException.class,
+                        () -> controller().changeQuote("Bearer token",42L,"approve","T1"))
+                        .getStatusCode().value());
+        verify(service,never()).transitionQuote(anyLong(),anyString(),anyString(),any());
     }
 
     @Test

@@ -9,6 +9,7 @@ import single.cjj.erp.sales.commercial.dto.SalesCommercialContracts.*;
 import single.cjj.erp.sales.commercial.entity.*;
 import java.util.List;
 import single.cjj.erp.sales.commercial.service.SalesCommercialService;
+import single.cjj.erp.sales.commercial.workflow.SalesWorkflowCoordinator;
 import single.cjj.erp.sales.commercial.security.SalesAccessGuard;
 import single.cjj.erp.sales.commercial.security.SalesAccessGuard.Permission;
 
@@ -18,10 +19,13 @@ import single.cjj.erp.sales.commercial.security.SalesAccessGuard.Permission;
 public class SalesCommercialController {
     private final SalesCommercialService service;
     private final SalesAccessGuard guard;
+    private final SalesWorkflowCoordinator workflow;
 
-    public SalesCommercialController(SalesCommercialService service, SalesAccessGuard guard) {
+    public SalesCommercialController(SalesCommercialService service, SalesAccessGuard guard,
+                                     SalesWorkflowCoordinator workflow) {
         this.service = service;
         this.guard = guard;
+        this.workflow = workflow;
     }
 
     @PostMapping("/quotes")
@@ -59,6 +63,16 @@ public class SalesCommercialController {
     }
 
 
+    @GetMapping("/quotes/{id}/workflow")
+    public ApiResponse<SalesWorkflowCoordinator.WorkflowStatus> quoteWorkflow(
+            @RequestHeader(value="Authorization",required=false) String bearer,
+            @PathVariable Long id,@RequestParam String tenantId) {
+        guard.authorizeTenant(bearer,tenantId,Permission.READ);
+        SalesQuoteEntity q=service.quoteDetail(id,tenantId).header();
+        guard.authorize(bearer,tenantId,q.getForgId(),Permission.READ);
+        return ApiResponse.success(workflow.status(tenantId,"SALES_QUOTE",id));
+    }
+
     @GetMapping("/quotes/{id}/audit")
     public ApiResponse<List<SalesCommercialActionAuditEntity>> quoteAudit(
             @RequestHeader(value="Authorization", required=false) String bearer,
@@ -80,6 +94,10 @@ public class SalesCommercialController {
             default -> Permission.APPROVE;
         };
         Long operator = guard.authorize(bearer, tenantId, existing.getForgId(), required);
+        if (workflow.enabled() && "approve".equals(action)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "必须在 Workflow 待办中审批");
+        }
         return ApiResponse.success(service.transitionQuote(id, tenantId, action, operator));
     }
 
@@ -110,6 +128,16 @@ public class SalesCommercialController {
     }
 
 
+    @GetMapping("/contracts/{id}/workflow")
+    public ApiResponse<SalesWorkflowCoordinator.WorkflowStatus> contractWorkflow(
+            @RequestHeader(value="Authorization",required=false) String bearer,
+            @PathVariable Long id,@RequestParam String tenantId) {
+        guard.authorizeTenant(bearer,tenantId,Permission.READ);
+        SalesContractEntity contract=service.contractDetail(id,tenantId).header();
+        guard.authorize(bearer,tenantId,contract.getForgId(),Permission.READ);
+        return ApiResponse.success(workflow.status(tenantId,"SALES_CONTRACT",id));
+    }
+
     @GetMapping("/contracts/{id}/audit")
     public ApiResponse<List<SalesCommercialActionAuditEntity>> contractAudit(
             @RequestHeader(value="Authorization", required=false) String bearer,
@@ -127,6 +155,10 @@ public class SalesCommercialController {
         SalesContractEntity existing = service.contractDetail(id, tenantId).header();
         Permission required = "submit".equals(action) ? Permission.WRITE : Permission.APPROVE;
         Long operator = guard.authorize(bearer, tenantId, existing.getForgId(), required);
+        if (workflow.enabled() && "approve".equals(action)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "必须在 Workflow 待办中审批");
+        }
         return ApiResponse.success(service.transitionContract(id, tenantId, action, operator));
     }
 }

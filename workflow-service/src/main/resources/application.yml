@@ -21,6 +21,12 @@ spring:
         file-extension: yaml
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
   datasource:
     url: ${WORKFLOW_DB_URL:jdbc:mysql://127.0.0.1:3306/matrix_workflow?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
     username: ${WORKFLOW_DB_USERNAME:root}
@@ -28,6 +34,9 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 workflow:
+  sales-internal:
+    signing-secret: ${MATRIX_SALES_WORKFLOW_INTERNAL_SECRET:}
+    callback-url: ${MATRIX_SALES_WORKFLOW_CALLBACK_URL:}
   callback:
     signing-secret: ${WORKFLOW_CALLBACK_SECRET:change-me-in-production}
   attachment:
@@ -46,3 +55,9 @@ management:
   endpoint:
     health:
       show-details: always
+
+# The new internal start endpoint is off by default and must be isolated by network.
+matrix:
+  sales:
+    workflow:
+      internal-enabled: ${MATRIX_SALES_WORKFLOW_INTERNAL_ENABLED:false}
