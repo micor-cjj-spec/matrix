@@ -196,6 +196,10 @@ public class WorkflowService {
                 && request.action() == WorkflowContracts.TaskAction.APPROVE) {
             throw new BizException("销售流程发起人不得审批本人单据");
         }
+        if (isSalesInstance(instance)
+                && request.action() == WorkflowContracts.TaskAction.RETURN_TO_INITIATOR) {
+            throw new BizException("销售流程暂不支持退回重提，请使用拒绝操作");
+        }
 
         WorkflowRepository.DefinitionVersionRow definitionRow = repository
                 .findDefinition(instance.tenantId(), instance.definitionKey(), instance.definitionVersion())
@@ -238,6 +242,9 @@ public class WorkflowService {
             String requestId) {
         WorkflowRepository.InstanceRow instance = repository.findInstance(instanceId)
                 .orElseThrow(() -> new BizException("流程实例不存在"));
+        if (isSalesInstance(instance)) {
+            throw new BizException("销售流程暂不支持直接撤销或重提，须由 ERP 协同处理");
+        }
         if (!INSTANCE_WAITING_RESUBMIT.equals(instance.status())) {
             throw new BizException("只有待重新提交的流程可以执行重提");
         }
@@ -298,6 +305,9 @@ public class WorkflowService {
             String requestId) {
         WorkflowRepository.InstanceRow instance = repository.findInstance(instanceId)
                 .orElseThrow(() -> new BizException("流程实例不存在"));
+        if (isSalesInstance(instance)) {
+            throw new BizException("销售流程暂不支持直接撤销或重提，须由 ERP 协同处理");
+        }
         if (!(INSTANCE_RUNNING.equals(instance.status())
                 || INSTANCE_WAITING_RESUBMIT.equals(instance.status()))) {
             throw new BizException("当前流程状态不允许撤销");
@@ -341,6 +351,11 @@ public class WorkflowService {
         return repository.findTask(taskId)
                 .map(this::toTaskResponse)
                 .orElseThrow(() -> new BizException("待办任务不存在"));
+    }
+
+    private boolean isSalesInstance(WorkflowRepository.InstanceRow instance) {
+        return "MATRIX_ERP".equals(instance.sourceSystem())
+                && Set.of("SALES_QUOTE", "SALES_CONTRACT").contains(instance.businessType());
     }
 
     private void rejectInstance(WorkflowRepository.InstanceRow instance,
