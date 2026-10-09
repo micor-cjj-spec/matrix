@@ -33,6 +33,15 @@ public class SalesWorkflowCoordinator {
 
     public boolean enabled() { return enabled; }
 
+    public record WorkflowStatus(String status, String instanceId, String definitionKey) {}
+
+    public WorkflowStatus status(String tenant, String documentType, Long documentId) {
+        if (!enabled) return new WorkflowStatus("NOT_ENABLED", null, null);
+        SalesWorkflowLinkEntity link=links.findDocument(tenant, documentType, documentId);
+        return link==null ? new WorkflowStatus("NOT_SUBMITTED",null,null)
+                : new WorkflowStatus(link.getFstatus(),link.getFinstanceId(),link.getFdefinitionKey());
+    }
+
     @Transactional(propagation=Propagation.MANDATORY)
     public void enqueue(String tenant, Long org, String type, Long documentId, Long initiator) {
         if (!enabled) return;

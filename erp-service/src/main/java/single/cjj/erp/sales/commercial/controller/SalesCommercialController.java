@@ -63,6 +63,16 @@ public class SalesCommercialController {
     }
 
 
+    @GetMapping("/quotes/{id}/workflow")
+    public ApiResponse<SalesWorkflowCoordinator.WorkflowStatus> quoteWorkflow(
+            @RequestHeader(value="Authorization",required=false) String bearer,
+            @PathVariable Long id,@RequestParam String tenantId) {
+        guard.authorizeTenant(bearer,tenantId,Permission.READ);
+        SalesQuoteEntity q=service.quoteDetail(id,tenantId).header();
+        guard.authorize(bearer,tenantId,q.getForgId(),Permission.READ);
+        return ApiResponse.success(workflow.status(tenantId,"SALES_QUOTE",id));
+    }
+
     @GetMapping("/quotes/{id}/audit")
     public ApiResponse<List<SalesCommercialActionAuditEntity>> quoteAudit(
             @RequestHeader(value="Authorization", required=false) String bearer,
@@ -117,6 +127,16 @@ public class SalesCommercialController {
         return ApiResponse.success(detail);
     }
 
+
+    @GetMapping("/contracts/{id}/workflow")
+    public ApiResponse<SalesWorkflowCoordinator.WorkflowStatus> contractWorkflow(
+            @RequestHeader(value="Authorization",required=false) String bearer,
+            @PathVariable Long id,@RequestParam String tenantId) {
+        guard.authorizeTenant(bearer,tenantId,Permission.READ);
+        SalesContractEntity contract=service.contractDetail(id,tenantId).header();
+        guard.authorize(bearer,tenantId,contract.getForgId(),Permission.READ);
+        return ApiResponse.success(workflow.status(tenantId,"SALES_CONTRACT",id));
+    }
 
     @GetMapping("/contracts/{id}/audit")
     public ApiResponse<List<SalesCommercialActionAuditEntity>> contractAudit(
