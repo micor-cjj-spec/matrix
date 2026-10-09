@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.RedisSystemException;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.security.Key;
 import java.util.*;
 
@@ -32,10 +34,13 @@ public class SalesAccessGuard {
 
     private final Key verificationKey;
     private final RedisTemplate<String, String> loginSessions;
+    private final StringRedisTemplate revisions;
 
     public SalesAccessGuard(@Value("${security.jwt.secret:}") String secret,
-                            RedisTemplate<String, String> loginSessions) {
+                            RedisTemplate<String, String> loginSessions,
+                            StringRedisTemplate revisions) {
         this.loginSessions = loginSessions;
+        this.revisions = revisions;
         if (!StringUtils.hasText(secret) || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalStateException(
                     "Sales APIs require security.jwt.secret with at least 32 bytes matching auth-service");
@@ -102,6 +107,45 @@ public class SalesAccessGuard {
         for (String claimName : List.of("roles", "roleCodes", "authorities", "role")) {
             collectRoles(claims.get(claimName), roles);
         }
+        // Every sales JWT must carry the revision of the trusted grant snapshot.
+        // An odd revision means a grant is being updated, so authorization fails closed.
+        // A changed revision invalidates pre-change JWTs without storing JWT strings.
+        final long signedRevision;
+        try {
+            Object claim = claims.get("salesGrantRevision");
+            if (!(claim instanceof Number)) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "销售权限版本缺失，请重新登录");
+            }
+            signedRevision = ((Number) claim).longValue();
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        }
+        if (signedRevision < 0 || signedRevision % 2 != 0) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "销售权限版本异常");
+        }
+        try {
+            Long revisionOrg = null;
+            Object orgClaim = claims.get("organizationIds");
+            if (orgClaim instanceof Collection<?> values && values.size() == 1) {
+                revisionOrg = Long.valueOf(values.iterator().next().toString());
+            }
+            if (revisionOrg == null || revisionOrg <= 0) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "销售令牌必须绑定唯一组织");
+            }
+            String encodedTenant = Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString(trustedTenant.getBytes(StandardCharsets.UTF_8));
+            String key = "sales:acl:revision:" + encodedTenant + ":" + revisionOrg + ":" + userId;
+            String value = revisions.opsForValue().get(key);
+            long currentRevision = value == null ? 0L : Long.parseLong(value);
+            if (currentRevision % 2 != 0 || currentRevision != signedRevision) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "销售权限已变更，请重新登录");
+            }
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "销售授权版本验证不可用");
+        }
+
         Set<String> allowed = switch (permission) {
             case READ -> VIEW_ROLES;
             case WRITE -> WRITE_ROLES;
@@ -135,5 +179,3 @@ public class SalesAccessGuard {
         }
     }
 }
-
-

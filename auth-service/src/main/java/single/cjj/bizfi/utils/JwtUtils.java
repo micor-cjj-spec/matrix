@@ -46,6 +46,13 @@ public class JwtUtils {
             Long userId, Long username, Long organizationId, Long departmentId,
             String tenantId, List<String> grantedSalesRoles
     ) {
+        return generateToken(userId, username, organizationId, departmentId, tenantId, grantedSalesRoles, null);
+    }
+
+    public static String generateToken(
+            Long userId, Long username, Long organizationId, Long departmentId,
+            String tenantId, List<String> grantedSalesRoles, Long salesGrantRevision
+    ) {
         JwtBuilder builder = Jwts.builder()
                 .claim("id", userId)
                 .claim("username", username);
@@ -61,7 +68,11 @@ public class JwtUtils {
             builder.claim("tenantId", tenantId);
         }
         if (grantedSalesRoles != null && !grantedSalesRoles.isEmpty()) {
+            if (salesGrantRevision == null || salesGrantRevision % 2 != 0) {
+                throw new IllegalArgumentException("Sales role tokens require stable grant revision");
+            }
             builder.claim("roles", grantedSalesRoles);
+            builder.claim("salesGrantRevision", salesGrantRevision);
         }
 
         return builder
@@ -104,4 +115,3 @@ public class JwtUtils {
         return key;
     }
 }
-

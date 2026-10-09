@@ -19,6 +19,7 @@ import single.cjj.bizfi.entity.BizfiBaseUser;
 import single.cjj.bizfi.exception.BizException;
 import single.cjj.bizfi.mapper.BizfiAuthLoginMapper;
 import single.cjj.bizfi.mapper.SalesRoleGrantMapper;
+import single.cjj.bizfi.security.SalesAclRevision;
 import single.cjj.bizfi.service.BizfiAuthLoginService;
 import single.cjj.bizfi.utils.EmailUtils;
 import single.cjj.bizfi.utils.JwtUtils;
@@ -54,6 +55,9 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
 
     @Autowired
     private SalesRoleGrantMapper salesRoleGrantMapper;
+
+    @Autowired
+    private SalesAclRevision salesAclRevision;
 
     @Value("${matrix.sales-auth.issuer-enabled:false}")
     private boolean salesRoleIssuerEnabled;
@@ -337,13 +341,25 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
         }
         Long orgId = user.getFtid();
         // No sales role when the user has no organization or no authorized grant.
-        List<String> roles = orgId == null || orgId <= 0 ? List.of()
-                : salesRoleGrantMapper.activeRoles(user.getFid(), salesRoleTenantId, orgId);
+        if (orgId == null || orgId <= 0) {
+            return JwtUtils.generateToken(user.getFid(), user.getFid(),
+                    null, user.getFdptid(), salesRoleTenantId, List.of());
+        }
+        long revisionBefore = salesAclRevision.current(salesRoleTenantId, orgId, user.getFid());
+        if (revisionBefore % 2 != 0) {
+            throw new IllegalStateException("Sales role authorization is being updated");
+        }
+        List<String> roles = salesRoleGrantMapper.activeRoles(user.getFid(), salesRoleTenantId, orgId);
         if (roles == null) roles = List.of();
+        long revisionAfter = salesAclRevision.current(salesRoleTenantId, orgId, user.getFid());
+        if (revisionAfter != revisionBefore || revisionAfter % 2 != 0) {
+            throw new IllegalStateException("Sales role authorization changed during login; retry");
+        }
         List<String> trusted = roles.stream().filter(VALID_SALES_ROLES::contains)
                 .distinct().sorted().toList();
         return JwtUtils.generateToken(user.getFid(), user.getFid(),
-                orgId, user.getFdptid(), salesRoleTenantId, trusted);
+                orgId, user.getFdptid(), salesRoleTenantId, trusted,
+                trusted.isEmpty() ? null : revisionAfter);
     }
 
     private String loginFailKey(String account) {
@@ -373,4 +389,3 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
         redisTemplate.delete(loginFailKey(account));
     }
 }
-
