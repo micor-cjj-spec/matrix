@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.erp.sales.commercial.dto.SalesCommercialContracts.*;
 import single.cjj.erp.sales.commercial.entity.*;
+import java.util.List;
 import single.cjj.erp.sales.commercial.service.SalesCommercialService;
 import single.cjj.erp.sales.commercial.security.SalesAccessGuard;
 import single.cjj.erp.sales.commercial.security.SalesAccessGuard.Permission;
@@ -57,6 +58,17 @@ public class SalesCommercialController {
         return ApiResponse.success(detail);
     }
 
+
+    @GetMapping("/quotes/{id}/audit")
+    public ApiResponse<List<SalesCommercialActionAuditEntity>> quoteAudit(
+            @RequestHeader(value="Authorization", required=false) String bearer,
+            @PathVariable Long id, @RequestParam String tenantId) {
+        guard.authorizeTenant(bearer, tenantId, Permission.READ);
+        SalesQuoteEntity header = service.quoteDetail(id, tenantId).header();
+        guard.authorize(bearer, tenantId, header.getForgId(), Permission.READ);
+        return ApiResponse.success(service.auditHistory("SALES_QUOTE", id, tenantId, header.getForgId()));
+    }
+
     @PostMapping("/quotes/{id}/{action}")
     public ApiResponse<SalesQuoteEntity> changeQuote(@RequestHeader(value = "Authorization", required = false) String bearer,
             @PathVariable Long id, @PathVariable String action, @RequestParam String tenantId) {
@@ -95,6 +107,17 @@ public class SalesCommercialController {
         ContractDetail detail = service.contractDetail(id, tenantId);
         guard.authorize(bearer, tenantId, detail.header().getForgId(), Permission.READ);
         return ApiResponse.success(detail);
+    }
+
+
+    @GetMapping("/contracts/{id}/audit")
+    public ApiResponse<List<SalesCommercialActionAuditEntity>> contractAudit(
+            @RequestHeader(value="Authorization", required=false) String bearer,
+            @PathVariable Long id, @RequestParam String tenantId) {
+        guard.authorizeTenant(bearer, tenantId, Permission.READ);
+        SalesContractEntity header = service.contractDetail(id, tenantId).header();
+        guard.authorize(bearer, tenantId, header.getForgId(), Permission.READ);
+        return ApiResponse.success(service.auditHistory("SALES_CONTRACT", id, tenantId, header.getForgId()));
     }
 
     @PostMapping("/contracts/{id}/{action}")

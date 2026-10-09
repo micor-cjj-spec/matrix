@@ -33,12 +33,14 @@ public class SalesCommercialService {
     private final CrmOpportunityMapper opportunities;
     private final CustomerPartnerValidator customers;
     private final BusinessEventOutboxService outbox;
+    private final SalesCommercialActionAuditMapper audits;
 
     public SalesCommercialService(
             SalesQuoteMapper quotes, SalesQuoteEntryMapper quoteEntries,
             SalesContractMapper contracts, SalesContractEntryMapper contractEntries,
             CrmOpportunityMapper opportunities, CustomerPartnerValidator customers,
-            BusinessEventOutboxService outbox) {
+            BusinessEventOutboxService outbox,
+            SalesCommercialActionAuditMapper audits) {
         this.quotes = quotes;
         this.quoteEntries = quoteEntries;
         this.contracts = contracts;
@@ -46,6 +48,7 @@ public class SalesCommercialService {
         this.opportunities = opportunities;
         this.customers = customers;
         this.outbox = outbox;
+        this.audits = audits;
     }
 
     public IPage<SalesQuoteEntity> quotePage(String tenantId, Long orgId, String status, int page, int size) {
@@ -124,6 +127,8 @@ public class SalesCommercialService {
         q.setFnetAmount(net); q.setFtaxAmount(tax); q.setFgrossAmount(net.add(tax));
         one(quotes.insert(q), "销售报价");
         for (SalesQuoteEntryEntity e : lines) one(quoteEntries.insert(e), "销售报价明细");
+        recordAudit(tenant, q.getForgId(), "SALES_QUOTE", q.getFid(), "CREATE",
+                null, "DRAFT", operator);
         return new QuoteDetail(q, lines);
     }
 
@@ -186,12 +191,19 @@ public class SalesCommercialService {
         for (SalesQuoteEntryEntity e : calc.entries()) {
             one(quoteEntries.insert(e), "报价明细");
         }
+        recordAudit(tenant, q.getForgId(), "SALES_QUOTE", q.getFid(), "UPDATE",
+                "DRAFT", "DRAFT", operator);
         return new QuoteDetail(q, calc.entries());
     }
 
     @Transactional(rollbackFor = Exception.class)
     public SalesQuoteEntity transitionQuote(Long id, String tenantId, String action, Long operator) {
         SalesQuoteEntity q = requireQuote(id, tenantId, true);
+        String before = q.getFstatus();
+        if ("approve".equals(action)
+                && (q.getFcreateBy() == null || Objects.equals(operator, q.getFcreateBy()))) {
+            throw new BizException("审批人与报价制单人不能为同一人");
+        }
         String next = switch (action) {
             case "submit" -> next(q.getFstatus(), "DRAFT", "SUBMITTED");
             case "approve" -> next(q.getFstatus(), "SUBMITTED", "APPROVED");
@@ -217,6 +229,8 @@ public class SalesCommercialService {
             q.setFacceptedBy(operator); q.setFacceptedTime(LocalDateTime.now());
         }
         one(quotes.updateById(q), "销售报价");
+        recordAudit(q.getFtenantId(), q.getForgId(), "SALES_QUOTE", q.getFid(),
+                action.toUpperCase(Locale.ROOT), before, next, operator);
         if ("ACCEPTED".equals(next)) {
             outbox.append(q.getFtenantId(), q.getForgId(), "SALES", "SALES_QUOTE_ACCEPTED",
                     "SALES_QUOTE", q.getFid(), version(q.getFversion()),
@@ -307,12 +321,19 @@ public class SalesCommercialService {
             line.setFcreateTime(now); line.setFdeleteFlag(0);
             one(contractEntries.insert(line), "销售合同明细"); lines.add(line);
         }
+        recordAudit(tenant, c.getForgId(), "SALES_CONTRACT", c.getFid(),
+                "CREATE", null, "DRAFT/DRAFT", operator);
         return new ContractDetail(c, lines);
     }
 
     @Transactional(rollbackFor = Exception.class)
     public SalesContractEntity transitionContract(Long id, String tenantId, String action, Long operator) {
         SalesContractEntity c = requireContract(id, tenantId, true);
+        String before = c.getFstatus() + "/" + c.getFapprovalStatus();
+        if ("approve".equals(action)
+                && (c.getFcreateBy() == null || Objects.equals(operator, c.getFcreateBy()))) {
+            throw new BizException("审批人与合同制单人不能为同一人");
+        }
         switch (action) {
             case "submit" -> c.setFapprovalStatus(next(c.getFapprovalStatus(), "DRAFT", "SUBMITTED"));
             case "approve" -> {
@@ -323,6 +344,9 @@ public class SalesCommercialService {
         }
         c.setFmodifyBy(operator); c.setFmodifyTime(LocalDateTime.now());
         one(contracts.updateById(c), "销售合同");
+        recordAudit(c.getFtenantId(), c.getForgId(), "SALES_CONTRACT", c.getFid(),
+                action.toUpperCase(Locale.ROOT), before,
+                c.getFstatus() + "/" + c.getFapprovalStatus(), operator);
         if ("approve".equals(action)) {
             outbox.append(c.getFtenantId(), c.getForgId(), "SALES", "SALES_CONTRACT_EFFECTIVE",
                     "SALES_CONTRACT", c.getFid(), version(c.getFversion()),
@@ -331,6 +355,43 @@ public class SalesCommercialService {
                             "businessPartnerId", c.getFbusinessPartnerId(), "grossAmount", c.getFgrossAmount()));
         }
         return c;
+    }
+
+
+    public List<SalesCommercialActionAuditEntity> auditHistory(
+            String documentType, Long documentId, String tenantId, Long orgId) {
+        if (!Set.of("SALES_QUOTE", "SALES_CONTRACT").contains(documentType)) {
+            throw new BizException("不支持的审计单据类型");
+        }
+        if (orgId == null) throw new BizException("审计组织不能为空");
+        return audits.selectList(new LambdaQueryWrapper<SalesCommercialActionAuditEntity>()
+                .eq(SalesCommercialActionAuditEntity::getFtenantId, tenant(tenantId))
+                .eq(SalesCommercialActionAuditEntity::getForgId, orgId)
+                .eq(SalesCommercialActionAuditEntity::getFdocumentType, documentType)
+                .eq(SalesCommercialActionAuditEntity::getFdocumentId, documentId)
+                .orderByDesc(SalesCommercialActionAuditEntity::getFcreateTime)
+                .orderByDesc(SalesCommercialActionAuditEntity::getFid)
+                .last("LIMIT 200"));
+    }
+
+    private void recordAudit(String tenantId, Long orgId, String documentType,
+                             Long documentId, String action, String before,
+                             String after, Long operator) {
+        if (orgId == null || operator == null || operator <= 0) {
+            throw new BizException("缺少可靠的审计组织或操作人，禁止修改销售单据");
+        }
+        SalesCommercialActionAuditEntity record = new SalesCommercialActionAuditEntity();
+        record.setFid(IdWorker.getId());
+        record.setFtenantId(tenantId);
+        record.setForgId(orgId);
+        record.setFdocumentType(documentType);
+        record.setFdocumentId(documentId);
+        record.setFaction(action);
+        record.setFbeforeStatus(before);
+        record.setFafterStatus(after);
+        record.setFoperatorId(operator);
+        record.setFcreateTime(LocalDateTime.now());
+        one(audits.insert(record), "销售操作审计");
     }
 
     private SalesQuoteEntity requireQuote(Long id, String tenantId, boolean lock) {

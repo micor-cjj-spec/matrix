@@ -32,10 +32,12 @@ class SalesCommercialServiceTest {
     @Mock CrmOpportunityMapper opportunities;
     @Mock CustomerPartnerValidator customers;
     @Mock BusinessEventOutboxService outbox;
+    @Mock SalesCommercialActionAuditMapper audits;
 
     private SalesCommercialService service() {
+        lenient().when(audits.insert(any())).thenReturn(1);
         return new SalesCommercialService(quotes, quoteEntries, contracts,
-                contractEntries, opportunities, customers, outbox);
+                contractEntries, opportunities, customers, outbox, audits);
     }
 
     private SalesQuoteEntity quote(String status) {
@@ -46,7 +48,7 @@ class SalesCommercialServiceTest {
         q.setFstatus(status); q.setFvalidUntil(LocalDate.now().plusDays(10));
         q.setFcurrencyCode("CNY"); q.setFnetAmount(new BigDecimal("100.00"));
         q.setFtaxAmount(new BigDecimal("13.00")); q.setFgrossAmount(new BigDecimal("113.00"));
-        q.setFversion(0); return q;
+        q.setFversion(0); q.setFcreateBy(9L); return q;
     }
 
     private CrmOpportunityEntity opportunity() {
@@ -194,13 +196,62 @@ class SalesCommercialServiceTest {
     }
 
     @Test
+    void quoteApprovalRejectsTheOriginalCreator() {
+        SalesQuoteEntity q = quote("SUBMITTED");
+        q.setFcreateBy(7L);
+        when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(q);
+        assertThrows(BizException.class,
+                () -> service().transitionQuote(10L, "T1", "approve", 7L));
+        verify(quotes, never()).updateById(any());
+        verify(audits, never()).insert(any());
+    }
+
+    @Test
+    void contractApprovalRejectsTheOriginalCreator() {
+        SalesContractEntity c = new SalesContractEntity();
+        c.setFid(100L); c.setFtenantId("T1"); c.setForgId(3L);
+        c.setFstatus("DRAFT"); c.setFapprovalStatus("SUBMITTED");
+        c.setFcreateBy(7L);
+        when(contracts.selectByIdForUpdate(100L, "T1")).thenReturn(c);
+        assertThrows(BizException.class,
+                () -> service().transitionContract(100L, "T1", "approve", 7L));
+        verify(contracts, never()).updateById(any());
+        verify(audits, never()).insert(any());
+    }
+
+    @Test
+    void acceptedQuoteProducesAuditWithExactStateChangeAndActor() {
+        when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(quote("SENT"));
+        when(quotes.updateById(any())).thenReturn(1);
+        service().transitionQuote(10L, "T1", "accept", 7L);
+        verify(audits).insert(argThat(entry ->
+                "T1".equals(entry.getFtenantId()) && Long.valueOf(3L).equals(entry.getForgId())
+                        && "SALES_QUOTE".equals(entry.getFdocumentType())
+                        && "ACCEPT".equals(entry.getFaction())
+                        && "SENT".equals(entry.getFbeforeStatus())
+                        && "ACCEPTED".equals(entry.getFafterStatus())
+                        && Long.valueOf(7L).equals(entry.getFoperatorId())));
+    }
+
+    @Test
+    void auditFailureMustPreventSuccessfulTransition() {
+        SalesQuoteEntity q = quote("SUBMITTED");
+        when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(q);
+        when(quotes.updateById(any())).thenReturn(1);
+        SalesCommercialService target = service();
+        when(audits.insert(any())).thenReturn(0);
+        assertThrows(BizException.class,
+                () -> target.transitionQuote(10L, "T1", "approve", 8L));
+    }
+
+    @Test
     void contractApprovalPublishesOnlyBusinessEvent() {
         SalesContractEntity c = new SalesContractEntity();
         c.setFid(100L); c.setFtenantId("T1"); c.setForgId(3L);
         c.setFnumber("SC-100"); c.setFdate(LocalDate.now());
         c.setFquoteId(10L); c.setFbusinessPartnerId(30L);
         c.setFgrossAmount(new BigDecimal("113.00")); c.setFversion(0);
-        c.setFapprovalStatus("SUBMITTED"); c.setFstatus("DRAFT");
+        c.setFapprovalStatus("SUBMITTED"); c.setFstatus("DRAFT"); c.setFcreateBy(9L);
         when(contracts.selectByIdForUpdate(100L, "T1")).thenReturn(c);
         when(contracts.updateById(c)).thenReturn(1);
         SalesContractEntity result = service().transitionContract(100L, "T1", "approve", 7L);
