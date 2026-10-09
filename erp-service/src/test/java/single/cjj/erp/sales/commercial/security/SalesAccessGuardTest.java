@@ -70,6 +70,14 @@ class SalesAccessGuardTest {
     }
 
     @Test
+    void untrustedTenantMustFailBeforeDocumentLookup() {
+        String token = bearer("T1", List.of("SALES_EDITOR"), List.of(3L));
+        assertEquals(789L, guard.authorizeTenant(token, "T1", WRITE));
+        assertEquals(HttpStatus.FORBIDDEN.value(), status(() ->
+                guard.authorizeTenant(token, "T2", WRITE)));
+    }
+
+    @Test
     void defaultSecretMustNotStartProtectedModule() {
         assertThrows(IllegalStateException.class, () -> new SalesAccessGuard(""));
         assertThrows(IllegalStateException.class, () -> new SalesAccessGuard("short"));
