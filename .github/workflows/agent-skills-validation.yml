@@ -1,0 +1,90 @@
+name: Agent Skills Validation
+
+on:
+  pull_request:
+    paths:
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - '.agents/**'
+      - '.github/copilot-instructions.md'
+      - '**/*Controller.java'
+      - 'sql/**/*.sql'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/*.properties'
+  push:
+    branches: [main, dev]
+    paths:
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - '.agents/**'
+      - '.github/copilot-instructions.md'
+      - '**/*Controller.java'
+      - 'sql/**/*.sql'
+      - '**/*.yml'
+      - '**/*.yaml'
+      - '**/*.properties'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate skill structure
+        run: python .agents/scripts/validate_skills.py
+
+      - name: Resolve changed files
+        id: changed
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${BASE_SHA}" || "${BASE_SHA}" == "0000000000000000000000000000000000000000" ]]; then
+            BASE_SHA="$(git rev-parse HEAD^)"
+          fi
+          git diff --name-only --diff-filter=ACMR "${BASE_SHA}" "${GITHUB_SHA}" > /tmp/changed-files.txt
+          cat /tmp/changed-files.txt
+
+      - name: Validate changed SQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(grep -E '\.sql$' /tmp/changed-files.txt || true)
+          if (( ${#files[@]} )); then
+            python .agents/skills/matrix-database-change/scripts/validate_sql.py --strict "${files[@]}"
+          else
+            echo 'No changed SQL files.'
+          fi
+
+      - name: Check changed controller contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < <(grep -E 'Controller\.java$' /tmp/changed-files.txt || true)
+          if (( ${#files[@]} )); then
+            python .agents/skills/matrix-java-backend/scripts/check_controller_contract.py "${files[@]}"
+          else
+            echo 'No changed controller files.'
+          fi
+
+      - name: Scan changed files for sensitive literals
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t files < /tmp/changed-files.txt
+          if (( ${#files[@]} )); then
+            python .agents/skills/matrix-code-review/scripts/scan_sensitive_content.py "${files[@]}"
+          else
+            echo 'No changed files.'
+          fi

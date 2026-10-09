@@ -41,3 +41,7 @@ For ongoing development, follow this loop unless the user explicitly narrows or 
 6. After development, commit and push to `dev`, message `openclaw` in Feishu to deploy/restart, test `https://micor.top/` again, and repeat the loop.
 
 When sending deployment instructions through Feishu, use the `openclaw` conversation unless the user specifies another target.
+
+## Agent Skills
+
+Additional reusable development and review instructions are documented in `.agents/README.md` and `.agents/skills/`. Keep all credentials out of tracked files; use CI secrets or untracked local settings.
