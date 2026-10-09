@@ -90,6 +90,8 @@ scripts=(
   "sql/bizfi_ai_tool_audit_v3.sql"
   "sql/bizfi_ai_knowledge_evaluation_v7.sql"
   "sql/bizfi_ai_knowledge_evaluation_trace_v8.sql"
+  # RAG evaluation v7 requires prior knowledge migrations; check deployment prerequisites.
+  "sql/bizfi_ai_rag_evaluation_v7.sql"
 )
 
 for sql_path in "${scripts[@]}"; do
