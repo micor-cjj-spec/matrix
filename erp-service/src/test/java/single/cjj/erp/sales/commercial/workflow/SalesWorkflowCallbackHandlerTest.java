@@ -76,6 +76,17 @@ class SalesWorkflowCallbackHandlerTest {
     }
 
     @Test
+    void forgedTerminalStatusMustNotMutateSalesDocument() {
+        when(links.lockByInstance("wf-001")).thenReturn(link());
+        var corrupt=new SalesWorkflowCallbackHandler.WorkflowEvent(
+                "evt001","INSTANCE_COMPLETED","wf-001",
+                "T1","MATRIX_ERP","SALES_QUOTE","100","REJECTED",
+                Map.of("organizationId","3"));
+        assertEquals(400,code(()->handler.apply("evt001","INSTANCE_COMPLETED",corrupt)));
+        verifyNoInteractions(commercial);
+    }
+
+    @Test
     void unboundInstanceMustRetryLater() {
         assertEquals(409,code(()->handler.apply("evt001","INSTANCE_COMPLETED",event("INSTANCE_COMPLETED"))));
         verifyNoInteractions(commercial);

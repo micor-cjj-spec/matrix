@@ -68,6 +68,19 @@ class SalesCommercialControllerTest {
     }
 
     @Test
+    void workflowModeNeverAllowsDirectQuoteApproval() {
+        SalesQuoteEntity quote=new SalesQuoteEntity();
+        quote.setFid(42L); quote.setFtenantId("T1"); quote.setForgId(3L);
+        when(service.quoteDetail(42L, "T1")).thenReturn(new QuoteDetail(quote,List.of()));
+        when(workflow.enabled()).thenReturn(true);
+        org.junit.jupiter.api.Assertions.assertEquals(403,
+                assertThrows(ResponseStatusException.class,
+                        () -> controller().changeQuote("Bearer token",42L,"approve","T1"))
+                        .getStatusCode().value());
+        verify(service,never()).transitionQuote(anyLong(),anyString(),anyString(),any());
+    }
+
+    @Test
     void contractCreationMustRequireWriteAccessOnSourceQuoteOrganization() {
         SalesQuoteEntity q = new SalesQuoteEntity();
         q.setFid(42L); q.setFtenantId("T1"); q.setForgId(3L);
