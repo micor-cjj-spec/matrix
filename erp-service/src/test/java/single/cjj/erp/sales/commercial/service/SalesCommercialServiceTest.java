@@ -51,7 +51,7 @@ class SalesCommercialServiceTest {
 
     private CrmOpportunityEntity opportunity() {
         CrmOpportunityEntity o = new CrmOpportunityEntity();
-        o.setFid(20L); o.setFtenantId("T1"); o.setFbusinessPartnerId(30L);
+        o.setFid(20L); o.setFtenantId("T1"); o.setForgId(3L); o.setFbusinessPartnerId(30L);
         o.setFstatus("OPEN"); return o;
     }
 
