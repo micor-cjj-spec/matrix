@@ -48,6 +48,7 @@
 - `POST /auth/sales-role-grants` 授予；`DELETE /auth/sales-role-grants` 撤销；`GET /auth/sales-role-grants?tenantId=...&orgId=...&userId=...` 查询。写入/撤销与追加授权审计位于同一个 DB 事务。
 - Redis 键 `sales:acl:revision:<Base64URL-UTF8(tenant)>:<orgId>:<userId>`：整数偶数为稳定授权快照，奇数表示变更中；签发销售 JWT 时写入 `salesGrantRevision` 并在 DB 查询前后复查。ERP 每个销售请求检查此版本和 Redis 登录会话，不一致立即返回 401。旧 JWT 不用等待过期即可拒绝。
 - 变更先使用 Redis Lua 原子地从偶数进入奇数，事务结束（成功或回滚）再提升为偶数；变更期间销售请求 fail closed。授权版本永久保存在 Redis，不可随意清空。若事务完成后 Redis 不可写则维持奇数，拒绝销售访问，由管理员按恢复流程人工核查 DB 后修复。
+- 初次签发销售角色时使用 Redis `SETNX` 创建不可预测的正偶数授权版本；ERP 遇到键丢失必须拒绝旧 JWT，不能默认零版本。Redis 数据丢失之后，旧 JWT 必须重新登录领取新版本。
 - **直接修改授权表 SQL 不会主动提升授权版本**。正式环境只能通过管理服务处理授权变更；未经服务完成的数据库手工更改不满足实时撤权要求。角色/组织映射及 E2E 验收完成前保持功能关闭。
 - 初始化需在 auth-service 数据库执行扩展版 `deliverables/auth/001-sales-role-grant/schema.sql`，包括 `matrix_auth_sales_role_grant_audit`。**不能将 Redis 授权版本键配置 TTL**。
 
@@ -69,4 +70,3 @@ POST /sales/contracts/{id}/{submit|approve}?tenantId=...
 - 客户接受/拒绝当前是受审批角色限制的内网操作，不等价于第三方客户电子签署。
 - Quote → SalesContract 的权威引用是 `fquote_id`。后续 P2-IMP-08 才接入统一 BOTP Relation/Entry Relation。
 - 下一批：定时过期扫描、正式招投标业务、CRM 前端、Workflow 审批与实时撤权、合同到销售订单的 BOTP 映射。
-

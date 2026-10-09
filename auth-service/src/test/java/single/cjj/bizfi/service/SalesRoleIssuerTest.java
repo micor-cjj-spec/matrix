@@ -51,14 +51,15 @@ class SalesRoleIssuerTest {
         BizfiAuthLoginServiceImpl svc = new BizfiAuthLoginServiceImpl();
         ReflectionTestUtils.setField(svc, "salesRoleGrantMapper", grants);
         SalesAclRevision revision = mock(SalesAclRevision.class);
-        when(revision.current( "T1", 300L, 77L)).thenReturn(0L);
+        when(revision.currentOrCreate("T1", 300L, 77L)).thenReturn(2048L);
+        when(revision.current("T1", 300L, 77L)).thenReturn(2048L);
         ReflectionTestUtils.setField(svc, "salesAclRevision", revision);
         ReflectionTestUtils.setField(svc, "salesRoleIssuerEnabled", true);
         ReflectionTestUtils.setField(svc, "salesRoleTenantId", "T1");
         Claims claims = JwtUtils.parseToken(issue(svc, user()));
         assertEquals("T1", claims.get("tenantId"));
         assertEquals(List.of("SALES_EDITOR", "SALES_VIEWER"), claims.get("roles"));
-        assertEquals(0, ((Number) claims.get("salesGrantRevision")).intValue());
+        assertEquals(2048, ((Number) claims.get("salesGrantRevision")).intValue());
         assertEquals(List.of(300), claims.get("organizationIds"));
         verify(grants).activeRoles(77L, "T1", 300L);
     }

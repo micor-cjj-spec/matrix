@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.List;
 
@@ -13,11 +14,14 @@ import java.util.List;
 @Service
 public class SalesAclRevision {
     private static final DefaultRedisScript<Long> BEGIN = new DefaultRedisScript<>(
-            "local v = tonumber(redis.call('GET', KEYS[1]) or '0'); "
-          + "if v % 2 ~= 0 then return -1 end; "
+            "local raw = redis.call('GET', KEYS[1]); "
+          + "if not raw then return -1 end; "
+          + "local v = tonumber(raw); "
+          + "if not v or v % 2 ~= 0 then return -1 end; "
           + "return redis.call('INCR', KEYS[1])", Long.class);
 
     private final StringRedisTemplate redis;
+    private final SecureRandom random = new SecureRandom();
 
     public SalesAclRevision(StringRedisTemplate redis) { this.redis = redis; }
 
@@ -32,7 +36,18 @@ public class SalesAclRevision {
 
     public long current(String tenantId, Long orgId, Long userId) {
         String value = redis.opsForValue().get(key(tenantId, orgId, userId));
-        return value == null ? 0L : Long.parseLong(value);
+        if (value == null) throw new IllegalStateException("Sales grant revision missing");
+        return Long.parseLong(value);
+    }
+
+    /** A missing Redis key must never silently turn into version zero.
+     *  Provision a fresh random even value once, so pre-restart tokens remain invalid.
+     */
+    public long currentOrCreate(String tenantId, Long orgId, Long userId) {
+        String scopedKey = key(tenantId, orgId, userId);
+        long initial = (random.nextLong(1L << 51) + 1L) * 2L;
+        redis.opsForValue().setIfAbsent(scopedKey, Long.toString(initial));
+        return current(tenantId, orgId, userId);
     }
 
     /** Atomically moves the revision to odd (locked). Return true only after acquiring it. */

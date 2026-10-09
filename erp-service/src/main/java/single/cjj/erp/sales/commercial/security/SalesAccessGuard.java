@@ -136,7 +136,11 @@ public class SalesAccessGuard {
                     .encodeToString(trustedTenant.getBytes(StandardCharsets.UTF_8));
             String key = "sales:acl:revision:" + encodedTenant + ":" + revisionOrg + ":" + userId;
             String value = revisions.opsForValue().get(key);
-            long currentRevision = value == null ? 0L : Long.parseLong(value);
+            if (value == null) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                        "销售授权版本不存在，请重新登录");
+            }
+            long currentRevision = Long.parseLong(value);
             if (currentRevision % 2 != 0 || currentRevision != signedRevision) {
                 throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "销售权限已变更，请重新登录");
             }

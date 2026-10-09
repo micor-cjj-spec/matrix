@@ -34,7 +34,7 @@ class SalesAccessGuardTest {
                 .claim("id", 789L)
                 .claim("tenantId", tenant)
                 .claim("roles", roles)
-                .claim("salesGrantRevision", 0L)
+                .claim("salesGrantRevision", 2048L)
                 .claim("organizationIds", organizations)
                 .setExpiration(new Date(System.currentTimeMillis() + 600_000))
                 .signWith(Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8)),
@@ -43,7 +43,7 @@ class SalesAccessGuardTest {
         when(sessions.opsForValue()).thenReturn(values);
         when(values.get("token:" + token)).thenReturn("789");
         when(revisions.opsForValue()).thenReturn(revisionValues);
-        when(revisionValues.get("sales:acl:revision:VDE:3:789")).thenReturn("0");
+        when(revisionValues.get("sales:acl:revision:VDE:3:789")).thenReturn("2048");
         return "Bearer " + token;
     }
 
@@ -109,6 +109,14 @@ class SalesAccessGuardTest {
                 .thenThrow(new IllegalStateException("Redis unavailable"));
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), status(() ->
                 guard.authorize(token, "T1", 3L, READ)));
+    }
+
+    @Test
+    void lostRevisionKeyMustDenyOldJwtInsteadOfResettingToZero() {
+        String token = bearer("T1", List.of("SALES_APPROVER"), List.of(3L));
+        when(revisionValues.get("sales:acl:revision:VDE:3:789")).thenReturn(null);
+        assertEquals(HttpStatus.UNAUTHORIZED.value(), status(() ->
+                guard.authorize(token, "T1", 3L, APPROVE)));
     }
 
     @Test

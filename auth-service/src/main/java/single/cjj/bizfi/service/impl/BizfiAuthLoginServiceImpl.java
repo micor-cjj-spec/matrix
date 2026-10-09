@@ -345,7 +345,7 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
             return JwtUtils.generateToken(user.getFid(), user.getFid(),
                     null, user.getFdptid(), salesRoleTenantId, List.of());
         }
-        long revisionBefore = salesAclRevision.current(salesRoleTenantId, orgId, user.getFid());
+        long revisionBefore = salesAclRevision.currentOrCreate(salesRoleTenantId, orgId, user.getFid());
         if (revisionBefore % 2 != 0) {
             throw new IllegalStateException("Sales role authorization is being updated");
         }
