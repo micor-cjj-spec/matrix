@@ -7,9 +7,6 @@ set -euo pipefail
 # running elsewhere:
 #   MYSQL_CONTAINER=matrix-mysql MYSQL_DATABASE=matrix_open_api bash scripts/apply-dev-db-scripts.sh
 #   MYSQL_USER=matrix MYSQL_PWD=... bash scripts/apply-dev-db-scripts.sh
-#
-# Knowledge V4 is intentionally excluded because its ALTER TABLE is a one-time,
-# non-idempotent migration. Apply V4 manually before using the V5/V6/V7 entries.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MYSQL_CONTAINER="${MYSQL_CONTAINER:-matrix-mysql}"
@@ -83,13 +80,17 @@ run_sql() {
 }
 
 scripts=(
+  "sql/bizfi_fi_core_repair_v1.sql"
+  "sql/bizfi_fi_voucher_entry_schema_v1.sql"
+  "sql/bizfi_fi_arap_writeoff_v1.sql"
   "fi-service/src/main/resources/sql/fi_workflow_expense_v1.sql"
   "fi-service/src/main/resources/sql/fi_workflow_expense_v2.sql"
   "sql/bizfi_ai_tool_audit_v1.sql"
   "sql/bizfi_ai_tool_audit_v2.sql"
   "sql/bizfi_ai_tool_audit_v3.sql"
-  "sql/bizfi_ai_knowledge_ingestion_v5.sql"
-  "sql/bizfi_ai_knowledge_acl_v6.sql"
+  "sql/bizfi_ai_knowledge_evaluation_v7.sql"
+  "sql/bizfi_ai_knowledge_evaluation_trace_v8.sql"
+  # RAG evaluation v7 requires prior knowledge migrations; check deployment prerequisites.
   "sql/bizfi_ai_rag_evaluation_v7.sql"
 )
 
@@ -101,14 +102,6 @@ docker exec \
   -e MYSQL_PWD="${MYSQL_PWD}" \
   "${MYSQL_CONTAINER}" \
   mysql -u"${MYSQL_USER}" -N "${MYSQL_DATABASE}" -e \
-  "SHOW TABLES LIKE 'fi_event_outbox';
-   SHOW TABLES LIKE 'bizfi_ai_audit_access_log';
-   SHOW TABLES LIKE 'bizfi_ai_tool_execution';
-   SHOW TABLES LIKE 'bizfi_ai_knowledge_index_job';
-   SHOW TABLES LIKE 'bizfi_ai_knowledge_base_acl';
-   SHOW TABLES LIKE 'bizfi_ai_rag_eval_set';
-   SHOW TABLES LIKE 'bizfi_ai_rag_eval_case';
-   SHOW TABLES LIKE 'bizfi_ai_rag_eval_run';
-   SHOW TABLES LIKE 'bizfi_ai_rag_eval_result';"
+  "SHOW TABLES LIKE 'fi_event_outbox'; SHOW TABLES LIKE 'bizfi_ai_audit_access_log'; SHOW TABLES LIKE 'bizfi_ai_tool_execution'; SHOW TABLES LIKE 'bizfi_ai_evaluation_run'; SHOW TABLES LIKE 'bizfi_ai_evaluation_trace';"
 
 echo "dev database scripts applied to ${MYSQL_DATABASE}."

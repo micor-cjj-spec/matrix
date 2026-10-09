@@ -15,6 +15,10 @@ public interface BotpDocumentAdapter {
 
     DocumentData load(DocumentRef documentRef);
 
+    default DocumentData load(DocumentRef documentRef, String tenantId) {
+        return load(documentRef);
+    }
+
     default void validateSource(DocumentData sourceDocument, Map<String, Object> context) {
     }
 

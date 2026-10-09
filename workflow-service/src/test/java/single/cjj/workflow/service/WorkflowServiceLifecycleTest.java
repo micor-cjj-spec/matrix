@@ -99,6 +99,30 @@ class WorkflowServiceLifecycleTest {
     }
 
     @Test
+    void salesWorkflowInitiatorCannotApproveTheirOwnTask() {
+        WorkflowRepository.TaskRow task = task(
+                "task-sales", "instance-sales", "node-sales", "firstReview",
+                "reviewer-1", "PENDING", 0);
+        WorkflowRepository.InstanceRow instance = new WorkflowRepository.InstanceRow(
+                "instance-sales", "tenant-1", "sales_quote_v1", 1,
+                "MATRIX_ERP", "SALES_QUOTE", "100",
+                "MATRIX_ERP:SALES_QUOTE:100", "ERP-SALES-tenant-1-SALES_QUOTE-100",
+                "reviewer-1", "firstReview", "RUNNING", "{}", null, 0,
+                LocalDateTime.now(), null);
+        when(repository.findTask("task-sales")).thenReturn(Optional.of(task));
+        when(repository.findInstance("instance-sales")).thenReturn(Optional.of(instance));
+        org.junit.jupiter.api.Assertions.assertThrows(single.cjj.bizfi.exception.BizException.class,
+                () -> workflowService.actOnTask("task-sales",
+                        new WorkflowContracts.TaskActionRequest(
+                                WorkflowContracts.TaskAction.APPROVE,
+                                "reviewer-1", "self approval", Map.of()), "request-s1"));
+        org.mockito.Mockito.verify(repository, org.mockito.Mockito.never())
+                .completeTask(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
     void resubmitRecreatesOriginalApprovalTask() {
         WorkflowRepository.InstanceRow waiting = instance(
                 "instance-1", "WAITING_RESUBMIT", "__RESUBMIT__",
@@ -136,6 +160,47 @@ class WorkflowServiceLifecycleTest {
         assertThat(response.status()).isEqualTo("RUNNING");
         verify(repository).insertOutbox(anyString(), anyString(), anyString(),
                 org.mockito.ArgumentMatchers.eq("INSTANCE_RESUBMITTED"), anyString());
+    }
+
+    @Test
+    void salesWorkflowCannotUseGenericCancelApi() {
+        WorkflowRepository.InstanceRow sales = new WorkflowRepository.InstanceRow(
+                "sales-instance", "tenant-1", "sales_contract_v1", 1,
+                "MATRIX_ERP", "SALES_CONTRACT", "100",
+                "MATRIX_ERP:SALES_CONTRACT:100", "ERP-SALES-tenant-1-SALES_CONTRACT-100",
+                "initiator-1", "review", "RUNNING",
+                "{\"organizationId\":\"3\"}", null, 0, LocalDateTime.now(), null);
+        when(repository.findInstance("sales-instance")).thenReturn(Optional.of(sales));
+        org.junit.jupiter.api.Assertions.assertThrows(single.cjj.bizfi.exception.BizException.class,
+                () -> workflowService.cancelInstance("sales-instance",
+                        new WorkflowContracts.CancelInstanceRequest("initiator-1","cancel"),
+                        "sales-cancel"));
+        org.mockito.Mockito.verify(repository,org.mockito.Mockito.never())
+                .cancelInstance(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyInt(),org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void salesWorkflowCannotReturnTaskUntilErpResubmitIntegrationExists() {
+        WorkflowRepository.TaskRow task=task("return-sales","sales-instance",
+                "node-1","review","reviewer-1","PENDING",0);
+        WorkflowRepository.InstanceRow sales = new WorkflowRepository.InstanceRow(
+                "sales-instance", "tenant-1", "sales_quote_v1", 1,
+                "MATRIX_ERP", "SALES_QUOTE", "100",
+                "MATRIX_ERP:SALES_QUOTE:100", "ERP-SALES-tenant-1-SALES_QUOTE-100",
+                "initiator-1", "review", "RUNNING",
+                "{\"organizationId\":\"3\"}", null, 0, LocalDateTime.now(), null);
+        when(repository.findTask("return-sales")).thenReturn(Optional.of(task));
+        when(repository.findInstance("sales-instance")).thenReturn(Optional.of(sales));
+        org.junit.jupiter.api.Assertions.assertThrows(single.cjj.bizfi.exception.BizException.class,
+                () -> workflowService.actOnTask("return-sales",
+                        new WorkflowContracts.TaskActionRequest(
+                                WorkflowContracts.TaskAction.RETURN_TO_INITIATOR,"reviewer-1",
+                                "return",Map.of()),"sales-return"));
+        org.mockito.Mockito.verify(repository,org.mockito.Mockito.never())
+                .completeTask(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test

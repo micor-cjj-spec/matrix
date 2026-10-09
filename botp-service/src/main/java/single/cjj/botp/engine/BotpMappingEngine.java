@@ -9,6 +9,7 @@ import single.cjj.botp.domain.BotpContracts.MappingSourceType;
 import single.cjj.botp.domain.BotpContracts.RuleDefinition;
 import single.cjj.botp.domain.BotpContracts.TargetDraft;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -25,11 +26,16 @@ public class BotpMappingEngine {
     ) {
         Map<String, Object> targetHeader = new LinkedHashMap<>();
         applyMappings(rule.headerMappings(), sourceDocument.header(), context, targetHeader);
+        targetHeader.putIfAbsent("sourceExecutionId", context.get("executionId"));
+        targetHeader.putIfAbsent("operatorId", context.get("operatorId"));
 
         List<Map<String, Object>> targetEntries = new ArrayList<>();
+        int index = 0;
         for (Map<String, Object> sourceEntry : sourceDocument.entries()) {
             Map<String, Object> targetEntry = new LinkedHashMap<>();
             applyMappings(rule.entryMappings(), sourceEntry, context, targetEntry);
+            applyEntryQuantityOverride(sourceEntry, targetEntry, context);
+            attachRelationMetadata(sourceEntry, targetEntry, index++);
             targetEntries.add(targetEntry);
         }
 
@@ -39,6 +45,87 @@ public class BotpMappingEngine {
                 targetHeader,
                 targetEntries
         );
+    }
+
+    /**
+     * 支持部分履约：ExecutionRequest.parameters.entryQuantities 使用源分录ID作为 key。
+     * 示例：{"entryQuantities":{"12345":60}}。
+     * 最终数量合法性仍由目标领域服务的行锁/预占校验兜底。
+     */
+    private void applyEntryQuantityOverride(
+            Map<String, Object> sourceEntry,
+            Map<String, Object> targetEntry,
+            Map<String, Object> context
+    ) {
+        Object sourceEntryId = sourceEntry.get("entryId");
+        Object rawOverrides = context.get("entryQuantities");
+        if (sourceEntryId == null || !(rawOverrides instanceof Map<?, ?> overrides)) {
+            return;
+        }
+        Object override = overrides.get(String.valueOf(sourceEntryId));
+        if (override == null) {
+            override = overrides.get(sourceEntryId);
+        }
+        if (override == null) {
+            return;
+        }
+        BigDecimal quantity;
+        try {
+            quantity = new BigDecimal(String.valueOf(override));
+        } catch (NumberFormatException exception) {
+            throw new BizException("BOTP 分录下推数量格式错误: sourceEntryId=" + sourceEntryId);
+        }
+        if (quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BizException("BOTP 分录下推数量必须大于0: sourceEntryId=" + sourceEntryId);
+        }
+        if (targetEntry.containsKey("inspectionQuantity")) {
+            targetEntry.put("inspectionQuantity", quantity);
+        } else {
+            targetEntry.put("quantity", quantity);
+        }
+    }
+
+    private void attachRelationMetadata(
+            Map<String, Object> sourceEntry,
+            Map<String, Object> targetEntry,
+            int index
+    ) {
+        Object sourceEntryId = sourceEntry.get("entryId");
+        String correlationKey = sourceEntryId == null
+                ? String.valueOf(index + 1)
+                : String.valueOf(sourceEntryId);
+        if (sourceEntryId != null) {
+            targetEntry.putIfAbsent("_botpSourceEntryId", String.valueOf(sourceEntryId));
+        }
+        targetEntry.putIfAbsent("_botpCorrelationKey", correlationKey);
+
+        Object quantity = firstNonNull(
+                targetEntry.get("_botpRelationQuantity"),
+                targetEntry.get("quantity"),
+                targetEntry.get("inspectionQuantity"),
+                sourceEntry.get("availableQuantity"),
+                sourceEntry.get("quantity")
+        );
+        if (quantity != null) {
+            targetEntry.put("_botpRelationQuantity", quantity);
+        }
+        Object amount = firstNonNull(
+                targetEntry.get("_botpRelationAmount"),
+                targetEntry.get("amount"),
+                sourceEntry.get("amount")
+        );
+        if (amount != null) {
+            targetEntry.putIfAbsent("_botpRelationAmount", amount);
+        }
+    }
+
+    private Object firstNonNull(Object... values) {
+        for (Object value : values) {
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private void applyMappings(

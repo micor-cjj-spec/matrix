@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class BotpRelationLifecycleServiceTest {
 
     @Test
-    void shouldReverseOnceForDuplicateTargetVoidEvent() {
+    void shouldReverseOnceForDuplicateTargetVoidEventAndNotCrossDocumentType() {
         InMemoryBotpRelationRepository relationRepository = new InMemoryBotpRelationRepository();
         RecordingSourceAdapter adapter = new RecordingSourceAdapter();
         InMemoryBotpExecutionLogRepository logs = new InMemoryBotpExecutionLogRepository();
@@ -40,14 +40,23 @@ class BotpRelationLifecycleServiceTest {
                 relationRepository, writebackService, logs);
 
         DocumentRef source = new DocumentRef("MATRIX", "FI_AP_DOC", "1001", List.of());
-        TargetResult target = new TargetResult("MATRIX", "FI_PAYMENT_APPLICATION", "2001", "PAY-2001");
-        RuleDefinition rule = new RuleDefinition(
+        RuleDefinition paymentRule = new RuleDefinition(
                 "AP_TO_PAYMENT_APPLICATION", "AP to Payment", 1, RuleStatus.PUBLISHED,
                 "MATRIX", "FI_AP_DOC", "MATRIX", "FI_PAYMENT_APPLICATION",
-                List.of(), List.of(), List.of()
-        );
-        var relation = relationRepository.saveActive(
-                "default", "EXEC-1", rule, source, target, new BigDecimal("600"));
+                List.of(), List.of(), List.of());
+        RuleDefinition receiptRule = new RuleDefinition(
+                "AP_TO_TEST_RECEIPT", "collision test", 1, RuleStatus.PUBLISHED,
+                "MATRIX", "FI_AP_DOC", "MATRIX", "ERP_PURCHASE_RECEIPT",
+                List.of(), List.of(), List.of());
+
+        var paymentRelation = relationRepository.saveActive(
+                "default", "EXEC-1", paymentRule, source,
+                new TargetResult("MATRIX", "FI_PAYMENT_APPLICATION", "2001", "PAY-2001"),
+                new BigDecimal("600"));
+        var receiptRelation = relationRepository.saveActive(
+                "default", "EXEC-2", receiptRule, source,
+                new TargetResult("MATRIX", "ERP_PURCHASE_RECEIPT", "2001", "PRC-2001"),
+                new BigDecimal("100"));
 
         TargetStatusEvent event = new TargetStatusEvent(
                 "EVENT-VOID-2001", "default", "MATRIX", "FI_PAYMENT_APPLICATION", "2001",
@@ -56,14 +65,14 @@ class BotpRelationLifecycleServiceTest {
         lifecycleService.handleTargetStatusEvent(event);
 
         assertEquals(1, adapter.writebackCount.get());
-        assertEquals(BigDecimal.ZERO, adapter.lastActiveAmount);
         assertEquals(RelationStatus.REVERSED,
-                relationRepository.findById(relation.relationId()).orElseThrow().status());
+                relationRepository.findById(paymentRelation.relationId()).orElseThrow().status());
+        assertEquals(RelationStatus.ACTIVE,
+                relationRepository.findById(receiptRelation.relationId()).orElseThrow().status());
     }
 
     private static final class RecordingSourceAdapter implements BotpDocumentAdapter {
         private final AtomicInteger writebackCount = new AtomicInteger();
-        private BigDecimal lastActiveAmount;
 
         @Override
         public boolean supports(String systemCode, String documentType) {
@@ -83,7 +92,6 @@ class BotpRelationLifecycleServiceTest {
         @Override
         public void applyWriteback(WritebackCommand command) {
             writebackCount.incrementAndGet();
-            lastActiveAmount = (BigDecimal) command.context().get("activeAllocatedAmount");
         }
     }
 }

@@ -8,7 +8,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * Base Service 启动类
  */
 @SpringBootApplication(scanBasePackages = "single.cjj.bizfi")
-@MapperScan(basePackages = {"single.cjj.bizfi.mapper", "single.cjj.bizfi.ai.mapper", "single.cjj.bizfi.platform.mapper"}) // 扫描主业务、AI 与平台配置 Mapper
+@MapperScan(basePackages = {
+        "single.cjj.bizfi.mapper",
+        "single.cjj.bizfi.ai.mapper",
+        "single.cjj.bizfi.platform.mapper",
+        "single.cjj.bizfi.partner.mapper"
+}) // 扫描主业务、AI 与平台配置 Mapper
 public class BaseApplication {
 
     public static void main(String[] args) {

@@ -1,0 +1,95 @@
+server:
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: erp-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  config:
+    import: "optional:nacos:${spring.application.name}"
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${ERP_DB_URL:jdbc:mysql://117.72.216.168:3306/matrix_erp?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${ERP_DB_USERNAME:root}
+    password: ${ERP_DB_PASSWORD:}
+
+  # Must resolve to the SAME Redis instance and serialization scheme as auth-service.
+  # ERP sales authorization fails closed if this datastore is unavailable.
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:117.72.216.168:8848}
+        group: ${NACOS_GROUP:DEV_GROUP}
+        namespace: ${NACOS_NAMESPACE:public}
+      config:
+        server-addr: ${NACOS_ADDR:117.72.216.168:8848}
+        file-extension: yaml
+        group: ${NACOS_GROUP:DEV_GROUP}
+        namespace: ${NACOS_NAMESPACE:public}
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+      logic-delete-field: fdeleteFlag
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+erp:
+  fi-reconciliation:
+    base-url: ${ERP_FI_RECONCILIATION_BASE_URL:http://127.0.0.1:10003/api}
+    internal-token: ${FI_RECONCILIATION_INTERNAL_TOKEN:change-me-before-production}
+  business-event:
+    publisher:
+      enabled: ${ERP_BUSINESS_EVENT_PUBLISHER_ENABLED:true}
+      batch-size: ${ERP_BUSINESS_EVENT_BATCH_SIZE:100}
+      fixed-delay-ms: ${ERP_BUSINESS_EVENT_DELAY_MS:3000}
+      stale-claim-minutes: ${ERP_BUSINESS_EVENT_STALE_CLAIM_MINUTES:10}
+      required-routing-keys: ${ERP_BUSINESS_EVENT_REQUIRED_ROUTING_KEYS:biz.procurement.purchase_inbound.confirmed,biz.procurement.supplier_invoice.confirmed}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+# Disabled until schema 014, published Workflow definitions, HTTPS/mTLS gateway
+# and cross-service credentials are explicitly provisioned and E2E tested.
+matrix:
+  sales:
+    workflow:
+      enabled: ${MATRIX_SALES_WORKFLOW_ENABLED:false}
+      quote-definition: ${MATRIX_SALES_QUOTE_WORKFLOW_KEY:}
+      contract-definition: ${MATRIX_SALES_CONTRACT_WORKFLOW_KEY:}
+      start-url: ${MATRIX_SALES_WORKFLOW_START_URL:}
+      internal-secret: ${MATRIX_SALES_WORKFLOW_INTERNAL_SECRET:}
+      callback-secret: ${WORKFLOW_CALLBACK_SECRET:}
+      system-actor-id: ${MATRIX_SALES_WORKFLOW_SYSTEM_ACTOR_ID:0}
+      dispatch-delay-ms: ${MATRIX_SALES_WORKFLOW_DISPATCH_DELAY_MS:5000}

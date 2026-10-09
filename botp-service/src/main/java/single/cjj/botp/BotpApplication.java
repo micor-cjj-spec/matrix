@@ -7,7 +7,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @EnableScheduling
-@EnableFeignClients(basePackages = "single.cjj.botp.integration.fi")
+@EnableFeignClients(basePackages = "single.cjj.botp.integration")
 @MapperScan("single.cjj.botp.persistence.mapper")
 @SpringBootApplication(scanBasePackages = {"single.cjj.botp", "single.cjj.bizfi"})
 public class BotpApplication {

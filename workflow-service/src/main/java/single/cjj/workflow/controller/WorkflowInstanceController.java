@@ -33,6 +33,13 @@ public class WorkflowInstanceController {
     public ApiResponse<WorkflowContracts.InstanceResponse> start(
             @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody WorkflowContracts.StartWorkflowRequest request) {
+        // ERP sales starts are only accepted by the signed internal endpoint.
+        if ("MATRIX_ERP".equals(request.sourceSystem())
+                && ("SALES_QUOTE".equals(request.businessType())
+                    || "SALES_CONTRACT".equals(request.businessType()))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "ERP sales workflow requires internal authentication");
+        }
         return ApiResponse.success(workflowService.startWorkflow(request, idempotencyKey));
     }
 
