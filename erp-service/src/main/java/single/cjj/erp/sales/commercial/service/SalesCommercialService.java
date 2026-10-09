@@ -76,6 +76,9 @@ public class SalesCommercialService {
         if (opportunity == null || "LOST".equals(opportunity.getFstatus())) {
             throw new BizException("仅允许关联当前租户的有效商机");
         }
+        if (request.forgId() != null && !Objects.equals(opportunity.getForgId(), request.forgId())) {
+            throw new BizException("报价组织必须与商机组织一致");
+        }
         if (!Objects.equals(opportunity.getFbusinessPartnerId(), request.fbusinessPartnerId())) {
             throw new BizException("报价客户必须与商机客户一致");
         }
@@ -99,7 +102,7 @@ public class SalesCommercialService {
         }
         LocalDateTime now = LocalDateTime.now();
         SalesQuoteEntity q = new SalesQuoteEntity();
-        q.setFid(id); q.setFtenantId(tenant); q.setForgId(request.forgId());
+        q.setFid(id); q.setFtenantId(tenant); q.setForgId(opportunity.getForgId());
         q.setFnumber(no); q.setFdate(date);
         q.setFquoteType(type); q.setFtenderReference(blankToNull(request.ftenderReference()));
         q.setFopportunityId(opportunity.getFid());
