@@ -42,6 +42,7 @@ public class SalesCommercialController {
     @GetMapping("/quotes/{id}")
     public ApiResponse<QuoteDetail> quote(@RequestHeader("Authorization") String bearer,
             @PathVariable Long id, @RequestParam String tenantId) {
+        guard.authorizeTenant(bearer, tenantId, Permission.READ);
         QuoteDetail detail = service.quoteDetail(id, tenantId);
         guard.authorize(bearer, tenantId, detail.header().getForgId(), Permission.READ);
         return ApiResponse.success(detail);
@@ -50,6 +51,7 @@ public class SalesCommercialController {
     @PostMapping("/quotes/{id}/{action}")
     public ApiResponse<SalesQuoteEntity> changeQuote(@RequestHeader("Authorization") String bearer,
             @PathVariable Long id, @PathVariable String action, @RequestParam String tenantId) {
+        guard.authorizeTenant(bearer, tenantId, Permission.READ);
         SalesQuoteEntity existing = service.quoteDetail(id, tenantId).header();
         Permission required = switch (action) {
             case "submit", "send" -> Permission.WRITE;
@@ -63,6 +65,7 @@ public class SalesCommercialController {
     @PostMapping("/contracts")
     public ApiResponse<ContractDetail> createContract(@RequestHeader("Authorization") String bearer,
             @Valid @RequestBody CreateContract request) {
+        guard.authorizeTenant(bearer, request.ftenantId(), Permission.WRITE);
         QuoteDetail source = service.quoteDetail(request.fquoteId(), request.ftenantId());
         Long operator = guard.authorize(bearer, request.ftenantId(), source.header().getForgId(), Permission.WRITE);
         return ApiResponse.success(service.createContract(request, operator));
@@ -79,6 +82,7 @@ public class SalesCommercialController {
     @GetMapping("/contracts/{id}")
     public ApiResponse<ContractDetail> contract(@RequestHeader("Authorization") String bearer,
             @PathVariable Long id, @RequestParam String tenantId) {
+        guard.authorizeTenant(bearer, tenantId, Permission.READ);
         ContractDetail detail = service.contractDetail(id, tenantId);
         guard.authorize(bearer, tenantId, detail.header().getForgId(), Permission.READ);
         return ApiResponse.success(detail);
@@ -87,6 +91,7 @@ public class SalesCommercialController {
     @PostMapping("/contracts/{id}/{action}")
     public ApiResponse<SalesContractEntity> changeContract(@RequestHeader("Authorization") String bearer,
             @PathVariable Long id, @PathVariable String action, @RequestParam String tenantId) {
+        guard.authorizeTenant(bearer, tenantId, Permission.READ);
         SalesContractEntity existing = service.contractDetail(id, tenantId).header();
         Permission required = "submit".equals(action) ? Permission.WRITE : Permission.APPROVE;
         Long operator = guard.authorize(bearer, tenantId, existing.getForgId(), required);
