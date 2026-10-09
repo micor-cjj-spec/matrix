@@ -32,10 +32,12 @@ class SalesCommercialServiceTest {
     @Mock CrmOpportunityMapper opportunities;
     @Mock CustomerPartnerValidator customers;
     @Mock BusinessEventOutboxService outbox;
+    @Mock SalesCommercialActionAuditMapper audits;
 
     private SalesCommercialService service() {
+        lenient().when(audits.insert(any())).thenReturn(1);
         return new SalesCommercialService(quotes, quoteEntries, contracts,
-                contractEntries, opportunities, customers, outbox);
+                contractEntries, opportunities, customers, outbox, audits);
     }
 
     private SalesQuoteEntity quote(String status) {
@@ -191,6 +193,54 @@ class SalesCommercialServiceTest {
         verify(outbox).append(eq("T1"), eq(3L), eq("SALES"), eq("SALES_QUOTE_EXPIRED"),
                 eq("SALES_QUOTE"), eq(10L), anyLong(), eq("ERP_SALES_QUOTE"),
                 eq("SQ-10"), any(LocalDate.class), eq(7L), any());
+    }
+
+    @Test
+    void quoteApprovalRejectsTheOriginalCreator() {
+        SalesQuoteEntity q = quote("SUBMITTED");
+        q.setFcreateBy(7L);
+        when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(q);
+        assertThrows(BizException.class,
+                () -> service().transitionQuote(10L, "T1", "approve", 7L));
+        verify(quotes, never()).updateById(any());
+        verify(audits, never()).insert(any());
+    }
+
+    @Test
+    void contractApprovalRejectsTheOriginalCreator() {
+        SalesContractEntity c = new SalesContractEntity();
+        c.setFid(100L); c.setFtenantId("T1"); c.setForgId(3L);
+        c.setFstatus("DRAFT"); c.setFapprovalStatus("SUBMITTED");
+        c.setFcreateBy(7L);
+        when(contracts.selectByIdForUpdate(100L, "T1")).thenReturn(c);
+        assertThrows(BizException.class,
+                () -> service().transitionContract(100L, "T1", "approve", 7L));
+        verify(contracts, never()).updateById(any());
+        verify(audits, never()).insert(any());
+    }
+
+    @Test
+    void acceptedQuoteProducesAuditWithExactStateChangeAndActor() {
+        when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(quote("SENT"));
+        when(quotes.updateById(any())).thenReturn(1);
+        service().transitionQuote(10L, "T1", "accept", 7L);
+        verify(audits).insert(argThat(entry ->
+                "T1".equals(entry.getFtenantId()) && Long.valueOf(3L).equals(entry.getForgId())
+                        && "SALES_QUOTE".equals(entry.getFdocumentType())
+                        && "ACCEPT".equals(entry.getFaction())
+                        && "SENT".equals(entry.getFbeforeStatus())
+                        && "ACCEPTED".equals(entry.getFafterStatus())
+                        && Long.valueOf(7L).equals(entry.getFoperatorId())));
+    }
+
+    @Test
+    void auditFailureMustPreventSuccessfulTransition() {
+        SalesQuoteEntity q = quote("SUBMITTED");
+        when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(q);
+        when(quotes.updateById(any())).thenReturn(1);
+        when(audits.insert(any())).thenReturn(0);
+        assertThrows(BizException.class,
+                () -> service().transitionQuote(10L, "T1", "approve", 8L));
     }
 
     @Test
