@@ -48,7 +48,7 @@ class SalesCommercialServiceTest {
         q.setFstatus(status); q.setFvalidUntil(LocalDate.now().plusDays(10));
         q.setFcurrencyCode("CNY"); q.setFnetAmount(new BigDecimal("100.00"));
         q.setFtaxAmount(new BigDecimal("13.00")); q.setFgrossAmount(new BigDecimal("113.00"));
-        q.setFversion(0); return q;
+        q.setFversion(0); q.setFcreateBy(9L); return q;
     }
 
     private CrmOpportunityEntity opportunity() {
@@ -250,7 +250,7 @@ class SalesCommercialServiceTest {
         c.setFnumber("SC-100"); c.setFdate(LocalDate.now());
         c.setFquoteId(10L); c.setFbusinessPartnerId(30L);
         c.setFgrossAmount(new BigDecimal("113.00")); c.setFversion(0);
-        c.setFapprovalStatus("SUBMITTED"); c.setFstatus("DRAFT");
+        c.setFapprovalStatus("SUBMITTED"); c.setFstatus("DRAFT"); c.setFcreateBy(9L);
         when(contracts.selectByIdForUpdate(100L, "T1")).thenReturn(c);
         when(contracts.updateById(c)).thenReturn(1);
         SalesContractEntity result = service().transitionContract(100L, "T1", "approve", 7L);

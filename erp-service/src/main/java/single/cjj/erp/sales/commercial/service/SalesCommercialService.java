@@ -200,8 +200,8 @@ public class SalesCommercialService {
     public SalesQuoteEntity transitionQuote(Long id, String tenantId, String action, Long operator) {
         SalesQuoteEntity q = requireQuote(id, tenantId, true);
         String before = q.getFstatus();
-        if ("approve".equals(action) && operator != null
-                && Objects.equals(operator, q.getFcreateBy())) {
+        if ("approve".equals(action)
+                && (q.getFcreateBy() == null || Objects.equals(operator, q.getFcreateBy()))) {
             throw new BizException("审批人与报价制单人不能为同一人");
         }
         String next = switch (action) {
@@ -330,8 +330,8 @@ public class SalesCommercialService {
     public SalesContractEntity transitionContract(Long id, String tenantId, String action, Long operator) {
         SalesContractEntity c = requireContract(id, tenantId, true);
         String before = c.getFstatus() + "/" + c.getFapprovalStatus();
-        if ("approve".equals(action) && operator != null
-                && Objects.equals(operator, c.getFcreateBy())) {
+        if ("approve".equals(action)
+                && (c.getFcreateBy() == null || Objects.equals(operator, c.getFcreateBy()))) {
             throw new BizException("审批人与合同制单人不能为同一人");
         }
         switch (action) {
