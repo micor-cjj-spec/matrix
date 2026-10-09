@@ -1,6 +1,8 @@
 package single.cjj.erp.sales.commercial.security;
 
 import io.jsonwebtoken.Jwts;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
@@ -13,14 +15,19 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 import static single.cjj.erp.sales.commercial.security.SalesAccessGuard.Permission.*;
 
 class SalesAccessGuardTest {
     private static final String SECRET = "matrix-test-signing-key-32-bytes-minimum-only";
-    private final SalesAccessGuard guard = new SalesAccessGuard(SECRET);
+    @SuppressWarnings("unchecked")
+    private final RedisTemplate<String, String> sessions = mock(RedisTemplate.class);
+    @SuppressWarnings("unchecked")
+    private final ValueOperations<String, String> values = mock(ValueOperations.class);
+    private final SalesAccessGuard guard = new SalesAccessGuard(SECRET, sessions);
 
     private String bearer(String tenant, List<String> roles, List<Long> organizations) {
-        return "Bearer " + Jwts.builder()
+        String token = Jwts.builder()
                 .claim("id", 789L)
                 .claim("tenantId", tenant)
                 .claim("roles", roles)
@@ -29,6 +36,9 @@ class SalesAccessGuardTest {
                 .signWith(Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8)),
                         SignatureAlgorithm.HS256)
                 .compact();
+        when(sessions.opsForValue()).thenReturn(values);
+        when(values.get("token:" + token)).thenReturn("789");
+        return "Bearer " + token;
     }
 
     @Test
@@ -78,9 +88,27 @@ class SalesAccessGuardTest {
     }
 
     @Test
+    void invalidatedRedisSessionMustDenyPreviouslySignedJwtImmediately() {
+        String token = bearer("T1", List.of("SALES_EDITOR"), List.of(3L));
+        assertEquals(789L, guard.authorize(token, "T1", 3L, WRITE));
+        when(values.get("token:" + token.substring(7))).thenReturn(null);
+        assertEquals(HttpStatus.UNAUTHORIZED.value(), status(() ->
+                guard.authorize(token, "T1", 3L, WRITE)));
+    }
+
+    @Test
+    void authenticationStoreOutageMustNotFallBackToSignatureOnly() {
+        String token = bearer("T1", List.of("SALES_EDITOR"), List.of(3L));
+        when(values.get("token:" + token.substring(7)))
+                .thenThrow(new IllegalStateException("Redis unavailable"));
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), status(() ->
+                guard.authorize(token, "T1", 3L, READ)));
+    }
+
+    @Test
     void defaultSecretMustNotStartProtectedModule() {
-        assertThrows(IllegalStateException.class, () -> new SalesAccessGuard(""));
-        assertThrows(IllegalStateException.class, () -> new SalesAccessGuard("short"));
+        assertThrows(IllegalStateException.class, () -> new SalesAccessGuard("", sessions));
+        assertThrows(IllegalStateException.class, () -> new SalesAccessGuard("short", sessions));
     }
 
     private int status(Runnable code) {
