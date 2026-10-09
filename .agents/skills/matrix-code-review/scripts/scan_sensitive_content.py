@@ -96,6 +96,10 @@ def inspect(path: Path) -> list[Finding]:
     safe_markers = ("${", "#{", "<", "changeme", "example", "placeholder", "your_", "env:", "localhost")
     for match in assignment.finditer(text):
         value = match.group(2).lower()
+        # Dynamic Java/JS expressions (e.g. this.secret = signingSecret.getBytes(...))
+        # are variable references, not inline credentials. Quoted literals still match.
+        if "(" in value or ")" in value:
+            continue
         if any(marker in value for marker in safe_markers):
             continue
         findings.append(
