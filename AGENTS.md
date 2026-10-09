@@ -35,7 +35,7 @@ For ongoing development, follow this loop unless the user explicitly narrows or 
 
 1. Before starting new work, check both `matrix` and `matrix-web` for uncommitted changes and unpushed commits.
 2. If there are relevant pending project changes, stage only the intended files, commit them, push to `dev`, then ask `openclaw` in Feishu to pull the `dev` branch, deploy, and restart.
-3. Test the deployed site at `https://micor.top/` with the test account `19106026235` / `123456`.
+3. Test the deployment using E2E_USERNAME / E2E_PASSWORD supplied from protected CI secrets or a local untracked environment file. Never commit usernames, passwords or bearer tokens. Rotate any credential previously disclosed in repository history.
 4. If bugs are found on the deployed site, fix bugs first before proposing or developing new features.
 5. After the site is stable, propose the next requirement from the project vision, then execute the standard requirement flow: draft -> business docs -> prompts -> code + deliverables.
 6. After development, commit and push to `dev`, message `openclaw` in Feishu to deploy/restart, test `https://micor.top/` again, and repeat the loop.

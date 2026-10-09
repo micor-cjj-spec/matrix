@@ -3,6 +3,7 @@ package single.cjj.erp.controller;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -28,9 +29,17 @@ public class ErpExceptionHandler {
                 .body(ApiResponse.error(message));
     }
 
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccess(ResponseStatusException exception) {
+        return ResponseEntity.status(exception.getStatusCode())
+                .body(ApiResponse.error(exception.getStatusCode().value(),
+                        exception.getReason() == null ? "请求被拒绝" : exception.getReason()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleUnexpected(Exception exception) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error(500, "服务器错误"));
     }
 }
+

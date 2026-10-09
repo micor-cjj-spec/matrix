@@ -3,6 +3,7 @@ package single.cjj.bizfi.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
@@ -17,6 +18,8 @@ import single.cjj.bizfi.entity.BizfiAuthLogin;
 import single.cjj.bizfi.entity.BizfiBaseUser;
 import single.cjj.bizfi.exception.BizException;
 import single.cjj.bizfi.mapper.BizfiAuthLoginMapper;
+import single.cjj.bizfi.mapper.SalesRoleGrantMapper;
+import single.cjj.bizfi.security.SalesAclRevision;
 import single.cjj.bizfi.service.BizfiAuthLoginService;
 import single.cjj.bizfi.utils.EmailUtils;
 import single.cjj.bizfi.utils.JwtUtils;
@@ -24,6 +27,8 @@ import single.cjj.bizfi.utils.JwtUtils;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.Set;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -47,6 +52,22 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
 
     @Autowired
     private EmailUtils emailUtils;
+
+    @Autowired
+    private SalesRoleGrantMapper salesRoleGrantMapper;
+
+    @Autowired
+    private SalesAclRevision salesAclRevision;
+
+    @Value("${matrix.sales-auth.issuer-enabled:false}")
+    private boolean salesRoleIssuerEnabled;
+
+    @Value("${matrix.sales-auth.tenant-id:default}")
+    private String salesRoleTenantId;
+
+    private static final Set<String> VALID_SALES_ROLES = Set.of(
+            "SALES_VIEWER", "SALES_EDITOR", "SALES_APPROVER", "SALES_ADMIN");
+
 
     /**
      * 账号密码登录（支持工号、邮箱、手机号作为账号），含验证码校验
@@ -310,12 +331,35 @@ public class BizfiAuthLoginServiceImpl implements BizfiAuthLoginService {
     }
 
     private String issueToken(BizfiBaseUser user) {
-        return JwtUtils.generateToken(
-                user.getFid(),
-                user.getFid(),
-                user.getFtid(),
-                user.getFdptid()
-        );
+        if (!salesRoleIssuerEnabled) {
+            // Preserve existing login until role migration is deployed and verified.
+            return JwtUtils.generateToken(user.getFid(), user.getFid(),
+                    user.getFtid(), user.getFdptid());
+        }
+        if (!StringUtils.hasText(salesRoleTenantId)) {
+            throw new IllegalStateException("matrix.sales-auth.tenant-id is mandatory when issuer is enabled");
+        }
+        Long orgId = user.getFtid();
+        // No sales role when the user has no organization or no authorized grant.
+        if (orgId == null || orgId <= 0) {
+            return JwtUtils.generateToken(user.getFid(), user.getFid(),
+                    null, user.getFdptid(), salesRoleTenantId, List.of());
+        }
+        long revisionBefore = salesAclRevision.currentOrCreate(salesRoleTenantId, orgId, user.getFid());
+        if (revisionBefore % 2 != 0) {
+            throw new IllegalStateException("Sales role authorization is being updated");
+        }
+        List<String> roles = salesRoleGrantMapper.activeRoles(user.getFid(), salesRoleTenantId, orgId);
+        if (roles == null) roles = List.of();
+        long revisionAfter = salesAclRevision.current(salesRoleTenantId, orgId, user.getFid());
+        if (revisionAfter != revisionBefore || revisionAfter % 2 != 0) {
+            throw new IllegalStateException("Sales role authorization changed during login; retry");
+        }
+        List<String> trusted = roles.stream().filter(VALID_SALES_ROLES::contains)
+                .distinct().sorted().toList();
+        return JwtUtils.generateToken(user.getFid(), user.getFid(),
+                orgId, user.getFdptid(), salesRoleTenantId, trusted,
+                trusted.isEmpty() ? null : revisionAfter);
     }
 
     private String loginFailKey(String account) {

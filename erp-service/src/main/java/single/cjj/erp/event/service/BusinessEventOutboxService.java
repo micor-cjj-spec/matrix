@@ -96,6 +96,15 @@ public class BusinessEventOutboxService {
     }
 
     private String routingKey(String domainCode, String eventType) {
+        if ("SALES".equalsIgnoreCase(domainCode)) {
+            return switch (eventType) {
+                case "SALES_QUOTE_ACCEPTED" -> "biz.sales.quote.accepted";
+                case "SALES_CONTRACT_EFFECTIVE" -> "biz.sales.contract.effective";
+                case "SALES_QUOTE_CANCELLED" -> "biz.sales.quote.cancelled";
+                case "SALES_QUOTE_EXPIRED" -> "biz.sales.quote.expired";
+                default -> "biz.sales.event";
+            };
+        }
         if ("CRM".equalsIgnoreCase(domainCode)) {
             return switch (eventType) {
                 case "CRM_LEAD_QUALIFIED" -> "biz.crm.lead.qualified";
