@@ -163,6 +163,47 @@ class WorkflowServiceLifecycleTest {
     }
 
     @Test
+    void salesWorkflowCannotUseGenericCancelApi() {
+        WorkflowRepository.InstanceRow sales = new WorkflowRepository.InstanceRow(
+                "sales-instance", "tenant-1", "sales_contract_v1", 1,
+                "MATRIX_ERP", "SALES_CONTRACT", "100",
+                "MATRIX_ERP:SALES_CONTRACT:100", "ERP-SALES-tenant-1-SALES_CONTRACT-100",
+                "initiator-1", "review", "RUNNING",
+                "{\"organizationId\":\"3\"}", null, 0, LocalDateTime.now(), null);
+        when(repository.findInstance("sales-instance")).thenReturn(Optional.of(sales));
+        org.junit.jupiter.api.Assertions.assertThrows(single.cjj.bizfi.exception.BizException.class,
+                () -> workflowService.cancelInstance("sales-instance",
+                        new WorkflowContracts.CancelInstanceRequest("initiator-1","cancel"),
+                        "sales-cancel"));
+        org.mockito.Mockito.verify(repository,org.mockito.Mockito.never())
+                .cancelInstance(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyInt(),org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void salesWorkflowCannotReturnTaskUntilErpResubmitIntegrationExists() {
+        WorkflowRepository.TaskRow task=task("return-sales","sales-instance",
+                "node-1","review","reviewer-1","PENDING",0);
+        WorkflowRepository.InstanceRow sales = new WorkflowRepository.InstanceRow(
+                "sales-instance", "tenant-1", "sales_quote_v1", 1,
+                "MATRIX_ERP", "SALES_QUOTE", "100",
+                "MATRIX_ERP:SALES_QUOTE:100", "ERP-SALES-tenant-1-SALES_QUOTE-100",
+                "initiator-1", "review", "RUNNING",
+                "{\"organizationId\":\"3\"}", null, 0, LocalDateTime.now(), null);
+        when(repository.findTask("return-sales")).thenReturn(Optional.of(task));
+        when(repository.findInstance("sales-instance")).thenReturn(Optional.of(sales));
+        org.junit.jupiter.api.Assertions.assertThrows(single.cjj.bizfi.exception.BizException.class,
+                () -> workflowService.actOnTask("return-sales",
+                        new WorkflowContracts.TaskActionRequest(
+                                WorkflowContracts.TaskAction.RETURN_TO_INITIATOR,"reviewer-1",
+                                "return",Map.of()),"sales-return"));
+        org.mockito.Mockito.verify(repository,org.mockito.Mockito.never())
+                .completeTask(org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
     void initiatorCanCancelRunningInstance() {
         WorkflowRepository.InstanceRow running = instance(
                 "instance-1", "RUNNING", "firstReview", "{}", 3
