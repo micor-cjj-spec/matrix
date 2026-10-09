@@ -238,9 +238,10 @@ class SalesCommercialServiceTest {
         SalesQuoteEntity q = quote("SUBMITTED");
         when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(q);
         when(quotes.updateById(any())).thenReturn(1);
+        SalesCommercialService target = service();
         when(audits.insert(any())).thenReturn(0);
         assertThrows(BizException.class,
-                () -> service().transitionQuote(10L, "T1", "approve", 8L));
+                () -> target.transitionQuote(10L, "T1", "approve", 8L));
     }
 
     @Test
