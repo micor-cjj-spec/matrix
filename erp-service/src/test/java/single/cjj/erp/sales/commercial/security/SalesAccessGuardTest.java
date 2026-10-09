@@ -81,7 +81,7 @@ class SalesAccessGuardTest {
     @Test
     void legacyRolelessJwtIsFailClosedForAllSalesPermissions() {
         String token = bearer("default", List.of(), List.of(3L));
-        assertEquals(HttpStatus.FORBIDDEN.value(), status(() ->
+        assertEquals(HttpStatus.UNAUTHORIZED.value(), status(() ->
                 guard.authorize(token, "default", 3L, READ)));
     }
 
