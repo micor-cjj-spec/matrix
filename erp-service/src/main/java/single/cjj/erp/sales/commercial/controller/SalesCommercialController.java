@@ -30,6 +30,15 @@ public class SalesCommercialController {
         return ApiResponse.success(service.createQuote(request, operator));
     }
 
+    @PutMapping("/quotes/{id}")
+    public ApiResponse<QuoteDetail> updateQuote(@RequestHeader(value = "Authorization", required = false) String bearer,
+            @PathVariable Long id, @Valid @RequestBody UpdateQuote request) {
+        guard.authorizeTenant(bearer, request.ftenantId(), Permission.WRITE);
+        QuoteDetail existing = service.quoteDetail(id, request.ftenantId());
+        Long operator = guard.authorize(bearer, request.ftenantId(), existing.header().getForgId(), Permission.WRITE);
+        return ApiResponse.success(service.updateQuote(id, request, operator));
+    }
+
     @GetMapping("/quotes")
     public ApiResponse<IPage<SalesQuoteEntity>> quotes(@RequestHeader(value = "Authorization", required = false) String bearer,
             @RequestParam String tenantId, @RequestParam Long orgId,
@@ -54,7 +63,7 @@ public class SalesCommercialController {
         guard.authorizeTenant(bearer, tenantId, Permission.READ);
         SalesQuoteEntity existing = service.quoteDetail(id, tenantId).header();
         Permission required = switch (action) {
-            case "submit", "send" -> Permission.WRITE;
+            case "submit", "send", "withdraw", "cancel", "expire" -> Permission.WRITE;
             case "approve", "accept", "reject" -> Permission.APPROVE;
             default -> Permission.APPROVE;
         };
@@ -98,4 +107,3 @@ public class SalesCommercialController {
         return ApiResponse.success(service.transitionContract(id, tenantId, action, operator));
     }
 }
-

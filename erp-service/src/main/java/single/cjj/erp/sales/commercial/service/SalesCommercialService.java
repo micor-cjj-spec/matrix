@@ -118,9 +118,26 @@ public class SalesCommercialService {
         q.setFcreateTime(now); q.setFmodifyTime(now);
         q.setFdeleteFlag(0); q.setFversion(0);
 
+        CalculatedQuoteLines calculation = calculateQuoteLines(id, tenant, request.entries(), now);
+        List<SalesQuoteEntryEntity> lines = calculation.entries();
+        BigDecimal net = calculation.net(), tax = calculation.tax();
+        q.setFnetAmount(net); q.setFtaxAmount(tax); q.setFgrossAmount(net.add(tax));
+        one(quotes.insert(q), "销售报价");
+        for (SalesQuoteEntryEntity e : lines) one(quoteEntries.insert(e), "销售报价明细");
+        return new QuoteDetail(q, lines);
+    }
+
+    private record CalculatedQuoteLines(List<SalesQuoteEntryEntity> entries,
+                                        BigDecimal net, BigDecimal tax) {}
+
+    private CalculatedQuoteLines calculateQuoteLines(Long quoteId, String tenant,
+                                                      List<QuoteLine> requested, LocalDateTime now) {
+        if (requested == null || requested.isEmpty() || requested.size() > 100) {
+            throw new BizException("报价明细必须包含 1-100 行");
+        }
         List<SalesQuoteEntryEntity> lines = new ArrayList<>();
         BigDecimal net = BigDecimal.ZERO, tax = BigDecimal.ZERO;
-        for (QuoteLine line : request.entries()) {
+        for (QuoteLine line : requested) {
             if (line == null || !StringUtils.hasText(line.fdescription()) || line.fquantity() == null
                     || line.fquantity().signum() <= 0 || line.funitPrice() == null
                     || line.funitPrice().signum() < 0 || line.ftaxRate() == null
@@ -128,7 +145,7 @@ public class SalesCommercialService {
                 throw new BizException("报价明细数量、价格或税率不合法");
             }
             SalesQuoteEntryEntity e = new SalesQuoteEntryEntity();
-            e.setFid(IdWorker.getId()); e.setFtenantId(tenant); e.setFquoteId(id);
+            e.setFid(IdWorker.getId()); e.setFtenantId(tenant); e.setFquoteId(quoteId);
             e.setFlineNo(lines.size() + 1); e.setFmaterialCode(blankToNull(line.fmaterialCode()));
             e.setFdescription(line.fdescription().trim());
             e.setFquantity(line.fquantity()); e.setFunitPrice(line.funitPrice());
@@ -139,10 +156,37 @@ public class SalesCommercialService {
             e.setFcreateTime(now); e.setFdeleteFlag(0);
             net = net.add(e.getFnetAmount()); tax = tax.add(e.getFtaxAmount()); lines.add(e);
         }
-        q.setFnetAmount(net); q.setFtaxAmount(tax); q.setFgrossAmount(net.add(tax));
-        one(quotes.insert(q), "销售报价");
-        for (SalesQuoteEntryEntity e : lines) one(quoteEntries.insert(e), "销售报价明细");
-        return new QuoteDetail(q, lines);
+        return new CalculatedQuoteLines(lines, net, tax);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public QuoteDetail updateQuote(Long id, UpdateQuote request, Long operator) {
+        String tenant = tenant(request.ftenantId());
+        SalesQuoteEntity q = requireQuote(id, tenant, true);
+        if (!"DRAFT".equals(q.getFstatus())) {
+            throw new BizException("只有 DRAFT 报价可以修改");
+        }
+        if (request.fvalidUntil().isBefore(LocalDate.now())) {
+            throw new BizException("报价有效期不得早于当前日期");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        CalculatedQuoteLines calc = calculateQuoteLines(id, tenant, request.entries(), now);
+        q.setFvalidUntil(request.fvalidUntil());
+        q.setFdeliveryTermCode(blankToNull(request.fdeliveryTermCode()));
+        q.setFpaymentTermCode(blankToNull(request.fpaymentTermCode()));
+        q.setFnetAmount(calc.net());
+        q.setFtaxAmount(calc.tax());
+        q.setFgrossAmount(calc.net().add(calc.tax()));
+        q.setFmodifyBy(operator);
+        q.setFmodifyTime(now);
+        one(quotes.updateById(q), "销售报价");
+        // Draft lines have no downstream references. Physically replace them to
+        // avoid collision with the existing unique (tenant, quote, lineNo) index.
+        quoteEntries.deleteDraftEntries(id, tenant);
+        for (SalesQuoteEntryEntity e : calc.entries()) {
+            one(quoteEntries.insert(e), "报价明细");
+        }
+        return new QuoteDetail(q, calc.entries());
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -154,9 +198,18 @@ public class SalesCommercialService {
             case "send" -> next(q.getFstatus(), "APPROVED", "SENT");
             case "accept" -> next(q.getFstatus(), "SENT", "ACCEPTED");
             case "reject" -> next(q.getFstatus(), "SENT", "REJECTED");
+            case "withdraw" -> next(q.getFstatus(), "SUBMITTED", "DRAFT");
+            case "cancel" -> next(q.getFstatus(), "DRAFT", "CANCELLED");
+            case "expire" -> {
+                if (!"SENT".equals(q.getFstatus()) || !q.getFvalidUntil().isBefore(LocalDate.now())) {
+                    throw new BizException("只有已过有效期的 SENT 报价允许标记过期");
+                }
+                yield "EXPIRED";
+            }
             default -> throw new BizException("不支持的报价动作");
         };
-        if ("ACCEPTED".equals(next) && q.getFvalidUntil().isBefore(LocalDate.now())) {
+        if (Set.of("SENT", "ACCEPTED").contains(next)
+                && q.getFvalidUntil().isBefore(LocalDate.now())) {
             throw new BizException("报价已过期，不能接受");
         }
         q.setFstatus(next); q.setFmodifyBy(operator); q.setFmodifyTime(LocalDateTime.now());
@@ -170,6 +223,13 @@ public class SalesCommercialService {
                     "ERP_SALES_QUOTE", q.getFnumber(), q.getFdate(), operator,
                     Map.of("quoteId", q.getFid(), "opportunityId", q.getFopportunityId(),
                             "businessPartnerId", q.getFbusinessPartnerId(), "grossAmount", q.getFgrossAmount()));
+        }
+        if ("CANCELLED".equals(next) || "EXPIRED".equals(next)) {
+            outbox.append(q.getFtenantId(), q.getForgId(), "SALES",
+                    "CANCELLED".equals(next) ? "SALES_QUOTE_CANCELLED" : "SALES_QUOTE_EXPIRED",
+                    "SALES_QUOTE", q.getFid(), version(q.getFversion()),
+                    "ERP_SALES_QUOTE", q.getFnumber(), q.getFdate(), operator,
+                    Map.of("quoteId", q.getFid(), "status", next, "businessPartnerId", q.getFbusinessPartnerId()));
         }
         return q;
     }
@@ -310,4 +370,3 @@ public class SalesCommercialService {
         return prefix + d.format(DateTimeFormatter.BASIC_ISO_DATE) + "-" + raw.substring(Math.max(0, raw.length()-8));
     }
 }
-

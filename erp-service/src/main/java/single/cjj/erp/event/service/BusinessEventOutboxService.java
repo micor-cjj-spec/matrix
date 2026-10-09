@@ -100,6 +100,8 @@ public class BusinessEventOutboxService {
             return switch (eventType) {
                 case "SALES_QUOTE_ACCEPTED" -> "biz.sales.quote.accepted";
                 case "SALES_CONTRACT_EFFECTIVE" -> "biz.sales.contract.effective";
+                case "SALES_QUOTE_CANCELLED" -> "biz.sales.quote.cancelled";
+                case "SALES_QUOTE_EXPIRED" -> "biz.sales.quote.expired";
                 default -> "biz.sales.event";
             };
         }

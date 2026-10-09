@@ -31,6 +31,13 @@ public final class SalesCommercialContracts {
             String fpaymentTermCode,
             @NotEmpty List<@Valid QuoteLine> entries) {}
 
+    public record UpdateQuote(
+            @NotBlank String ftenantId,
+            @NotNull LocalDate fvalidUntil,
+            String fdeliveryTermCode,
+            String fpaymentTermCode,
+            @NotEmpty List<@Valid QuoteLine> entries) {}
+
     public record CreateContract(
             @NotBlank String ftenantId,
             String fnumber,
@@ -42,4 +49,3 @@ public final class SalesCommercialContracts {
     public record QuoteDetail(SalesQuoteEntity header, List<SalesQuoteEntryEntity> entries) {}
     public record ContractDetail(SalesContractEntity header, List<SalesContractEntryEntity> entries) {}
 }
-
