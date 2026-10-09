@@ -7,6 +7,9 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
@@ -28,8 +31,11 @@ public class SalesAccessGuard {
             Set.of("SALES_APPROVER", "SALES_ADMIN", "ADMIN");
 
     private final Key verificationKey;
+    private final RedisTemplate<String, String> loginSessions;
 
-    public SalesAccessGuard(@Value("${security.jwt.secret:}") String secret) {
+    public SalesAccessGuard(@Value("${security.jwt.secret:}") String secret,
+                            RedisTemplate<String, String> loginSessions) {
+        this.loginSessions = loginSessions;
         if (!StringUtils.hasText(secret) || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalStateException(
                     "Sales APIs require security.jwt.secret with at least 32 bytes matching auth-service");
@@ -68,6 +74,20 @@ public class SalesAccessGuard {
             if (userId <= 0) throw new NumberFormatException();
         } catch (NumberFormatException ex) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "令牌缺少用户身份");
+        }
+
+        // Auth-service stores only currently live tokens. Checking this on every
+        // request also makes explicit session invalidation effective immediately.
+        // Redis outage must fail closed, not fall back to accepting a signed JWT.
+        try {
+            String activeUserId = loginSessions.opsForValue().get("token:" + bearer.substring(7));
+            if (!userId.toString().equals(activeUserId)) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "登录会话已失效");
+            }
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "认证会话服务暂不可用");
         }
 
         String trustedTenant = String.valueOf(claims.getOrDefault("tenantId", "default"));
@@ -115,4 +135,5 @@ public class SalesAccessGuard {
         }
     }
 }
+
 

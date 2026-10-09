@@ -39,6 +39,13 @@ public class JwtUtils {
             Long organizationId,
             Long departmentId
     ) {
+        return generateToken(userId, username, organizationId, departmentId, null, List.of());
+    }
+
+    public static String generateToken(
+            Long userId, Long username, Long organizationId, Long departmentId,
+            String tenantId, List<String> grantedSalesRoles
+    ) {
         JwtBuilder builder = Jwts.builder()
                 .claim("id", userId)
                 .claim("username", username);
@@ -48,6 +55,13 @@ public class JwtUtils {
         }
         if (departmentId != null && departmentId > 0) {
             builder.claim("departmentIds", List.of(departmentId));
+        }
+
+        if (StringUtils.hasText(tenantId)) {
+            builder.claim("tenantId", tenantId);
+        }
+        if (grantedSalesRoles != null && !grantedSalesRoles.isEmpty()) {
+            builder.claim("roles", grantedSalesRoles);
         }
 
         return builder
@@ -90,3 +104,4 @@ public class JwtUtils {
         return key;
     }
 }
+
