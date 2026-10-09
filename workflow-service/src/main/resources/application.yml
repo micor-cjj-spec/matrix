@@ -34,9 +34,6 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 workflow:
-  sales-internal:
-    signing-secret: ${MATRIX_SALES_WORKFLOW_INTERNAL_SECRET:}
-    callback-url: ${MATRIX_SALES_WORKFLOW_CALLBACK_URL:}
   callback:
     signing-secret: ${WORKFLOW_CALLBACK_SECRET:change-me-in-production}
   attachment:
