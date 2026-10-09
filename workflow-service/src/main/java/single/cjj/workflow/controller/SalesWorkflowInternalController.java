@@ -34,11 +34,13 @@ public class SalesWorkflowInternalController {
     public SalesWorkflowInternalController(
             WorkflowService workflowService, ObjectMapper objectMapper,
             @Value("${workflow.sales-internal.signing-secret:}") String signingSecret,
-            @Value("${workflow.sales-internal.callback-url:}") String callbackUrl) {
+            @Value("${workflow.sales-internal.callback-url:}") String callbackUrl,
+            @Value("${workflow.callback.signing-secret:}") String callbackSecret) {
         if (!StringUtils.hasText(signingSecret)
                 || signingSecret.getBytes(StandardCharsets.UTF_8).length < 32
                 || !StringUtils.hasText(callbackUrl)
-                || !callbackUrl.startsWith("https://")) {
+                || !callbackUrl.startsWith("https://")
+                || callbackSecret.getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalStateException("ERP sales workflow requires signing secret and HTTPS callback URL");
         }
         this.workflowService = workflowService;

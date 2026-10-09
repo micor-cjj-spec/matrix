@@ -64,6 +64,7 @@ public class SalesWorkflowTaskGuard {
         }
         if(!operator.toString().equals(requestedOperator)
                 || !instance.tenantId().equals(claims.get("tenantId"))
+                || instance.variables()==null
                 || !orgId.toString().equals(String.valueOf(instance.variables().get("organizationId")))
                 || operator.toString().equals(instance.initiatorId())){
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Sales workflow actor scope invalid");

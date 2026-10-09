@@ -49,6 +49,11 @@ public class SalesWorkflowCallbackHandler {
                         String.valueOf(event.variables().get("organizationId")))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Workflow callback does not match bound document");
         }
+        if (!("INSTANCE_COMPLETED".equals(eventType) && "COMPLETED".equals(event.status()))
+                && !("INSTANCE_REJECTED".equals(eventType) && "REJECTED".equals(event.status()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Workflow event and instance status disagree");
+        }
         String next="INSTANCE_COMPLETED".equals(eventType)?"APPROVED":"REJECTED";
         if(!"ACTIVE".equals(link.getFstatus())) {
             if(next.equals(link.getFstatus()) && eventId.equals(link.getFprocessedEventId()))return;
