@@ -11,6 +11,7 @@ import single.cjj.erp.sales.commercial.entity.SalesQuoteEntity;
 import single.cjj.erp.sales.commercial.security.SalesAccessGuard;
 import single.cjj.erp.sales.commercial.security.SalesAccessGuard.Permission;
 import single.cjj.erp.sales.commercial.service.SalesCommercialService;
+import single.cjj.erp.sales.commercial.workflow.SalesWorkflowCoordinator;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,9 +25,10 @@ import static org.mockito.Mockito.*;
 class SalesCommercialControllerTest {
     @Mock SalesCommercialService service;
     @Mock SalesAccessGuard guard;
+    @Mock SalesWorkflowCoordinator workflow;
 
     private SalesCommercialController controller() {
-        return new SalesCommercialController(service, guard);
+        return new SalesCommercialController(service, guard, workflow);
     }
 
     private CreateQuote createQuote() {

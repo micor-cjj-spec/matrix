@@ -14,6 +14,7 @@ import single.cjj.erp.integration.base.BaseBusinessPartnerContracts.BusinessPart
 import single.cjj.erp.sales.commercial.dto.SalesCommercialContracts.*;
 import single.cjj.erp.sales.commercial.entity.*;
 import single.cjj.erp.sales.commercial.mapper.*;
+import single.cjj.erp.sales.commercial.workflow.SalesWorkflowCoordinator;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -33,11 +34,12 @@ class SalesCommercialServiceTest {
     @Mock CustomerPartnerValidator customers;
     @Mock BusinessEventOutboxService outbox;
     @Mock SalesCommercialActionAuditMapper audits;
+    @Mock SalesWorkflowCoordinator workflow;
 
     private SalesCommercialService service() {
         lenient().when(audits.insert(any())).thenReturn(1);
         return new SalesCommercialService(quotes, quoteEntries, contracts,
-                contractEntries, opportunities, customers, outbox, audits);
+                contractEntries, opportunities, customers, outbox, audits, workflow);
     }
 
     private SalesQuoteEntity quote(String status) {
