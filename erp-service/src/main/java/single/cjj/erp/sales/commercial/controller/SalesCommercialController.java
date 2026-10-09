@@ -1,6 +1,7 @@
 package single.cjj.erp.sales.commercial.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
@@ -9,6 +10,7 @@ import single.cjj.erp.sales.commercial.entity.*;
 import single.cjj.erp.sales.commercial.service.SalesCommercialService;
 
 @RestController
+@ConditionalOnProperty(prefix = "matrix.sales", name = "commercial-enabled", havingValue = "true", matchIfMissing = false)
 @RequestMapping("/sales")
 public class SalesCommercialController {
     private final SalesCommercialService service;
