@@ -29,6 +29,9 @@ CREATE TABLE IF NOT EXISTS matrix_auth_sales_role_grant_audit (
     faction VARCHAR(16) NOT NULL,
     foperator_id BIGINT NOT NULL,
     fcreate_time DATETIME NOT NULL,
+    fmodify_time DATETIME NULL,
+    fdelete_flag TINYINT NOT NULL DEFAULT 0,
+    fversion INT NOT NULL DEFAULT 0,
     PRIMARY KEY (fid),
     KEY idx_sales_grant_audit_user (ftenant_id, forg_id, fuser_id, fcreate_time)
 ) COMMENT='销售角色授权变更不可变审计';
