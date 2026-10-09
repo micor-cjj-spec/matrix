@@ -188,6 +188,14 @@ public class WorkflowService {
         if (!INSTANCE_RUNNING.equals(instance.status())) {
             throw new BizException("流程实例不在运行中");
         }
+        // Sales documents require maker-checker separation at the actual task
+        // execution layer; an ERP callback's system operator is not the reviewer.
+        if ("MATRIX_ERP".equals(instance.sourceSystem())
+                && Set.of("SALES_QUOTE", "SALES_CONTRACT").contains(instance.businessType())
+                && instance.initiatorId().equals(request.operatorId())
+                && request.action() == WorkflowContracts.TaskAction.APPROVE) {
+            throw new BizException("销售流程发起人不得审批本人单据");
+        }
 
         WorkflowRepository.DefinitionVersionRow definitionRow = repository
                 .findDefinition(instance.tenantId(), instance.definitionKey(), instance.definitionVersion())
