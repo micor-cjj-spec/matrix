@@ -202,7 +202,7 @@ public class SalesCommercialService {
 
     @Transactional(rollbackFor = Exception.class)
     public SalesQuoteEntity transitionQuote(Long id, String tenantId, String action, Long operator) {
-        if ("workflowReject".equals(action) || (workflow.enabled() && "approve".equals(action))) {
+        if ("workflowReject".equals(action) || "approve".equals(action)) {
             throw new BizException("流程审批结果只能由 Workflow 可信回调写入");
         }
         if (workflow.enabled() && "withdraw".equals(action)) {
@@ -354,7 +354,7 @@ public class SalesCommercialService {
 
     @Transactional(rollbackFor = Exception.class)
     public SalesContractEntity transitionContract(Long id, String tenantId, String action, Long operator) {
-        if ("workflowReject".equals(action) || (workflow.enabled() && "approve".equals(action))) {
+        if ("workflowReject".equals(action) || "approve".equals(action)) {
             throw new BizException("流程审批结果只能由 Workflow 可信回调写入");
         }
         return transitionContractInternal(id, tenantId, action, operator);

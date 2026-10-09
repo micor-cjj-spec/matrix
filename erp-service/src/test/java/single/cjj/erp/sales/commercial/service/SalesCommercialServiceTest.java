@@ -38,6 +38,7 @@ class SalesCommercialServiceTest {
 
     private SalesCommercialService service() {
         lenient().when(audits.insert(any())).thenReturn(1);
+        lenient().when(workflow.enabled()).thenReturn(true);
         return new SalesCommercialService(quotes, quoteEntries, contracts,
                 contractEntries, opportunities, customers, outbox, audits, workflow);
     }
@@ -176,8 +177,10 @@ class SalesCommercialServiceTest {
         SalesQuoteEntity q = quote("SUBMITTED");
         when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(q);
         when(quotes.updateById(q)).thenReturn(1);
-        assertThrows(BizException.class, () -> service().transitionQuote(10L, "T1", "accept", 7L));
-        assertEquals("DRAFT", service().transitionQuote(10L, "T1", "withdraw", 7L).getFstatus());
+        SalesCommercialService target=service();
+        when(workflow.enabled()).thenReturn(false);
+        assertThrows(BizException.class, () -> target.transitionQuote(10L, "T1", "accept", 7L));
+        assertEquals("DRAFT", target.transitionQuote(10L, "T1", "withdraw", 7L).getFstatus());
         verifyNoInteractions(outbox);
     }
 
@@ -203,7 +206,7 @@ class SalesCommercialServiceTest {
         q.setFcreateBy(7L);
         when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(q);
         assertThrows(BizException.class,
-                () -> service().transitionQuote(10L, "T1", "approve", 7L));
+                () -> service().transitionQuoteFromWorkflow(10L, "T1", true, 7L));
         verify(quotes, never()).updateById(any());
         verify(audits, never()).insert(any());
     }
@@ -216,7 +219,7 @@ class SalesCommercialServiceTest {
         c.setFcreateBy(7L);
         when(contracts.selectByIdForUpdate(100L, "T1")).thenReturn(c);
         assertThrows(BizException.class,
-                () -> service().transitionContract(100L, "T1", "approve", 7L));
+                () -> service().transitionContractFromWorkflow(100L, "T1", true, 7L));
         verify(contracts, never()).updateById(any());
         verify(audits, never()).insert(any());
     }
@@ -243,7 +246,7 @@ class SalesCommercialServiceTest {
         SalesCommercialService target = service();
         when(audits.insert(any())).thenReturn(0);
         assertThrows(BizException.class,
-                () -> target.transitionQuote(10L, "T1", "approve", 8L));
+                () -> target.transitionQuoteFromWorkflow(10L, "T1", true, 8L));
     }
 
     @Test
@@ -256,7 +259,7 @@ class SalesCommercialServiceTest {
         c.setFapprovalStatus("SUBMITTED"); c.setFstatus("DRAFT"); c.setFcreateBy(9L);
         when(contracts.selectByIdForUpdate(100L, "T1")).thenReturn(c);
         when(contracts.updateById(c)).thenReturn(1);
-        SalesContractEntity result = service().transitionContract(100L, "T1", "approve", 7L);
+        SalesContractEntity result = service().transitionContractFromWorkflow(100L, "T1", true, 7L);
         assertEquals("EFFECTIVE", result.getFstatus());
         assertEquals("APPROVED", result.getFapprovalStatus());
         verify(outbox).append(eq("T1"), eq(3L), eq("SALES"), eq("SALES_CONTRACT_EFFECTIVE"),
