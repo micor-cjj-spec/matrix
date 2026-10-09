@@ -41,7 +41,16 @@ public class SalesAccessGuard {
      * Never derive principal, tenant, roles or organization access from forwarded
      * identity headers. Only a correctly signed non-expired bearer token is trusted.
      */
+    public Long authorizeTenant(String bearer, String tenantId, Permission permission) {
+        return check(bearer, tenantId, null, permission, false);
+    }
+
     public Long authorize(String bearer, String tenantId, Long orgId, Permission permission) {
+        return check(bearer, tenantId, orgId, permission, true);
+    }
+
+    private Long check(String bearer, String tenantId, Long orgId,
+                       Permission permission, boolean checkOrganization) {
         if (!StringUtils.hasText(bearer) || !bearer.startsWith("Bearer ")) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "登录令牌缺失");
         }
@@ -65,7 +74,7 @@ public class SalesAccessGuard {
         if (!StringUtils.hasText(tenantId) || !trustedTenant.equals(tenantId.trim())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "租户不在授权范围");
         }
-        if (orgId == null || !hasOrganization(claims.get("organizationIds"), orgId)) {
+        if (checkOrganization && (orgId == null || !hasOrganization(claims.get("organizationIds"), orgId))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "组织不在授权范围");
         }
 
