@@ -31,6 +31,15 @@
 - JWT 的角色/组织快照可能变旧，仍应在正式上线前增加实时授权校验、撤权生效测试，并确保 ERP 端口不能绕过受控入口直接暴露。
 
 
+## 登录与角色签发（第二轮开发）
+
+- 新增 `deliverables/auth/001-sales-role-grant/schema.sql`。必须由 DBA 在 auth-service 所连接的受控数据库执行；使用 `matrix_auth_sales_role_grant` 持久化 `ftenant_id / forg_id / fuser_id / frole_code`。**没有任何用户或管理员默认获权**。
+- `auth-service` 的 `matrix.sales-auth.issuer-enabled` 默认 `false`。手工完成授权数据核对后，指定 `matrix.sales-auth.tenant-id` 并明确开启，登录时才从 DB 按 **用户 + 租户 + 组织**读取 ACTIVE 授权，将允许的 SALES_* 角色签入 JWT。
+- 当前组织映射沿用旧登录代码的 `BizfiBaseUser.ftid → organizationIds`，并不能据此证明 `ftid` 一定是业务组织；生产开放前必须核验映射与 `erp-service.forg_id` 一致。
+- 新增 ERP 每次销售权限校验 Redis `token:<jwt>` 中的当前用户 ID；Redis 不可用 / 会话被清除时拒绝访问（必须确认 auth 和 ERP 连接同一 Redis，并保留旧 `RedisTemplate` 序列化机制）。
+- **授权表变更不会自动清除已签发的 JWT**。紧急撤权需同步失效受影响的 Redis 会话（不可只更新 SQL）。角色变更立即生效的自动撤权流程尚未开发；无自动联动前禁止正式启用。
+- 不得通过请求参数、前端缓存或自行编辑 JWT 获取销售角色。角色授权及删除只能由受控管理员流程完成；没有自动赋权脚本。
+
 ## API
 ```
 POST /sales/quotes

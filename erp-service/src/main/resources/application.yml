@@ -18,6 +18,15 @@ spring:
     username: ${ERP_DB_USERNAME:root}
     password: ${ERP_DB_PASSWORD:}
 
+  # Must resolve to the SAME Redis instance and serialization scheme as auth-service.
+  # ERP sales authorization fails closed if this datastore is unavailable.
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+
   rabbitmq:
     host: ${RABBITMQ_HOST:127.0.0.1}
     port: ${RABBITMQ_PORT:5672}
