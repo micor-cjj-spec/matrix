@@ -8,7 +8,8 @@
 - 引用同租户商机，调用 BusinessPartner CUSTOMER Gate；报价客户不能脱离商机。
 - 支持 `QUOTE` 普通报价与 `TENDER` 带招标编号的投标报价；**尚未实现招投标公告、评标、定标工作流**。
 - 金额由后端以 `quantity × unitPrice` 和税率重新计算，不信任前端金额。
-- 报价状态：DRAFT → SUBMITTED → APPROVED → SENT → ACCEPTED / REJECTED；过期报价不能接受。
+- 报价状态：DRAFT → SUBMITTED → APPROVED → SENT → ACCEPTED / REJECTED；SUBMITTED 可撤回 DRAFT，DRAFT 可作废 CANCELLED，SENT 超过有效期可显式标记 EXPIRED。过期报价不能发送或接受。
+- DRAFT 支持修改报价有效期/收付款条款和 1~100 行明细；只能由服务端重新计算并在同一事务替换草稿明细，已审核报价不可修改。
 - 报价 ACCEPTED 后才能创建合同；一个报价只能创建一个合同；合同明细快照继承报价分录。
 - 合同审批：DRAFT → SUBMITTED → APPROVED；审核后生命周期 EFFECTIVE。
 - 复用 ERP Outbox 发布 `SALES_QUOTE_ACCEPTED` 与 `SALES_CONTRACT_EFFECTIVE`，不创建 AR / Voucher。
@@ -43,9 +44,10 @@
 ## API
 ```
 POST /sales/quotes
+PUT  /sales/quotes/{id}              (仅 DRAFT)
 GET  /sales/quotes?tenantId=...&orgId=...
 GET  /sales/quotes/{id}?tenantId=...
-POST /sales/quotes/{id}/{submit|approve|send|accept|reject}?tenantId=...
+POST /sales/quotes/{id}/{submit|approve|send|accept|reject|withdraw|cancel|expire}?tenantId=...
 POST /sales/contracts
 GET  /sales/contracts?tenantId=...&orgId=...
 GET  /sales/contracts/{id}?tenantId=...
@@ -56,5 +58,5 @@ POST /sales/contracts/{id}/{submit|approve}?tenantId=...
 - 已添加签名 JWT / 角色 / 组织检查，但尚未接入正式 Workflow 和实时授权系统；**不得仅凭静态 JWT 角色完成生产权限验收**。
 - 客户接受/拒绝当前是受审批角色限制的内网操作，不等价于第三方客户电子签署。
 - Quote → SalesContract 的权威引用是 `fquote_id`。后续 P2-IMP-08 才接入统一 BOTP Relation/Entry Relation。
-- 下一批：报价修改/撤回、正式招投标业务、CRM 前端、Workflow 审批与实时撤权、合同到销售订单的 BOTP 映射。
+- 下一批：定时过期扫描、正式招投标业务、CRM 前端、Workflow 审批与实时撤权、合同到销售订单的 BOTP 映射。
 
