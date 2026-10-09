@@ -41,6 +41,16 @@
 - **授权表变更不会自动清除已签发的 JWT**。紧急撤权需同步失效受影响的 Redis 会话（不可只更新 SQL）。角色变更立即生效的自动撤权流程尚未开发；无自动联动前禁止正式启用。
 - 不得通过请求参数、前端缓存或自行编辑 JWT 获取销售角色。角色授权及删除只能由受控管理员流程完成；没有自动赋权脚本。
 
+## P2 销售角色管理（开发第四轮）
+
+- 授权管理接口 `/auth/sales-role-grants` 默认禁用（`matrix.sales-auth.admin-enabled=false`），必须同时开启角色签发开关并完成管理员 bootstrap、SQL 迁移及集成校验。
+- 管理接口要求**经过签名的 JWT + 有效 Redis 会话 + 当前授权版本 + 同租户同组织 + 数据库现存 ACTIVE SALES_ADMIN 授权**。普通用户无法自行提升权限，初始 SALES_ADMIN 只能由 DB 管理员通过单独受控流程授予。
+- `POST /auth/sales-role-grants` 授予；`DELETE /auth/sales-role-grants` 撤销；`GET /auth/sales-role-grants?tenantId=...&orgId=...&userId=...` 查询。写入/撤销与追加授权审计位于同一个 DB 事务。
+- Redis 键 `sales:acl:revision:<Base64URL-UTF8(tenant)>:<orgId>:<userId>`：整数偶数为稳定授权快照，奇数表示变更中；签发销售 JWT 时写入 `salesGrantRevision` 并在 DB 查询前后复查。ERP 每个销售请求检查此版本和 Redis 登录会话，不一致立即返回 401。旧 JWT 不用等待过期即可拒绝。
+- 变更先使用 Redis Lua 原子地从偶数进入奇数，事务结束（成功或回滚）再提升为偶数；变更期间销售请求 fail closed。授权版本永久保存在 Redis，不可随意清空。若事务完成后 Redis 不可写则维持奇数，拒绝销售访问，由管理员按恢复流程人工核查 DB 后修复。
+- **直接修改授权表 SQL 不会主动提升授权版本**。正式环境只能通过管理服务处理授权变更；未经服务完成的数据库手工更改不满足实时撤权要求。角色/组织映射及 E2E 验收完成前保持功能关闭。
+- 初始化需在 auth-service 数据库执行扩展版 `deliverables/auth/001-sales-role-grant/schema.sql`，包括 `matrix_auth_sales_role_grant_audit`。**不能将 Redis 授权版本键配置 TTL**。
+
 ## API
 ```
 POST /sales/quotes
