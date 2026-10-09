@@ -3,10 +3,15 @@ spring:
     name: base-service
 
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:dev}  # 默认是 dev 环境
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  servlet:
+    multipart:
+      max-file-size: ${AI_KNOWLEDGE_MAX_FILE_SIZE:10MB}
+      max-request-size: ${AI_KNOWLEDGE_MAX_REQUEST_SIZE:11MB}
 
   config:
-    import: "nacos:${spring.application.name}"  # 自动从 Nacos 加载同名配置
+    import: "nacos:${spring.application.name}"
 
   cloud:
     nacos:
@@ -20,11 +25,86 @@ spring:
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
 
+bizfi:
+  ai:
+    model-adapter: ${AI_MODEL_ADAPTER:prompt-http}
+    enabled: ${AI_ENABLED:true}
+    knowledge-enabled: ${AI_KNOWLEDGE_ENABLED:true}
+    fallback-enabled: ${AI_FALLBACK_ENABLED:true}
+    max-history-messages: ${AI_MAX_HISTORY_MESSAGES:20}
+    max-knowledge-chunks: ${AI_MAX_KNOWLEDGE_CHUNKS:5}
+    request-timeout-seconds: ${AI_REQUEST_TIMEOUT_SECONDS:60}
+    semantic-retrieval-enabled: ${AI_SEMANTIC_RETRIEVAL_ENABLED:false}
+    semantic-fail-open: ${AI_SEMANTIC_FAIL_OPEN:true}
+    semantic-candidate-limit: ${AI_SEMANTIC_CANDIDATE_LIMIT:500}
+    semantic-min-score: ${AI_SEMANTIC_MIN_SCORE:0.50}
+    hybrid-keyword-weight: ${AI_HYBRID_KEYWORD_WEIGHT:1.0}
+    hybrid-semantic-weight: ${AI_HYBRID_SEMANTIC_WEIGHT:1.0}
+    hybrid-rrf-k: ${AI_HYBRID_RRF_K:60}
+    embedding-batch-size: ${AI_EMBEDDING_BATCH_SIZE:16}
+    knowledge-ingestion:
+      enabled: ${AI_KNOWLEDGE_INGESTION_ENABLED:false}
+      max-file-size-bytes: ${AI_KNOWLEDGE_MAX_FILE_SIZE_BYTES:10485760}
+      max-extracted-characters: ${AI_KNOWLEDGE_MAX_EXTRACTED_CHARACTERS:2000000}
+      max-attempts: ${AI_KNOWLEDGE_INDEX_MAX_ATTEMPTS:3}
+      batch-size: ${AI_KNOWLEDGE_INDEX_BATCH_SIZE:5}
+      poll-delay-ms: ${AI_KNOWLEDGE_INDEX_POLL_DELAY_MS:5000}
+      stale-running-minutes: ${AI_KNOWLEDGE_INDEX_STALE_MINUTES:15}
+    knowledge-acl:
+      enabled: ${AI_KNOWLEDGE_ACL_ENABLED:false}
+      admin-user-ids: ${AI_KNOWLEDGE_ACL_ADMIN_USER_IDS:}
+      admin-authorities: ${AI_KNOWLEDGE_ACL_ADMIN_AUTHORITIES:ROLE_ADMIN,ROLE_SUPER_ADMIN,admin,super_admin}
+    vector-store:
+      type: ${AI_VECTOR_STORE_TYPE:mysql-json}
+      dual-write-enabled: ${AI_VECTOR_DUAL_WRITE_ENABLED:false}
+      read-fallback-enabled: ${AI_VECTOR_READ_FALLBACK_ENABLED:true}
+      pgvector:
+        enabled: ${AI_PGVECTOR_ENABLED:false}
+        jdbc-url: ${AI_PGVECTOR_JDBC_URL:jdbc:postgresql://127.0.0.1:5433/matrix_ai}
+        username: ${AI_PGVECTOR_USERNAME:matrix_ai}
+        password: ${AI_PGVECTOR_PASSWORD:}
+        schema: ${AI_PGVECTOR_SCHEMA:knowledge}
+        table: ${AI_PGVECTOR_TABLE:matrix_ai_knowledge_vector}
+        dimensions: ${AI_EMBEDDING_DIMENSIONS:1536}
+        maximum-pool-size: ${AI_PGVECTOR_MAX_POOL_SIZE:5}
+        connection-timeout-ms: ${AI_PGVECTOR_CONNECTION_TIMEOUT_MS:5000}
+    spring-ai-base-url: ${AI_SERVICE_BASE_URL:http://127.0.0.1:10020/api}
+    spring-ai-service-id: ${AI_SERVICE_ID:ai-service}
+    spring-ai-discovery-enabled: ${AI_SERVICE_DISCOVERY_ENABLED:false}
+    spring-ai-static-fallback-enabled: ${AI_SERVICE_STATIC_FALLBACK_ENABLED:true}
+    spring-ai-max-attempts: ${AI_SERVICE_MAX_ATTEMPTS:2}
+    spring-ai-circuit-failure-threshold: ${AI_SERVICE_CIRCUIT_FAILURE_THRESHOLD:3}
+    spring-ai-circuit-open-seconds: ${AI_SERVICE_CIRCUIT_OPEN_SECONDS:30}
+    internal-token: ${AI_INTERNAL_TOKEN:}
+    tool-calling-enabled: ${AI_TOOL_CALLING_ENABLED:false}
+    tool-allow-all-organizations: ${AI_TOOL_ALLOW_ALL_ORGANIZATIONS:false}
+    tool-allowed-user-organization-pairs: ${AI_TOOL_ALLOWED_USER_ORG_PAIRS:}
+    finance-audit-base-url: ${FINANCE_AI_AUDIT_BASE_URL:http://127.0.0.1:10003/api}
+    finance-audit-internal-token: ${FINANCE_AI_AUDIT_INTERNAL_TOKEN:}
+    audit-viewer-user-ids: ${AI_AUDIT_VIEWER_USER_IDS:}
+    audit-reconciler-user-ids: ${AI_AUDIT_RECONCILER_USER_IDS:}
+
+matrix:
+  scheduler:
+    client:
+      enabled: ${SCHEDULER_CLIENT_ENABLED:true}
+      executor-code: base-service
+      executor-name: 基础服务执行器
+      scheduler-base-url: ${SCHEDULER_BASE_URL:http://127.0.0.1:8080/api}
+      internal-token: ${SCHEDULER_INTERNAL_TOKEN}
+      concurrency: ${SCHEDULER_CONCURRENCY:1}
+      max-concurrency: ${SCHEDULER_MAX_CONCURRENCY:10}
+      heartbeat-interval-ms: ${SCHEDULER_HEARTBEAT_INTERVAL_MS:30000}
+      initialize-schema: ${SCHEDULER_INITIALIZE_SCHEMA:true}
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}

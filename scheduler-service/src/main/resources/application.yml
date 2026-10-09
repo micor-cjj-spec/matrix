@@ -1,0 +1,94 @@
+server:
+  port: ${SCHEDULER_PORT:10005}
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: scheduler-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  config:
+    import: "optional:nacos:${spring.application.name}"
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:117.72.216.168:8848}
+        group: ${NACOS_GROUP:DEV_GROUP}
+        namespace: ${NACOS_NAMESPACE:public}
+      config:
+        server-addr: ${NACOS_ADDR:117.72.216.168:8848}
+        file-extension: yaml
+        group: ${NACOS_GROUP:DEV_GROUP}
+        namespace: ${NACOS_NAMESPACE:public}
+  quartz:
+    job-store-type: jdbc
+    jdbc:
+      initialize-schema: never
+    properties:
+      org:
+        quartz:
+          scheduler:
+            instanceName: MatrixScheduler
+            instanceId: AUTO
+          jobStore:
+            class: org.springframework.scheduling.quartz.LocalDataSourceJobStore
+            isClustered: true
+            clusterCheckinInterval: 10000
+            misfireThreshold: 60000
+          threadPool:
+            threadCount: 10
+            threadPriority: 5
+  rabbitmq:
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+
+matrix:
+  scheduler:
+    internal-token: ${SCHEDULER_INTERNAL_TOKEN}
+    exchange: ${SCHEDULER_EXCHANGE:matrix.scheduler.execute}
+    executor:
+      offline-seconds: ${SCHEDULER_EXECUTOR_OFFLINE_SECONDS:90}
+      offline-scan-ms: ${SCHEDULER_EXECUTOR_OFFLINE_SCAN_MS:30000}
+    reliability:
+      batch-size: ${SCHEDULER_RELIABILITY_BATCH_SIZE:100}
+      dispatch-timeout-seconds: ${SCHEDULER_DISPATCH_TIMEOUT_SECONDS:120}
+      retry-scan-ms: ${SCHEDULER_RETRY_SCAN_MS:5000}
+      timeout-scan-ms: ${SCHEDULER_TIMEOUT_SCAN_MS:10000}
+    alert:
+      scan-ms: ${SCHEDULER_ALERT_SCAN_MS:30000}
+    outbox:
+      publish-delay-ms: ${SCHEDULER_OUTBOX_DELAY_MS:3000}
+      batch-size: ${SCHEDULER_OUTBOX_BATCH_SIZE:100}
+      max-retry: ${SCHEDULER_OUTBOX_MAX_RETRY:10}
+    im:
+      enabled: ${SCHEDULER_IM_ENABLED:false}
+      base-url: ${SCHEDULER_IM_BASE_URL:http://127.0.0.1:10000/api}
+      app-code: ${SCHEDULER_IM_APP_CODE:scheduler}
+      app-secret: ${SCHEDULER_IM_APP_SECRET:}
+      tenant-id: ${SCHEDULER_IM_TENANT_ID:default}
+      callback-url: ${SCHEDULER_IM_CALLBACK_URL:}
+      callback-secret: ${SCHEDULER_IM_CALLBACK_SECRET:}
+      recipient-user-ids: ${SCHEDULER_IM_RECIPIENT_USER_IDS:}
+      channels: ${SCHEDULER_IM_CHANNELS:LOCAL}
+      batch-size: ${SCHEDULER_IM_BATCH_SIZE:100}
+      max-retry-count: ${SCHEDULER_IM_MAX_RETRY_COUNT:8}
+      processing-timeout-minutes: ${SCHEDULER_IM_PROCESSING_TIMEOUT_MINUTES:5}
+      dispatch-delay-ms: ${SCHEDULER_IM_DISPATCH_DELAY_MS:5000}
+      recovery-delay-ms: ${SCHEDULER_IM_RECOVERY_DELAY_MS:60000}

@@ -1,0 +1,11 @@
+{
+  "domain": "common",
+  "subDomain": "ai",
+  "bizCode": "ai-assistant",
+  "bizName": "AI 助手",
+  "status": "partial_frontend_integrated",
+  "version": "0.1.0",
+  "busDocs": ["business.md","fields.md","flow.md","rules.md","page.md","api.md"],
+  "owner": "",
+  "updatedAt": "2026-04-04"
+}

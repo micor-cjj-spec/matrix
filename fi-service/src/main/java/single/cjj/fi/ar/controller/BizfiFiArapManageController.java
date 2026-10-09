@@ -13,7 +13,7 @@ import java.time.LocalDate;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/arap-manage")
+@RequestMapping({"/arap-manage", "/period-process/arap-manage"})
 public class BizfiFiArapManageController {
 
     @Autowired

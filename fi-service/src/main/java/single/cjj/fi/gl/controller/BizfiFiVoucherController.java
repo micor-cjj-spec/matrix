@@ -143,6 +143,7 @@ public class BizfiFiVoucherController {
             @RequestParam(value = "number", required = false) String number,
             @RequestParam(value = "summary", required = false) String summary,
             @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "statusGroup", required = false) String statusGroup,
             @RequestParam(value = "startDate", required = false) String startDate,
             @RequestParam(value = "endDate", required = false) String endDate
     ) {
@@ -150,6 +151,7 @@ public class BizfiFiVoucherController {
         query.put("number", number);
         query.put("summary", summary);
         query.put("status", status);
+        query.put("statusGroup", statusGroup);
         query.put("startDate", startDate);
         query.put("endDate", endDate);
         return ApiResponse.success(service.list(page, size, query));

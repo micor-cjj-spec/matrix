@@ -1,0 +1,15 @@
+{
+  "module": "fi.gl.analysis-reports",
+  "feature": "report-mapping-gap-resolution",
+  "title": "报表映射缺口一键治理闭环",
+  "date": "2026-04-29",
+  "backend": false,
+  "frontend": true,
+  "documents": [
+    "business.md",
+    "flow.md",
+    "rules.md",
+    "page.md",
+    "api.md"
+  ]
+}

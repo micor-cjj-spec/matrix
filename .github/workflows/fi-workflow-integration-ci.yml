@@ -1,0 +1,35 @@
+name: Finance Workflow Integration CI
+
+on:
+  pull_request:
+    paths:
+      - 'fi-service/**'
+      - 'workflow-service/**'
+      - 'common/**'
+      - 'pom.xml'
+      - '.github/workflows/fi-workflow-integration-ci.yml'
+  push:
+    branches:
+      - agent/fi-expense-workflow-integration
+    paths:
+      - 'fi-service/**'
+      - 'workflow-service/**'
+      - 'common/**'
+      - 'pom.xml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Test finance and workflow services
+        run: mvn -B -pl fi-service,workflow-service -am test

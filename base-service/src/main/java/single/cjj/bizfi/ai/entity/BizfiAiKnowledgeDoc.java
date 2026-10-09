@@ -1,5 +1,6 @@
 package single.cjj.bizfi.ai.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
@@ -17,9 +18,10 @@ public class BizfiAiKnowledgeDoc implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @TableId("fid")
+    @TableId(value = "fid", type = IdType.AUTO)
     private Long fid;
 
+    private String fkbid;
     private String fdocid;
     private String ftitle;
     private String fcategory;

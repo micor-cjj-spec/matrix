@@ -389,19 +389,23 @@ public class BizfiFiLedgerCollaborationServiceImpl implements BizfiFiLedgerColla
     }
 
     private boolean isReverseVoucher(BizfiFiVoucher voucher) {
+        String remark = text(voucher.getFremark());
         return startsWith(text(voucher.getFnumber()), "RV-")
                 || startsWith(text(voucher.getFsummary()), "冲销:")
-                || REVERSE_SOURCE_ID_PATTERN.matcher(text(voucher.getFremark())).find();
+                || (StringUtils.hasText(remark) && REVERSE_SOURCE_ID_PATTERN.matcher(remark).find());
     }
 
     private BizfiFiVoucher findOriginalVoucher(BizfiFiVoucher reverseVoucher,
                                                Map<Long, BizfiFiVoucher> voucherById,
                                                Map<String, BizfiFiVoucher> voucherByNumber) {
-        Matcher idMatcher = REVERSE_SOURCE_ID_PATTERN.matcher(text(reverseVoucher.getFremark()));
-        if (idMatcher.find()) {
-            Long originalId = longNullable(idMatcher.group(1));
-            if (originalId != null && voucherById.containsKey(originalId)) {
-                return voucherById.get(originalId);
+        String remark = text(reverseVoucher.getFremark());
+        if (StringUtils.hasText(remark)) {
+            Matcher idMatcher = REVERSE_SOURCE_ID_PATTERN.matcher(remark);
+            if (idMatcher.find()) {
+                Long originalId = longNullable(idMatcher.group(1));
+                if (originalId != null && voucherById.containsKey(originalId)) {
+                    return voucherById.get(originalId);
+                }
             }
         }
 
@@ -416,14 +420,21 @@ public class BizfiFiLedgerCollaborationServiceImpl implements BizfiFiLedgerColla
     }
 
     private BizfiFiVoucher findReverseVoucher(BizfiFiVoucher originalVoucher, Map<String, BizfiFiVoucher> voucherByNumber) {
-        Matcher matcher = REVERSE_TARGET_PATTERN.matcher(text(originalVoucher.getFremark()));
-        if (matcher.find()) {
-            String reverseNumber = matcher.group(1);
-            if (voucherByNumber.containsKey(reverseNumber)) {
-                return voucherByNumber.get(reverseNumber);
+        String remark = text(originalVoucher.getFremark());
+        if (StringUtils.hasText(remark)) {
+            Matcher matcher = REVERSE_TARGET_PATTERN.matcher(remark);
+            if (matcher.find()) {
+                String reverseNumber = matcher.group(1);
+                if (voucherByNumber.containsKey(reverseNumber)) {
+                    return voucherByNumber.get(reverseNumber);
+                }
             }
         }
-        String generatedNumber = "RV-" + text(originalVoucher.getFnumber());
+        String originalNumber = text(originalVoucher.getFnumber());
+        if (!StringUtils.hasText(originalNumber)) {
+            return null;
+        }
+        String generatedNumber = "RV-" + originalNumber;
         return voucherByNumber.get(generatedNumber);
     }
 

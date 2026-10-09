@@ -1,0 +1,60 @@
+name: AI Runtime CI
+
+on:
+  pull_request:
+    paths:
+      - 'base-service/src/main/java/single/cjj/bizfi/ai/**'
+      - 'base-service/src/main/java/single/cjj/bizfi/controller/AiAssistant*'
+      - 'base-service/src/test/java/single/cjj/bizfi/ai/**'
+      - 'base-service/src/main/resources/application.yml'
+      - 'base-service/pom.xml'
+      - 'common/**'
+      - 'scheduler-client/**'
+      - 'pom.xml'
+      - '.github/workflows/ai-runtime-ci.yml'
+  push:
+    branches:
+      - 'agent/refactor-ai-*'
+      - 'feature/ai-*'
+    paths:
+      - 'base-service/src/main/java/single/cjj/bizfi/ai/**'
+      - 'base-service/src/main/java/single/cjj/bizfi/controller/AiAssistant*'
+      - 'base-service/src/test/java/single/cjj/bizfi/ai/**'
+      - 'base-service/src/main/resources/application.yml'
+      - 'base-service/pom.xml'
+      - 'common/**'
+      - 'scheduler-client/**'
+      - 'pom.xml'
+      - '.github/workflows/ai-runtime-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Test AI runtime
+        shell: bash
+        run: |
+          set +e
+          mvn -q -Dstyle.color=never -pl base-service -am test > /tmp/ai-runtime-maven.log 2>&1
+          status=$?
+          cat /tmp/ai-runtime-maven.log
+          exit $status
+
+      - name: Upload Maven failure log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-runtime-maven-failure-log
+          path: /tmp/ai-runtime-maven.log
+          if-no-files-found: error
+          retention-days: 3

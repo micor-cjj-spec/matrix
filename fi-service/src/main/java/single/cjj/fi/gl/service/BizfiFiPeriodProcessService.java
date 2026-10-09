@@ -2,6 +2,7 @@ package single.cjj.fi.gl.service;
 
 import single.cjj.fi.gl.vo.PeriodMonitorCenterResultVO;
 import single.cjj.fi.gl.vo.PeriodProcessResultVO;
+import single.cjj.fi.gl.vo.MonthEndWorkbenchResultVO;
 
 public interface BizfiFiPeriodProcessService {
     PeriodProcessResultVO profitLoss(Long forg, String period);
@@ -15,4 +16,6 @@ public interface BizfiFiPeriodProcessService {
     PeriodProcessResultVO closeBooks(Long forg, String period);
 
     PeriodMonitorCenterResultVO monitorCenter(Long forg, String period);
+
+    MonthEndWorkbenchResultVO monthEndWorkbench(Long forg, String period);
 }

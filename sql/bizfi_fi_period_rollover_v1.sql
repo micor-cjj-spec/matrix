@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS bizfi_fi_period_rollover (
+    fid BIGINT PRIMARY KEY AUTO_INCREMENT,
+    frollover_no VARCHAR(64) NOT NULL COMMENT 'period rollover no',
+    fclose_execution_id BIGINT NOT NULL COMMENT 'close execution id',
+    fclose_execution_no VARCHAR(64) NOT NULL COMMENT 'close execution no',
+    forg BIGINT NOT NULL COMMENT 'business unit id',
+    ffrom_period VARCHAR(16) NOT NULL COMMENT 'from period',
+    fto_period VARCHAR(16) NOT NULL COMMENT 'to period',
+    fnext_period_id BIGINT NOT NULL COMMENT 'next accounting period id',
+    fconfig_id BIGINT NOT NULL COMMENT 'org finance config id',
+    fbefore_current_period VARCHAR(16) NULL COMMENT 'current period before rollover',
+    fafter_current_period VARCHAR(16) NOT NULL COMMENT 'current period after rollover',
+    fcreated_next_period TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'created next period automatically',
+    frollover_status VARCHAR(32) NOT NULL COMMENT 'rollover status',
+    foperator VARCHAR(64) NULL COMMENT 'operator',
+    fremark VARCHAR(500) NULL COMMENT 'remark',
+    frolled_time DATETIME NOT NULL COMMENT 'rolled time',
+    fcreated_time DATETIME NOT NULL COMMENT 'created time',
+    UNIQUE KEY uk_bizfi_fi_period_rollover_no (frollover_no),
+    UNIQUE KEY uk_bizfi_fi_period_rollover_execution (fclose_execution_id),
+    KEY idx_bizfi_fi_period_rollover_period (forg, ffrom_period),
+    KEY idx_bizfi_fi_period_rollover_to_period (forg, fto_period)
+) COMMENT='finance period rollover';

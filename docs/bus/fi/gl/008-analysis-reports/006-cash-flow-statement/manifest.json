@@ -1,0 +1,11 @@
+{
+  "domain": "fi",
+  "subDomain": "gl",
+  "bizCode": "cash-flow-statement-report-entry",
+  "bizName": "现金流量表",
+  "status": "reused_entry",
+  "version": "0.1.0",
+  "busDocs": ["business.md"],
+  "owner": "",
+  "updatedAt": "2026-04-03"
+}

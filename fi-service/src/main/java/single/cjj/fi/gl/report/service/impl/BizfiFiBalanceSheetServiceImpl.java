@@ -19,6 +19,7 @@ import single.cjj.fi.gl.report.vo.BalanceSheetDrillResultVO;
 import single.cjj.fi.gl.report.vo.BalanceSheetDrillRowVO;
 import single.cjj.fi.gl.report.util.ReportTextFixer;
 import single.cjj.fi.gl.report.vo.ReportCheckResultVO;
+import single.cjj.fi.gl.report.vo.ReportMappingGapVO;
 import single.cjj.fi.gl.report.vo.ReportQueryResultVO;
 import single.cjj.fi.gl.report.vo.ReportRowVO;
 
@@ -68,6 +69,7 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
         result.setRows(new ArrayList<>());
         result.setChecks(new ArrayList<>());
         result.setWarnings(new ArrayList<>());
+        result.setMappingGaps(new ArrayList<>());
 
         BizfiFiReportTemplate template = reportTemplateService.getEnabledTemplate("BALANCE_SHEET", templateId, orgId);
         if (template == null) {
@@ -155,7 +157,8 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
 
             BalanceSheetMapping mapping = resolveBalanceSheetMapping(account, explicitItemByAccount, itemById, itemByCode);
             if (mapping.getItemId() == null) {
-                unmappedAccounts.add(account.getFcode() + "-" + account.getFname());
+                unmappedAccounts.add(accountLabel(account.getFcode(), account.getFname()));
+                result.getMappingGaps().add(toMappingGap(template, account, "DIRECT"));
                 continue;
             }
 
@@ -175,7 +178,8 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
             }
             BalanceSheetMapping mapping = resolveCodeOnlyMapping(accountCode, itemByCode);
             if (mapping.getItemId() == null) {
-                unmappedAccounts.add(accountCode + "-MISSING_ACCOUNT_MASTER");
+                unmappedAccounts.add(accountCode + "-科目主数据缺失");
+                result.getMappingGaps().add(toMappingGap(template, null, accountCode, "科目主数据缺失", "DIRECT"));
                 continue;
             }
             BigDecimal beginDebit = BigDecimal.ZERO;
@@ -203,7 +207,7 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
         }
 
         if (!unmappedAccounts.isEmpty()) {
-            result.getWarnings().add("Unmapped balance-sheet accounts: " + String.join(", ", unmappedAccounts.stream().limit(8).toList()));
+            result.getWarnings().add("资产负债表存在未映射科目：" + String.join(", ", unmappedAccounts.stream().limit(8).toList()) + "。请维护报表科目映射。");
         }
 
         Map<Long, BigDecimal> rolledBegin = rollupAmounts(items, directBeginAmount);
@@ -378,6 +382,41 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
             }
         }
         return itemByAccount;
+    }
+
+    private ReportMappingGapVO toMappingGap(BizfiFiReportTemplate template, BizfiFiAccount account, String mappingType) {
+        return toMappingGap(
+                template,
+                account == null ? null : account.getFid(),
+                account == null ? "" : account.getFcode(),
+                account == null ? "" : account.getFname(),
+                mappingType
+        );
+    }
+
+    private ReportMappingGapVO toMappingGap(BizfiFiReportTemplate template, Long accountId, String accountCode, String accountName, String mappingType) {
+        String reportType = template == null || !StringUtils.hasText(template.getFtype()) ? "BALANCE_SHEET" : template.getFtype();
+        return new ReportMappingGapVO(
+                reportType,
+                template == null ? null : template.getFid(),
+                template == null ? null : ReportTextFixer.fixTemplateName(template.getFcode(), template.getFname()),
+                accountId,
+                accountCode,
+                accountName,
+                mappingType,
+                "维护映射",
+                buildTargetRoute(reportType, template == null ? null : template.getFid(), accountCode)
+        );
+    }
+
+    private String buildTargetRoute(String reportType, Long templateId, String accountCode) {
+        StringBuilder route = new StringBuilder("/ledger/report-account-map");
+        route.append("?accountCode=").append(accountCode == null ? "" : accountCode);
+        route.append("&reportType=").append(reportType == null ? "" : reportType);
+        if (templateId != null) {
+            route.append("&templateId=").append(templateId);
+        }
+        return route.toString();
     }
 
     private Long resolveBalanceSheetItemId(
@@ -689,6 +728,13 @@ public class BizfiFiBalanceSheetServiceImpl implements BizfiFiBalanceSheetServic
 
     private String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private String accountLabel(String accountCode, String accountName) {
+        if (!StringUtils.hasText(accountCode)) {
+            return StringUtils.hasText(accountName) ? accountName : "-";
+        }
+        return accountCode + "-" + (StringUtils.hasText(accountName) ? accountName : "-");
     }
 
     private static class BalanceSheetMapping {

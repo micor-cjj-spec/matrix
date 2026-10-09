@@ -1,0 +1,9 @@
+{
+  "code": "011-report-mapping-gap-queue",
+  "name": "报表映射缺口连续治理队列",
+  "module": "fi.gl.analysis-reports",
+  "runtimeChange": "frontend",
+  "backendChange": false,
+  "frontendChange": true,
+  "status": "drafted"
+}

@@ -1,0 +1,16 @@
+{
+  "code": "platform.scheduler.executor-reliability",
+  "name": "调度执行器与可靠执行",
+  "version": "2.0.0",
+  "status": "implemented_pending_deployment_validation",
+  "backendModules": ["scheduler-client", "scheduler-service", "base-service", "gateway"],
+  "frontendRoutes": ["/scheduler/jobs"],
+  "documents": [
+    "business.md",
+    "fields.md",
+    "flow.md",
+    "rules.md",
+    "page.md",
+    "api.md"
+  ]
+}

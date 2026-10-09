@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.fi.gl.service.BizfiFiPeriodProcessService;
+import single.cjj.fi.gl.vo.MonthEndWorkbenchResultVO;
 import single.cjj.fi.gl.vo.PeriodMonitorCenterResultVO;
 import single.cjj.fi.gl.vo.PeriodProcessResultVO;
 
@@ -63,5 +64,13 @@ public class BizfiFiPeriodProcessController {
             @RequestParam(value = "period", required = false) String period
     ) {
         return ApiResponse.success(service.monitorCenter(forg, period));
+    }
+
+    @GetMapping("/month-end-workbench")
+    public ApiResponse<MonthEndWorkbenchResultVO> monthEndWorkbench(
+            @RequestParam(value = "forg", required = false) Long forg,
+            @RequestParam(value = "period", required = false) String period
+    ) {
+        return ApiResponse.success(service.monthEndWorkbench(forg, period));
     }
 }

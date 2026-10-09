@@ -1,0 +1,21 @@
+{
+  "code": "011-month-end-archive-package",
+  "name": "月结归档包 / 关账报告中心",
+  "module": "fi-gl-period-end-processing",
+  "version": "1.0.0",
+  "status": "drafted",
+  "dependsOn": [
+    "007-month-end-close-workbench",
+    "008-month-end-check-batch",
+    "009-month-end-close-execution",
+    "010-period-rollover"
+  ],
+  "documents": [
+    "business.md",
+    "fields.md",
+    "flow.md",
+    "page.md",
+    "api.md",
+    "rules.md"
+  ]
+}

@@ -1,0 +1,68 @@
+name: Base Business Partner CI
+
+on:
+  pull_request:
+    paths:
+      - 'base-service/src/main/java/single/cjj/bizfi/partner/**'
+      - 'base-service/src/test/java/single/cjj/bizfi/partner/**'
+      - 'base-service/src/main/java/single/cjj/bizfi/BaseApplication.java'
+      - 'base-service/src/main/java/single/cjj/bizfi/controller/BaseDataWorkflowController.java'
+      - 'deliverables/base/**'
+      - 'docs/architecture/biz-finance/**'
+      - '.github/workflows/base-business-partner-ci.yml'
+      - 'common/**'
+      - 'pom.xml'
+  push:
+    branches:
+      - 'dev'
+    paths:
+      - 'base-service/src/main/java/single/cjj/bizfi/partner/**'
+      - 'base-service/src/test/java/single/cjj/bizfi/partner/**'
+      - 'base-service/src/main/java/single/cjj/bizfi/BaseApplication.java'
+      - 'base-service/src/main/java/single/cjj/bizfi/controller/BaseDataWorkflowController.java'
+      - 'deliverables/base/**'
+      - 'docs/architecture/biz-finance/**'
+      - '.github/workflows/base-business-partner-ci.yml'
+      - 'common/**'
+      - 'pom.xml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Compile base-service
+        shell: bash
+        run: |
+          set +e
+          mvn -q -Dstyle.color=never -pl base-service -am -DskipTests compile > /tmp/base-business-partner-compile.log 2>&1
+          status=$?
+          cat /tmp/base-business-partner-compile.log
+          exit $status
+
+      - name: Test BusinessPartner
+        shell: bash
+        run: |
+          set +e
+          mvn -q -Dstyle.color=never -pl base-service -am             -Dtest=BusinessPartnerServiceTest             -Dsurefire.failIfNoSpecifiedTests=false             test > /tmp/base-business-partner-test.log 2>&1
+          status=$?
+          cat /tmp/base-business-partner-test.log
+          exit $status
+
+      - name: Upload Maven failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: base-business-partner-failure-logs
+          path: /tmp/base-business-partner-*.log
+          if-no-files-found: error
+          retention-days: 3

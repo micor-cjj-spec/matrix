@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS bizfi_fi_month_end_close_execution (
+    fid BIGINT PRIMARY KEY AUTO_INCREMENT,
+    fexecution_no VARCHAR(64) NOT NULL COMMENT 'close execution no',
+    fbatch_id BIGINT NOT NULL COMMENT 'month end check batch id',
+    fbatch_no VARCHAR(64) NOT NULL COMMENT 'month end check batch no',
+    forg BIGINT NULL COMMENT 'business unit id',
+    fperiod VARCHAR(16) NOT NULL COMMENT 'accounting period',
+    fperiod_id BIGINT NOT NULL COMMENT 'accounting period id',
+    fbefore_status VARCHAR(32) NULL COMMENT 'period status before close',
+    fafter_status VARCHAR(32) NULL COMMENT 'period status after close',
+    fexecution_status VARCHAR(32) NOT NULL COMMENT 'execution status',
+    fcheck_snapshot_json LONGTEXT NULL COMMENT 'check snapshot before close',
+    foperator VARCHAR(64) NULL COMMENT 'operator',
+    fremark VARCHAR(500) NULL COMMENT 'remark',
+    fexecuted_time DATETIME NOT NULL COMMENT 'executed time',
+    fcreated_time DATETIME NOT NULL COMMENT 'created time',
+    UNIQUE KEY uk_bizfi_fi_month_end_close_execution_no (fexecution_no),
+    KEY idx_bizfi_fi_month_end_close_execution_batch (fbatch_id),
+    KEY idx_bizfi_fi_month_end_close_execution_period (forg, fperiod)
+) COMMENT='month end close execution';

@@ -13,53 +13,146 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
+import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Component
 public class GatewayAuthFilter implements GlobalFilter, Ordered {
 
+    private static final String IM_WEBSOCKET_PATH = "/api/im/ws";
+
     private static final List<String> WHITELIST = List.of(
             "/api/auth/**",
             "/api/actuator/**",
             "/api/swagger-ui/**",
-            "/api/v3/api-docs/**"
+            "/api/v3/api-docs/**",
+            // OpenAPI 使用 AppKey + HMAC，由 openapi-service 或 im-service 再次执行强校验。
+            "/api/open-api/**",
+            // 调度执行器内部接口由 scheduler-service 使用共享密钥再次校验。
+            "/api/scheduler/executors/register",
+            "/api/scheduler/executors/heartbeat",
+            "/api/scheduler/callback/**",
+            // IM 最终结果回调使用 X-IM-* HMAC 请求头，由 scheduler-service 校验。
+            "/api/scheduler/im/callbacks"
+    );
+
+    private static final List<String> INTERNAL_IDENTITY_HEADERS = List.of(
+            "X-User-Id",
+            "X-Tenant-Id",
+            "X-User-Roles",
+            "X-OpenApi-App-Id",
+            "X-OpenApi-Tenant-Id",
+            "X-OpenApi-Verified"
     );
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        ServerHttpRequest request = exchange.getRequest();
-        String path = request.getURI().getPath();
+        ServerHttpRequest originalRequest = exchange.getRequest();
+        String path = originalRequest.getURI().getPath();
+        String token = resolveToken(originalRequest, path);
+        ServerHttpRequest request = sanitizeIdentityHeaders(removeWebSocketToken(originalRequest, path));
+        ServerWebExchange sanitizedExchange = exchange.mutate().request(request).build();
 
         if (isWhitelisted(path)) {
-            return chain.filter(exchange);
+            return chain.filter(sanitizedExchange);
         }
 
-        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-        if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
+        if (!StringUtils.hasText(token)) {
             return unauthorized(exchange.getResponse(), "未登录或token缺失");
         }
 
-        String token = authHeader.substring(7);
         try {
             Claims claims = JwtUtils.parseToken(token);
             String userId = String.valueOf(claims.get("id"));
+            Object tenantClaim = claims.get("tenantId");
+            String tenantId = tenantClaim == null ? "default" : String.valueOf(tenantClaim);
+            String roles = resolveRoles(claims);
 
-            ServerHttpRequest mutated = request.mutate()
+            ServerHttpRequest.Builder builder = request.mutate()
                     .header("X-User-Id", userId)
-                    .build();
-            return chain.filter(exchange.mutate().request(mutated).build());
+                    .header("X-Tenant-Id", tenantId);
+            if (StringUtils.hasText(roles)) {
+                builder.header("X-User-Roles", roles);
+            }
+            return chain.filter(sanitizedExchange.mutate().request(builder.build()).build());
         } catch (Exception e) {
             log.warn("gateway jwt verify failed: {}", e.getMessage());
             return unauthorized(exchange.getResponse(), "token无效或已过期");
         }
+    }
+
+    private String resolveRoles(Claims claims) {
+        Object value = claims.get("roles");
+        if (value == null) {
+            value = claims.get("roleCodes");
+        }
+        if (value == null) {
+            value = claims.get("authorities");
+        }
+        if (value == null) {
+            value = claims.get("role");
+        }
+        Set<String> roles = new LinkedHashSet<>();
+        collectRoles(value, roles);
+        return String.join(",", roles);
+    }
+
+    private void collectRoles(Object value, Set<String> roles) {
+        if (value == null) {
+            return;
+        }
+        if (value instanceof Collection<?> collection) {
+            collection.forEach(item -> collectRoles(item, roles));
+            return;
+        }
+        for (String role : String.valueOf(value).split(",")) {
+            if (StringUtils.hasText(role)) {
+                roles.add(role.trim());
+            }
+        }
+    }
+
+    private String resolveToken(ServerHttpRequest request, String path) {
+        String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+        if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+        if (IM_WEBSOCKET_PATH.equals(path)) {
+            return request.getQueryParams().getFirst("access_token");
+        }
+        return null;
+    }
+
+    private ServerHttpRequest removeWebSocketToken(ServerHttpRequest request, String path) {
+        if (!IM_WEBSOCKET_PATH.equals(path) || !request.getQueryParams().containsKey("access_token")) {
+            return request;
+        }
+        LinkedMultiValueMap<String, String> query = new LinkedMultiValueMap<>(request.getQueryParams());
+        query.remove("access_token");
+        URI sanitizedUri = UriComponentsBuilder.fromUri(request.getURI())
+                .replaceQueryParams(query)
+                .build(true)
+                .toUri();
+        return request.mutate().uri(sanitizedUri).build();
+    }
+
+    private ServerHttpRequest sanitizeIdentityHeaders(ServerHttpRequest request) {
+        return request.mutate().headers(headers ->
+                INTERNAL_IDENTITY_HEADERS.forEach(headers::remove)
+        ).build();
     }
 
     private boolean isWhitelisted(String path) {

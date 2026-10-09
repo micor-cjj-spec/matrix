@@ -293,7 +293,9 @@ public class BizfiFiVoucherServiceImpl extends ServiceImpl<BizfiFiVoucherMapper,
             if (StringUtils.hasText((String) query.get("summary"))) {
                 wrapper.like(BizfiFiVoucher::getFsummary, query.get("summary"));
             }
-            if (StringUtils.hasText((String) query.get("status"))) {
+            if ("UNPOSTED".equalsIgnoreCase((String) query.get("statusGroup"))) {
+                wrapper.in(BizfiFiVoucher::getFstatus, STATUS_DRAFT, STATUS_SUBMITTED, STATUS_AUDITED);
+            } else if (StringUtils.hasText((String) query.get("status"))) {
                 wrapper.eq(BizfiFiVoucher::getFstatus, query.get("status"));
             }
             if (StringUtils.hasText((String) query.get("startDate"))) {

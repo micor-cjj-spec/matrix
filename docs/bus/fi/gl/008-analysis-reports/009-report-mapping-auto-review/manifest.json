@@ -1,0 +1,15 @@
+{
+  "module": "fi.gl.analysis-reports",
+  "feature": "report-mapping-auto-review",
+  "title": "映射保存后自动复核提示",
+  "date": "2026-04-29",
+  "backend": false,
+  "frontend": true,
+  "documents": [
+    "business.md",
+    "flow.md",
+    "rules.md",
+    "page.md",
+    "api.md"
+  ]
+}

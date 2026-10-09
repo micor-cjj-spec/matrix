@@ -6,7 +6,17 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 
   config:
-    import: "nacos:${spring.application.name}"
+    import: "optional:nacos:${spring.application.name}"
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        acknowledge-mode: manual
+        default-requeue-rejected: false
 
   cloud:
     nacos:
@@ -20,3 +30,59 @@ spring:
         group: ${NACOS_GROUP:DEV_GROUP}
         namespace: ${NACOS_NAMESPACE:public}
 
+matrix:
+  openapi:
+    internal-token: ${MATRIX_INTERNAL_OPENAPI_TOKEN:}
+  ai-tool:
+    internal-token: ${FINANCE_AI_TOOL_INTERNAL_TOKEN:}
+    max-check-items: ${FINANCE_AI_TOOL_MAX_CHECK_ITEMS:20}
+    max-warnings: ${FINANCE_AI_TOOL_MAX_WARNINGS:20}
+    audit-internal-token: ${FINANCE_AI_AUDIT_INTERNAL_TOKEN:}
+    audit-reconciliation-enabled: ${FINANCE_AI_AUDIT_RECONCILIATION_ENABLED:true}
+    audit-started-timeout-minutes: ${FINANCE_AI_AUDIT_STARTED_TIMEOUT_MINUTES:15}
+    audit-reconciliation-delay-ms: ${FINANCE_AI_AUDIT_RECONCILIATION_DELAY_MS:300000}
+    audit-reconciliation-batch-size: ${FINANCE_AI_AUDIT_RECONCILIATION_BATCH_SIZE:100}
+  scheduler:
+    client:
+      enabled: true
+      executor-code: fi-service
+      executor-name: 财务服务执行器
+      scheduler-base-url: ${SCHEDULER_BASE_URL:http://127.0.0.1:8080/api}
+      internal-token: ${SCHEDULER_INTERNAL_TOKEN:change-me-before-production}
+      concurrency: ${FI_SCHEDULER_CONCURRENCY:2}
+      max-concurrency: ${FI_SCHEDULER_MAX_CONCURRENCY:8}
+      heartbeat-interval-ms: 30000
+      initialize-schema: true
+
+fi:
+  business-event:
+    publisher:
+      enabled: ${FI_BUSINESS_EVENT_PUBLISHER_ENABLED:true}
+      batch-size: ${FI_BUSINESS_EVENT_PUBLISHER_BATCH_SIZE:100}
+      fixed-delay-ms: ${FI_BUSINESS_EVENT_PUBLISHER_FIXED_DELAY_MS:3000}
+      stale-claim-minutes: ${FI_BUSINESS_EVENT_PUBLISHER_STALE_CLAIM_MINUTES:10}
+      required-routing-keys: ${FI_BUSINESS_EVENT_REQUIRED_ROUTING_KEYS:biz.finance.payment_application.approved,biz.finance.payment.completed}
+  reconciliation:
+    internal-token: ${FI_RECONCILIATION_INTERNAL_TOKEN:change-me-before-production}
+  accounting:
+    default-book-id: ${FI_ACCOUNTING_DEFAULT_BOOK_ID:DEFAULT}
+    purchase-inbound-consumer-code: ${FI_PURCHASE_INBOUND_CONSUMER_CODE:FI_PURCHASE_INBOUND_ACCOUNTING_V1}
+    supplier-invoice-consumer-code: ${FI_SUPPLIER_INVOICE_CONSUMER_CODE:FI_SUPPLIER_INVOICE_ACCOUNTING_V1}
+    payment-completed-consumer-code: ${FI_PAYMENT_COMPLETED_CONSUMER_CODE:FI_PAYMENT_COMPLETED_ACCOUNTING_V1}
+    purchase-deduction-consumer-code: ${FI_PURCHASE_DEDUCTION_CONSUMER_CODE:FI_PURCHASE_DEDUCTION_ACCOUNTING_V1}
+    supplier-invoice:
+      enabled: ${FI_SUPPLIER_INVOICE_ACCOUNTING_ENABLED:false}
+    payment-completed:
+      enabled: ${FI_PAYMENT_COMPLETED_ACCOUNTING_ENABLED:false}
+    purchase-deduction:
+      enabled: ${FI_PURCHASE_DEDUCTION_ACCOUNTING_ENABLED:false}
+  workflow:
+    base-url: ${FI_WORKFLOW_BASE_URL:http://localhost:10006/api}
+    callback-url: ${FI_WORKFLOW_CALLBACK_URL:http://localhost:10003/api/fi/expense/workflow/events}
+    callback-secret: ${WORKFLOW_CALLBACK_SECRET:change-me-in-production}
+    callback-max-skew-seconds: ${WORKFLOW_CALLBACK_MAX_SKEW_SECONDS:300}
+    outbox:
+      batch-size: ${FI_WORKFLOW_OUTBOX_BATCH_SIZE:20}
+      dispatch-delay-ms: ${FI_WORKFLOW_OUTBOX_DISPATCH_DELAY_MS:5000}
+    reconciliation:
+      delay-ms: ${FI_WORKFLOW_RECONCILIATION_DELAY_MS:600000}

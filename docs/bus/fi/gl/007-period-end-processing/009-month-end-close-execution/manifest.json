@@ -1,0 +1,19 @@
+{
+  "code": "009-month-end-close-execution",
+  "name": "关账执行中心 / 期间关闭动作",
+  "module": "fi-gl-period-end-processing",
+  "version": "1.0.0",
+  "status": "drafted",
+  "dependsOn": [
+    "007-month-end-close-workbench",
+    "008-month-end-check-batch"
+  ],
+  "documents": [
+    "business.md",
+    "fields.md",
+    "flow.md",
+    "page.md",
+    "api.md",
+    "rules.md"
+  ]
+}

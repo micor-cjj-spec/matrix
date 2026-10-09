@@ -1,0 +1,11 @@
+{
+  "domain": "fi",
+  "subDomain": "shared",
+  "bizCode": "shared-ops",
+  "bizName": "共享运营",
+  "status": "partial_frontend_integrated",
+  "version": "0.1.0",
+  "busDocs": ["business.md","fields.md","flow.md","rules.md","page.md","api.md"],
+  "owner": "",
+  "updatedAt": "2026-04-04"
+}

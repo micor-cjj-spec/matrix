@@ -1,0 +1,16 @@
+{
+  "code": "platform.scheduler.business-observability",
+  "name": "真实业务接入与运行可观测性",
+  "version": "3.0.0",
+  "status": "implemented_pending_deployment_validation",
+  "backendModules": ["scheduler-client", "scheduler-service", "fi-service", "gateway"],
+  "frontendRoutes": ["/scheduler/jobs", "/scheduler/operations"],
+  "documents": [
+    "business.md",
+    "fields.md",
+    "flow.md",
+    "rules.md",
+    "page.md",
+    "api.md"
+  ]
+}
