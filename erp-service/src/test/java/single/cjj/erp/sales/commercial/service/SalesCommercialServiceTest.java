@@ -137,6 +137,63 @@ class SalesCommercialServiceTest {
     }
 
     @Test
+    void updateDraftQuoteRecalculatesTotalsAndReplacesLinesWithinTenant() {
+        SalesQuoteEntity q = quote("DRAFT");
+        when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(q);
+        when(quotes.updateById(q)).thenReturn(1);
+        when(quoteEntries.insert(any())).thenReturn(1);
+        UpdateQuote request = new UpdateQuote("T1", LocalDate.now().plusDays(14),
+                "EXW", "NET45", List.of(
+                        new QuoteLine("新服务", "SV2", new BigDecimal("3"),
+                                new BigDecimal("60"), new BigDecimal("6"))));
+        QuoteDetail result = service().updateQuote(10L, request, 7L);
+        assertEquals(new BigDecimal("180.00"), result.header().getFnetAmount());
+        assertEquals(new BigDecimal("10.80"), result.header().getFtaxAmount());
+        assertEquals(new BigDecimal("190.80"), result.header().getFgrossAmount());
+        assertEquals("NET45", result.header().getFpaymentTermCode());
+        verify(quoteEntries).deleteDraftEntries(10L, "T1");
+        verify(quoteEntries).insert(any());
+    }
+
+    @Test
+    void approvedQuoteCannotBeEditedOrCancelled() {
+        when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(quote("APPROVED"));
+        UpdateQuote request = new UpdateQuote("T1", LocalDate.now().plusDays(14),
+                null, null, List.of(new QuoteLine("服务", null, BigDecimal.ONE,
+                BigDecimal.TEN, BigDecimal.ZERO)));
+        assertThrows(BizException.class, () -> service().updateQuote(10L, request, 7L));
+        assertThrows(BizException.class, () -> service().transitionQuote(10L, "T1", "cancel", 7L));
+        verify(quotes, never()).updateById(any());
+        verifyNoInteractions(outbox);
+    }
+
+    @Test
+    void submittedQuoteCanBeWithdrawnButNotAccepted() {
+        SalesQuoteEntity q = quote("SUBMITTED");
+        when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(q);
+        when(quotes.updateById(q)).thenReturn(1);
+        assertThrows(BizException.class, () -> service().transitionQuote(10L, "T1", "accept", 7L));
+        assertEquals("DRAFT", service().transitionQuote(10L, "T1", "withdraw", 7L).getFstatus());
+        verifyNoInteractions(outbox);
+    }
+
+    @Test
+    void draftCancellationAndSentExpirationPublishSeparateEvents() {
+        SalesQuoteEntity q = quote("DRAFT");
+        when(quotes.selectByIdForUpdate(10L, "T1")).thenReturn(q);
+        when(quotes.updateById(q)).thenReturn(1);
+        assertEquals("CANCELLED", service().transitionQuote(10L, "T1", "cancel", 7L).getFstatus());
+        verify(outbox).append(eq("T1"), eq(3L), eq("SALES"), eq("SALES_QUOTE_CANCELLED"),
+                eq("SALES_QUOTE"), eq(10L), anyLong(), eq("ERP_SALES_QUOTE"),
+                eq("SQ-10"), any(LocalDate.class), eq(7L), any());
+        q.setFstatus("SENT"); q.setFvalidUntil(LocalDate.now().minusDays(1));
+        assertEquals("EXPIRED", service().transitionQuote(10L, "T1", "expire", 7L).getFstatus());
+        verify(outbox).append(eq("T1"), eq(3L), eq("SALES"), eq("SALES_QUOTE_EXPIRED"),
+                eq("SALES_QUOTE"), eq(10L), anyLong(), eq("ERP_SALES_QUOTE"),
+                eq("SQ-10"), any(LocalDate.class), eq(7L), any());
+    }
+
+    @Test
     void contractApprovalPublishesOnlyBusinessEvent() {
         SalesContractEntity c = new SalesContractEntity();
         c.setFid(100L); c.setFtenantId("T1"); c.setForgId(3L);
