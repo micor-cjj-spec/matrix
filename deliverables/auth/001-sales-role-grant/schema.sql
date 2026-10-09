@@ -19,3 +19,16 @@ CREATE TABLE IF NOT EXISTS matrix_auth_sales_role_grant (
     KEY idx_matrix_auth_sales_grant_org (ftenant_id, forg_id, frole_code)
 ) COMMENT='经授权管理员维护的销售角色授权';
 
+
+CREATE TABLE IF NOT EXISTS matrix_auth_sales_role_grant_audit (
+    fid BIGINT NOT NULL,
+    ftenant_id VARCHAR(64) NOT NULL,
+    forg_id BIGINT NOT NULL,
+    fuser_id BIGINT NOT NULL,
+    frole_code VARCHAR(64) NOT NULL,
+    faction VARCHAR(16) NOT NULL,
+    foperator_id BIGINT NOT NULL,
+    fcreate_time DATETIME NOT NULL,
+    PRIMARY KEY (fid),
+    KEY idx_sales_grant_audit_user (ftenant_id, forg_id, fuser_id, fcreate_time)
+) COMMENT='销售角色授权变更不可变审计';
