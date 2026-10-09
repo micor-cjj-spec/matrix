@@ -4,6 +4,12 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.StringUtils;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import io.jsonwebtoken.Claims;
+import single.cjj.bizfi.security.JwtUtils;
 import org.springframework.web.bind.annotation.*;
 import single.cjj.bizfi.entity.ApiResponse;
 import single.cjj.bizfi.entity.BizfiBaseUser;
@@ -44,10 +50,34 @@ public class BizfiBaseUserController {
 
     @GetMapping("/me")
     public ApiResponse<Map<String, Object>> currentUser(
-            @RequestHeader("X-User-Id") String userId,
-            @RequestHeader(value = "X-Tenant-Id", defaultValue = "default") String tenantId,
-            @RequestHeader(value = "X-User-Roles", required = false) String roles
+            @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "Authorization", required = false) String bearer
     ) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()
+                || auth.getPrincipal() == null
+                || !StringUtils.hasText(bearer) || !bearer.startsWith("Bearer ")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "缺少有效登录身份");
+        }
+        String principal = auth.getName();
+        if (!StringUtils.hasText(principal)
+                || (StringUtils.hasText(userId) && !principal.equals(userId))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "请求身份与已登录账号不一致");
+        }
+        Claims claims;
+        try {
+            claims = JwtUtils.parseToken(bearer.substring(7));
+        } catch (RuntimeException exception) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "登录令牌无效");
+        }
+        if (!principal.equals(String.valueOf(claims.get("id")))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "登录身份与令牌不一致");
+        }
+        userId = principal;
+        String tenantId = String.valueOf(claims.getOrDefault("tenantId", "default"));
+        Object roleClaims = claims.get("roles");
+        List<String> roles = roleClaims instanceof java.util.Collection<?> collection
+                ? collection.stream().map(String::valueOf).toList() : List.of();
         BizfiBaseUser user = null;
         try {
             user = baseUserService.getUserById(Long.parseLong(userId));
@@ -58,7 +88,7 @@ public class BizfiBaseUserController {
         Map<String, Object> profile = new LinkedHashMap<>();
         profile.put("userId", userId);
         profile.put("tenantId", tenantId);
-        profile.put("roles", StringUtils.hasText(roles) ? List.of(roles.split(",")) : List.of());
+        profile.put("roles", roles);
         profile.put("displayName", resolveDisplayName(user, userId));
         profile.put("avatarUrl", user == null ? null : firstText(user.getFavatar(), user.getFheadsculpture()));
         profile.put("employeeNumber", user == null ? null : user.getFnumber());
